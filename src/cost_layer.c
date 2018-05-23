@@ -1,9 +1,10 @@
-#include "cost_layer.h"
-#include "utils.h"
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "cost_layer.h"
+#include "utils.h"
 
 enum COST_TYPE get_cost_type(char *s)
 {
@@ -30,7 +31,7 @@ char *get_cost_string(enum COST_TYPE a)
 
 cost_layer *make_cost_layer(int batch, int inputs, enum COST_TYPE cost_type, float scale)
 {
-    fprintf(stderr, "Cost Layer: %d inputs\n", inputs);
+    fprintf(stderr, "Cost:               %d inputs\n", inputs);
     cost_layer *l = calloc(1, sizeof(cost_layer));;
     l->scale = scale;
     l->batch = batch;
@@ -61,19 +62,19 @@ void resize_cost_layer(cost_layer *l, int inputs)
 #endif
 }
 
-void forward_cost_layer(const cost_layer *l, network_state state)
+void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
 {
-    if (!state.truth) return;
+    if (net->test) return;
     if(l->cost_type == MASKED){
         int i;
         for(i = 0; i < l->batch*l->inputs; ++i){
-            if(state.truth[i] == SECRET_NUM) state.input[i] = SECRET_NUM;
+            if(net.truth[i] == SECRET_NUM) input[i] = SECRET_NUM;
         }
     }
     if(l->cost_type == SMOOTH){
-        smooth_l1_cpu(l->batch*l->inputs, state.input, state.truth, l->delta, l->output);
+        smooth_l1_cpu(l->batch*l->inputs, input, net.truth, l->delta, l->output);
     } else {
-        l2_cpu(l->batch*l->inputs, state.input, state.truth, l->delta, l->output);
+        l2_cpu(l->batch*l->inputs, input, net.truth, l->delta, l->output);
     }
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);
 }

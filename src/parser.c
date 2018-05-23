@@ -1,16 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
 #include "parser.h"
-#include "convolutional_layer.h"
-#include "maxpool_layer.h"
-#include "avgpool_layer.h"
-#include "softmax_layer.h"
-#include "cost_layer.h"
-#include "list.h"
-#include "option_list.h"
-#include "utils.h"
 
 struct section{
     char *type;
@@ -42,9 +30,9 @@ convolutional_layer *parse_convolutional(struct list *options, struct network *n
 	char *activation_s = option_find_str(options, "activation", "sigmoid");
 	ACTIVATION activation = get_activation(activation_s);
 	if (count == 0) {
-		h = option_find_int(options, "height", 1);
-		w = option_find_int(options, "width", 1);
-		c = option_find_int(options, "channels", 1);
+		h = net->h;
+		w = net->w;
+		c = net->c;
 	} else {
 		image m = get_network_image_layer(net, count - 1);
 		h = m.h;
@@ -63,9 +51,9 @@ maxpool_layer *parse_maxpool(struct list *options, struct network *net, int coun
     int h,w,c;
     int stride = option_find_int(options, "stride",1);
     if(count == 0){
-        h = option_find_int(options, "height",1);
-        w = option_find_int(options, "width",1);
-        c = option_find_int(options, "channels",1);
+    	h = net->h;
+    	w = net->w;
+    	c = net->c;
     }else{
     	image m =  get_network_image_layer(net, count-1);
         h = m.h;
@@ -110,7 +98,8 @@ cost_layer *parse_cost(struct list *options, struct network *net, int count)
     char *type_s = option_find_str(options, "type", "sse");
     enum COST_TYPE type = get_cost_type(type_s);
     float scale = option_find_float(options, "scale", 1);
-    cost_layer *layer = make_cost_layer(net->batch, net->inputs, type, scale);
+    int inputs =  get_network_output_size_layer(net, count-1);
+    cost_layer *layer = make_cost_layer(net->batch, inputs, type, scale);
     option_unused(options);
     return layer;
 }
@@ -218,6 +207,14 @@ void parse_net_options(struct list *options, struct network *net)
     net->decay = option_find_float(options, "decay", .0001);
     char *policy_s = option_find_str(options, "policy", "constant");
     net->policy = get_policy(policy_s);
+    net->w = option_find_int(options, "width", 0);
+    net->h = option_find_int(options, "height", 0);
+    net->c = option_find_int(options, "channels", 0);
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        fprintf(stderr, "Input image size error!\n");
+        exit(-1);
+    }
+    net->max_batches = option_find_int(options, "max_batches", 0);
 }
 
 struct network *parse_network_cfg(char *filename)

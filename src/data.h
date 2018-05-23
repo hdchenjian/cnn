@@ -4,9 +4,9 @@
 #include "image.h"
 
 typedef struct{
-    int n;
+    int n;  // number of classes
     image *images;
-    double **truth;
+    float **truth;
 } batch;
 
 batch get_all_data(char *filename, char **labels, int k);

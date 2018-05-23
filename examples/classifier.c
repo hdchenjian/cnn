@@ -9,8 +9,8 @@
 void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear)
 {
     float avg_loss = -1;
-    char *base = basecfg(cfgfile);
-    printf("train data base path: %s\n", base);
+    char *base = basecfg(cfgfile);   // get projetc name by cfgfile, cifar.cfg -> cifar
+    printf("train data base name: %s\n", base);
     printf("the number of GPU: %d\n", ngpus);
     struct network **nets = calloc(ngpus, sizeof(struct network*));  // todo: free
 

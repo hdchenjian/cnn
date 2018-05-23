@@ -5,11 +5,11 @@
 
 softmax_layer *make_softmax_layer(int inputs)
 {
-    fprintf(stderr, "Softmax Layer: %d inputs\n", inputs);
+    fprintf(stderr, "Softmax:            %d inputs\n", inputs);
     softmax_layer *layer = calloc(1, sizeof(softmax_layer));
     layer->inputs = inputs;
-    layer->output = calloc(inputs, sizeof(double));
-    layer->delta = calloc(inputs, sizeof(double));
+    layer->output = calloc(inputs, sizeof(float));
+    layer->delta = calloc(inputs, sizeof(float));
     return layer;
 }
 

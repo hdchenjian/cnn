@@ -9,11 +9,12 @@ ARCH= -gencode arch=compute_30,code=sm_30 \
       -gencode arch=compute_50,code=[sm_50,compute_50] \
       -gencode arch=compute_52,code=[sm_52,compute_52]
 
-VPATH=./src/:./examples
-SLIB=libdarknet.so
-ALIB=libdarknet.a
+VPATH=./src/:./examples:./test
 EXEC=darknet
+EXEC_TEST=darknet_test
 OBJDIR=./obj/
+SLIB = $(addprefix $(OBJDIR), libdarknet.so)
+ALIB = $(addprefix $(OBJDIR), libdarknet.a)
 
 CC=gcc
 NVCC=nvcc 
@@ -61,15 +62,20 @@ OBJ+=convolutional_kernels.o
 endif
 
 EXECOBJA=classifier.o darknet.o
-
 EXECOBJ = $(addprefix $(OBJDIR), $(EXECOBJA))
+EXECOBJA_TEST=test.o
+EXECOBJ_TEST = $(addprefix $(OBJDIR), $(EXECOBJA_TEST))
+
 OBJS = $(addprefix $(OBJDIR), $(OBJ))
 DEPS = $(wildcard src/*.h) Makefile
 
-all: obj $(SLIB) $(ALIB) $(EXEC)
+all: backup obj $(SLIB) $(ALIB) $(EXEC)
 #all: obj $(SLIB) $(ALIB) $(EXEC)
 
 $(EXEC): $(EXECOBJ) $(ALIB)
+	$(CC) $(COMMON) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(ALIB)
+
+$(EXEC_TEST) : $(EXECOBJ_TEST) $(ALIB)
 	$(CC) $(COMMON) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(ALIB)
 
 $(ALIB): $(OBJS)
@@ -87,8 +93,11 @@ $(OBJDIR)%.o: %.cu $(DEPS)
 obj:
 	mkdir -p obj
 
+backup:
+	mkdir -p backup
+
 .PHONY: clean
 
 clean:
-	rm -rf $(OBJS) $(SLIB) $(ALIB) $(EXEC) $(EXECOBJ)
+	rm -rf $(OBJS) $(SLIB) $(ALIB) $(EXEC) $(EXECOBJ) $(EXECOBJ_TEST) $(EXEC_TEST)
 

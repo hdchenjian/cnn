@@ -2,7 +2,7 @@
 
 avgpool_layer *make_avgpool_layer(int batch, int w, int h, int c)
 {
-    fprintf(stderr, "Avgpool Layer: %d x %d x %d image\n", w,h,c);
+    fprintf(stderr, "Avgpool:            %d x %d x %d image -> 1 x 1 x %d image\n", w,h,c, c);
     avgpool_layer *l = calloc(1, sizeof(avgpool_layer));
     l->batch = batch;
     l->type = AVGPOOL;
@@ -31,7 +31,7 @@ void resize_avgpool_layer(avgpool_layer *l, int w, int h)
     l->inputs = h*w*l->c;
 }
 
-void forward_avgpool_layer(const avgpool_layer *l, network_state state)
+void forward_avgpool_layer(const avgpool_layer *l, float *in)
 {
     int b,i,k;
 
@@ -41,7 +41,7 @@ void forward_avgpool_layer(const avgpool_layer *l, network_state state)
             l->output[out_index] = 0;
             for(i = 0; i < l->h*l->w; ++i){
                 int in_index = i + l->h*l->w*(k + b*l->c);
-                l->output[out_index] += state.input[in_index];
+                l->output[out_index] += in[in_index];
             }
             l->output[out_index] /= l->h*l->w;
         }

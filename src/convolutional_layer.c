@@ -63,7 +63,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         out_h = (layer->h - layer->size)/layer->stride+1;
         out_w = (layer->h - layer->size)/layer->stride+1;
     }
-    fprintf(stderr, "Convolutional Layer: %d x %d x %d image, %d filters -> %d x %d x %d image\n", h,w,c,n, out_h, out_w, n);
+    fprintf(stderr, "Convolutional:      %d x %d x %d image, %d filters -> %d x %d x %d image\n", h,w,c,n, out_h, out_w, n);
     layer->output = calloc(out_h * out_w * n, sizeof(float));
     layer->delta  = calloc(out_h * out_w * n, sizeof(float));
     layer->upsampled = make_image(h,w,n);

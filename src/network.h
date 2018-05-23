@@ -1,4 +1,3 @@
-// Oh boy, why am I about to do this....
 #ifndef NETWORK_H
 #define NETWORK_H
 
@@ -43,11 +42,6 @@ extern int gpu_index;
     #endif
 #endif
 
-
-enum BINARY_ACTIVATION {
-    MULT, ADD, SUB, DIV
-};
-
 enum COST_TYPE{
     SSE, MASKED, L1, SEG, SMOOTH
 };
@@ -59,10 +53,33 @@ enum learning_rate_policy{
 enum LAYER_TYPE{
     CONVOLUTIONAL,
     MAXPOOL,
+	AVGPOOL,
     SOFTMAX,
 	COST,
-	AVGPOOL,
 };
+
+typedef struct {
+    int h,w,c;
+    int batch;
+    int inputs;
+    int stride;
+    int out_h, out_w, out_c;
+    int outputs;
+    double *delta;
+    double *output;
+    enum LAYER_TYPE type;
+} avgpool_layer;
+
+typedef struct {
+	float scale;
+    int batch;
+    int inputs;
+    int outputs;
+    float *delta;
+    float *output;
+    enum COST_TYPE cost_type;
+    float *cost;
+} cost_layer;
 
 struct network{
     int n;                  // the size of network
@@ -70,11 +87,14 @@ struct network{
     int seen;    // the number of image processed
     int batch;
     int w, h, c;
+    int test;    // 0: train, 1: test
+    float *truth;  // train data label
 
     enum learning_rate_policy policy;
     float learning_rate;
     float momentum;
     float decay;
+
     float *scales; // for STEP STEPS learning_rate_policy
     int   *steps;
     int num_steps;

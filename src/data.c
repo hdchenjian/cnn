@@ -22,6 +22,7 @@ struct list *get_paths(char *filename)
 {
     char *path;
     FILE *file = fopen(filename, "r");
+    if(file == 0) file_error(filename);
     struct list *lines = make_list();
     while((path=fgetl(file))){
         list_insert(lines, path);

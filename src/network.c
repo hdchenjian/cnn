@@ -19,17 +19,22 @@ void forward_network(struct network *net, float *input)
             convolutional_layer layer = *(convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input);
             input = layer.output;
-        }
-        else if(net->layers_type[i] == SOFTMAX){
-            softmax_layer layer = *(softmax_layer *)net->layers[i];
-            forward_softmax_layer(layer, input);
-            input = layer.output;
-        }
-        else if(net->layers_type[i] == MAXPOOL){
+        } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer layer = *(maxpool_layer *)net->layers[i];
             forward_maxpool_layer(layer, input);
             input = layer.output;
-        }
+        } else if(net->layers_type[i] == AVGPOOL){
+        	avgpool_layer layer = *(avgpool_layer *)net->layers[i];
+            forward_avgpool_layer(layer, input);
+            input = layer.output;
+        } else if(net->layers_type[i] == SOFTMAX){
+            softmax_layer layer = *(softmax_layer *)net->layers[i];
+            forward_softmax_layer(layer, input);
+            input = layer.output;
+        } else if(net->layers_type[i] == COST){
+            cost_layer layer = *(cost_layer *)net->layers[i];
+            forward_cost_layer(layer, input, net);
+            input = layer.output;
     }
 }
 
@@ -124,10 +129,9 @@ void train_network_batch(struct network *net, batch b)
     int k = get_network_output_size(net);
     int correct = 0;
     for(i = 0; i < b.n; ++i){
-        show_image(b.images[i], "Input");
+        //show_image(b.images[i], "Input");
+    	net.truth = b.truth[i];
         forward_network(net, b.images[i].data);
-        image o = get_network_image(net);
-        if(o.h) show_image_collapsed(o, "Output");
         float *output = get_network_output(net);
         float *delta = get_network_delta(net);
         int max_k = 0;
@@ -158,12 +162,19 @@ int get_network_output_size_layer(struct network *net, int i)
         maxpool_layer layer = *(maxpool_layer *)net->layers[i];
         image output = get_maxpool_image(layer);
         return output.h*output.w*output.c;
-    }
-    else if(net->layers_type[i] == SOFTMAX){
+    }else if(net->layers_type[i] == AVGPOOL){
+    	avgpool_layer layer = *(avgpool_layer *)net->layers[i];
+        return layer.outputs;
+    }else if(net->layers_type[i] == SOFTMAX){
         softmax_layer layer = *(softmax_layer *)net->layers[i];
         return layer.inputs;
+    }else if(net->layers_type[i] == COST){
+    	cost_layer layer = *(cost_layer *)net->layers[i];
+        return layer.outputs;
+    } else {
+        printf("get_network_output_size_layer layers_type error, layer: %d\n", i);
+        return 0;
     }
-    return 0;
 }
 
 int get_network_output_size(struct network *net)
@@ -181,8 +192,10 @@ image get_network_image_layer(struct network *net, int i)
     else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer layer = *(maxpool_layer *)net->layers[i];
         return get_maxpool_image(layer);
+    } else {
+        printf("get_network_image_layer layers_type error, layer: %d\n", i);
+        return make_empty_image(0,0,0);
     }
-    return make_empty_image(0,0,0);
 }
 
 image get_network_image(struct network *net)
