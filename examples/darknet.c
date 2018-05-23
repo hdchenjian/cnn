@@ -1,4 +1,9 @@
-#include "darknet.h"
+#include <stdio.h>
+#include <string.h>
+
+#include "utils.h"
+
+int gpu_index = 0;
 
 void run_classifier(int argc, char **argv);
 

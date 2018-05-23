@@ -43,6 +43,12 @@ int *read_intlist(char *gpu_list, int *ngpus, int d)
     return gpus;
 }
 
+void file_error(char *s)
+{
+    fprintf(stderr, "Couldn't open file: %s\n", s);
+    exit(0);
+}
+
 int *read_map(char *filename)
 {
     int n = 0;
@@ -259,18 +265,6 @@ unsigned char *read_file(char *filename)
     return text;
 }
 
-void malloc_error()
-{
-    fprintf(stderr, "Malloc error\n");
-    exit(-1);
-}
-
-void file_error(char *s)
-{
-    fprintf(stderr, "Couldn't open file: %s\n", s);
-    exit(0);
-}
-
 struct list *split_str(char *s, char delim)
 {
     size_t i;
@@ -337,7 +331,8 @@ char *fgetl(FILE *fp)
             line = realloc(line, size*sizeof(char));
             if(!line) {
                 printf("%ld\n", size);
-                malloc_error();
+                fprintf(stderr, "Malloc error\n");
+                exit(-1);
             }
         }
         size_t readsize = size-curr;

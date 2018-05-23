@@ -53,17 +53,18 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -lcudnn
 endif
 
-OBJ=utils.o list.o
-EXECOBJA=classifier.o darknet.o
+OBJ=utils.o image.o box.o blas.o data.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
 OBJ+=convolutional_kernels.o
 endif
 
+EXECOBJA=classifier.o darknet.o
+
 EXECOBJ = $(addprefix $(OBJDIR), $(EXECOBJA))
 OBJS = $(addprefix $(OBJDIR), $(OBJ))
-DEPS = $(wildcard src/*.h) Makefile include/darknet.h
+DEPS = $(wildcard src/*.h) Makefile
 
 all: obj $(SLIB) $(ALIB) $(EXEC)
 #all: obj $(SLIB) $(ALIB) $(EXEC)

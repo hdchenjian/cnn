@@ -2,7 +2,6 @@
 #define UTILS_H
 #include <stdio.h>
 #include <time.h>
-#include "darknet.h"
 #include "list.h"
 
 #define TIME(a) \
@@ -49,5 +48,32 @@ float sec(clock_t clocks);
 void print_statistics(float *a, int n);
 int int_index(int *a, int val, int n);
 
+float rand_normal();
+float rand_uniform(float min, float max);
+
+void top_k(float *a, int n, int k, int *index);
+int find_int_arg(int argc, char **argv, char *arg, int def);
+float find_float_arg(int argc, char **argv, char *arg, float def);
+int find_arg(int argc, char* argv[], char *arg);
+char *find_char_arg(int argc, char **argv, char *arg, char *def);
+char *basecfg(char *cfgfile);
+void find_replace(char *str, char *orig, char *rep, char *output);
+void free_ptrs(void **ptrs, int n);
+char *fgetl(FILE *fp);
+void strip(char *s);
+float sec(clock_t clocks);
+
+void error(const char *s);
+int max_index(float *a, int n);
+int max_int_index(int *a, int n);
+int sample_array(float *a, int n);
+int *random_index_order(int min, int max);
+float mse_array(float *a, int n);
+float variance_array(float *a, int n);
+float mag_array(float *a, int n);
+float mean_array(float *a, int n);
+float sum_array(float *a, int n);
+void normalize_array(float *a, int n);
+int *read_intlist(char *s, int *n, int d);
 #endif
 
