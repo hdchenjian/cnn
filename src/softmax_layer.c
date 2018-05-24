@@ -13,23 +13,23 @@ softmax_layer *make_softmax_layer(int inputs)
     return layer;
 }
 
-void forward_softmax_layer(const softmax_layer layer, float *input)
+void forward_softmax_layer(const softmax_layer *layer, float *input)
 {
     int i;
-    double sum = 0;
-    for(i = 0; i < layer.inputs; ++i){
+    float sum = 0;
+    for(i = 0; i < layer->inputs; ++i){
         sum += exp(input[i]);
     }
-    for(i = 0; i < layer.inputs; ++i){
-        layer.output[i] = exp(input[i])/sum;
+    for(i = 0; i < layer->inputs; ++i){
+        layer->output[i] = exp(input[i])/sum;
     }
 }
 
-void backward_softmax_layer(const softmax_layer layer, float *input, float *delta)
+void backward_softmax_layer(const softmax_layer *layer, float *delta)
 {
     int i;
-    for(i = 0; i < layer.inputs; ++i){
-        delta[i] = layer.delta[i];
+    for(i = 0; i < layer->inputs; ++i){
+        delta[i] = layer->delta[i];
     }
 }
 

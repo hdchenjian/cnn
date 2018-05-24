@@ -548,13 +548,6 @@ image make_random_image(int w, int h, int c)
     return out;
 }
 
-image float_to_image(int w, int h, int c, float *data)
-{
-    image out = make_empty_image(w,h,c);
-    out.data = data;
-    return out;
-}
-
 void place_image(image im, int w, int h, int dx, int dy, image canvas)
 {
     int x, y, c;
@@ -1339,7 +1332,7 @@ void back_convolve(image m, image kernel, int stride, int channel, image out, in
     }
 }
 
-image double_to_image(int h, int w, int c, float *data)
+image float_to_image(int h, int w, int c, float *data)
 {
     image out = make_empty_image(h,w,c);
     out.data = data;

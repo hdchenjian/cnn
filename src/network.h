@@ -65,8 +65,8 @@ typedef struct {
     int stride;
     int out_h, out_w, out_c;
     int outputs;
-    double *delta;
-    double *output;
+    float *delta;
+    float *output;
     enum LAYER_TYPE type;
 } avgpool_layer;
 
@@ -88,6 +88,7 @@ struct network{
     int batch;
     int w, h, c;
     int test;    // 0: train, 1: test
+    int classes;    // train data classes
     float *truth;  // train data label
 
     enum learning_rate_policy policy;
@@ -105,30 +106,21 @@ struct network{
     int outputs;
     float *output;
 };
+void forward_cost_layer(const cost_layer *l, float *input, struct network *net);
+void forward_avgpool_layer(const avgpool_layer *l, float *in);
+void backward_avgpool_layer(const avgpool_layer *l, float *delta);
+void backward_cost_layer(const cost_layer *l, float *delta);
 
-typedef struct network_state {
-    float *truth;
-    float *input;
-    float *delta;
-    int train;
-    int index;
-    struct network net;
-} network_state;
 
 struct network *make_network(int n);
 void forward_network(struct network *net, float *input);
 void learn_network(struct network *net, float *input);
 void update_network(struct network *net, double step);
 void train_network_batch(struct network *net, batch b);
-float *get_network_output(struct network *net);
-float *get_network_output_layer(struct network *net, int i);
-float *get_network_delta_layer(struct network *net, int i);
-float *get_network_delta(struct network *net);
 int get_network_output_size_layer(struct network *net, int i);
 int get_network_output_size(struct network *net);
-image get_network_image(struct network *net);
 image get_network_image_layer(struct network *net, int i);
-
+float *get_network_output(struct network *net);
 
 #endif
 

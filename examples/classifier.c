@@ -32,6 +32,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     char *label_list = option_find_str(options, "labels", "data/labels.list");
     char *train_list = option_find_str(options, "train", "data/train.list");
     int classes = option_find_int(options, "classes", 2);
+    net->classes = classes;
 
     char **labels = get_labels(label_list);
     struct list *plist = get_paths(train_list);
@@ -39,10 +40,11 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     printf("train data size: %d\n", plist->size);
     int train_set_size = plist->size;
     double time;
-    printf("the number of image net has seen: %d, max_batches of net: %d\n", net->seen, net->max_batches);
+    printf("the number of image net has seen: %d, train_set_size: %d, max_batches of net: %d, net->classes: %d\n",
+    		net->seen, train_set_size, net->max_batches, net->classes);
 
     while(net->seen < net->max_batches || net->max_batches == 0){
-    	batch train = random_batch(train_list, train_set_size, labels, classes);
+    	batch train = random_batch(paths, 1, labels, classes, train_set_size);
     	train_network_batch(net, train);
     	free_batch(train);
     	printf("Round %d\n", net->seen);
@@ -61,6 +63,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     //free_network(net);
     free_ptrs((void**)labels, classes);
     free_ptrs((void**)paths, plist->size);
+    free_list_contents(plist);
     free_list(plist);
     free(base);
 }

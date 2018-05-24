@@ -38,8 +38,7 @@ convolutional_layer *parse_convolutional(struct list *options, struct network *n
 		h = m.h;
 		w = m.w;
 		c = m.c;
-		if (h == 0)
-			error("Layer before convolutional layer must output image.");
+		if (h == 0) error("Layer before convolutional layer must output image.");
 	}
 	convolutional_layer *layer = make_convolutional_layer(h, w, c, n, size, stride, activation);
     option_unused(options);

@@ -6,15 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-batch make_batch(int n, int k)
+batch make_batch(int batch_size, int classes)
 {
     batch b;
-    b.n = n;
-    if(k < 3) k = 1;
-    b.images = calloc(n, sizeof(image));
-    b.truth = calloc(n, sizeof(double *));
-    int i;
-    for(i =0 ; i < n; ++i) b.truth[i] = calloc(k, sizeof(double));
+    b.n = batch_size;
+    b.images = calloc(batch_size, sizeof(image));
+    b.truth = calloc(batch_size, sizeof(float *));
+    if(classes < 3) classes = 1;
+    for(int i =0 ; i < batch_size; ++i) b.truth[i] = calloc(classes, sizeof(float));
     return b;
 }
 
@@ -31,41 +30,6 @@ struct list *get_paths(char *filename)
     return lines;
 }
 
-void fill_truth(char *path, char **labels, int k, double *truth)
-{
-    int i;
-    memset(truth, 0, k*sizeof(double));
-    for(i = 0; i < k; ++i){
-        if(strstr(path, labels[i])){
-            truth[i] = 1;
-        }
-    }
-}
-
-batch load_list(struct list *paths, char **labels, int k)
-{
-    char *path;
-    batch data = make_batch(paths->size, 2);
-    struct node *n = paths->front;
-    int i;
-    for(i = 0; i < data.n; ++i){
-        path = (char *)n->val;
-        data.images[i] = load_image_me(path);
-        fill_truth(path, labels, k, data.truth[i]);
-        n = n->next;
-    }
-    return data;
-}
-
-batch get_all_data(char *filename, char **labels, int k)
-{
-    struct list *paths = get_paths(filename);
-    batch b = load_list(paths, labels, k);
-    free_list_contents(paths);
-    free_list(paths);
-    return b;
-}
-
 void free_batch(batch b)
 {
     int i;
@@ -77,41 +41,26 @@ void free_batch(batch b)
     free(b.truth);
 }
 
-batch get_batch(char *filename, int curr, int total, char **labels, int k)
+
+void fill_truth(char *path, char **labels, int classes, float *truth)
 {
-    struct list *plist = get_paths(filename);
-    char **paths = (char **)list_to_array(plist);
-    int i;
-    int start = curr*plist->size/total;
-    int end = (curr+1)*plist->size/total;
-    batch b = make_batch(end-start, 2);
-    for(i = start; i < end; ++i){
-        b.images[i-start] = load_image_me(paths[i]);
-        fill_truth(paths[i], labels, k, b.truth[i-start]);
+    for(int i = 0; i < classes; ++i){
+        if(strstr(path, labels[i])){
+            truth[i] = 1;
+        }
     }
-    free_list_contents(plist);
-    free_list(plist);
-    free(paths);
-    return b;
 }
 
-batch random_batch(char *filename, int n, char **labels, int k)
+batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size)
 {
-    struct list *plist = get_paths(filename);
-    char **paths = (char **)list_to_array(plist);
-    int i;
-    batch b = make_batch(n, 2);
-    for(i = 0; i < n; ++i){
-        int index = rand()%plist->size;
+    batch b = make_batch(batch_size, 1);
+    for(int i = 0; i < batch_size; ++i){
+        int index = rand() % train_set_size;
         b.images[i] = load_image_me(paths[index]);
         //scale_image(b.images[i], 1./255.);
         z_normalize_image(b.images[i]);
-        fill_truth(paths[index], labels, k, b.truth[i]);
-        //print_image(b.images[i]);
+        fill_truth(paths[index], labels, classes, b.truth[i]);
     }
-    free_list_contents(plist);
-    free_list(plist);
-    free(paths);
     return b;
 }
 

@@ -58,7 +58,7 @@ image resize_image(image im, int w, int h);
 image load_image(char *filename, int w, int h, int c);
 
 image load_image_me(char *filename);
-image double_to_image(int h, int w, int c, float *data);
+image float_to_image(int h, int w, int c, float *data);
 image make_random_kernel(int size, int c, double scale);
 void z_normalize_image(image p);
 void show_image(image p, const char *name);

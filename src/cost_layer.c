@@ -33,7 +33,7 @@ cost_layer *make_cost_layer(int batch, int inputs, enum COST_TYPE cost_type, flo
 {
     fprintf(stderr, "Cost:               %d inputs\n", inputs);
     cost_layer *l = calloc(1, sizeof(cost_layer));;
-    l->scale = scale;
+    l->scale = scale;   // scale error to previous layer: backward_cost_layer
     l->batch = batch;
     l->inputs = inputs;
     l->outputs = inputs;
@@ -68,20 +68,20 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
     if(l->cost_type == MASKED){
         int i;
         for(i = 0; i < l->batch*l->inputs; ++i){
-            if(net.truth[i] == SECRET_NUM) input[i] = SECRET_NUM;
+            if(net->truth[i] == SECRET_NUM) input[i] = SECRET_NUM;
         }
     }
     if(l->cost_type == SMOOTH){
-        smooth_l1_cpu(l->batch*l->inputs, input, net.truth, l->delta, l->output);
+        smooth_l1_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
     } else {
-        l2_cpu(l->batch*l->inputs, input, net.truth, l->delta, l->output);
+        l2_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
     }
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);
 }
 
-void backward_cost_layer(const cost_layer *l, network_state state)
+void backward_cost_layer(const cost_layer *l, float *delta)
 {
-    axpy_cpu(l->batch*l->inputs, l->scale, l->delta, 1, state.delta, 1);
+    axpy_cpu(l->batch*l->inputs, l->scale, l->delta, 1, delta, 1);
 }
 
 #ifdef GPU
