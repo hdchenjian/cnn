@@ -25,7 +25,6 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     }
     srand(time(0));
     struct network *net = nets[0];
-    printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
     struct list *options = read_data_cfg(datacfg);
 
     char *backup_directory = option_find_str(options, "backup", "/backup/");
@@ -40,7 +39,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     printf("train data size: %d\n", plist->size);
     int train_set_size = plist->size;
     double time;
-    printf("the number of image net has seen: %d, train_set_size: %d, max_batches of net: %d, net->classes: %d\n",
+    printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
+    printf("image net has seen: %d, train_set_size: %d, max_batches of net: %d, net->classes: %d\n",
     		net->seen, train_set_size, net->max_batches, net->classes);
 
     while(net->seen < net->max_batches || net->max_batches == 0){
@@ -51,11 +51,13 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         time = what_time_is_it_now();
         float loss = 0;
         if(avg_loss == -1) avg_loss = loss;
+    	cost_layer *layer = (cost_layer *)net->layers[net->n - 1];
+        loss = layer->cost[0];
         avg_loss = avg_loss*.9 + loss*.1;
+        net->learning_rate = get_current_learning_rate(net);
         printf("batch: %d, epoch: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, seen %d images\n",
         		net->seen, (float)(net->seen) / train_set_size, loss, avg_loss,
 				net->learning_rate, what_time_is_it_now()-time, net->seen);
-        net->seen += 1;
     }
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);

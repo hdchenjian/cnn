@@ -204,8 +204,6 @@ void parse_net_options(struct list *options, struct network *net)
     net->learning_rate = option_find_float(options, "learning_rate", .001);
     net->momentum = option_find_float(options, "momentum", .9);
     net->decay = option_find_float(options, "decay", .0001);
-    char *policy_s = option_find_str(options, "policy", "constant");
-    net->policy = get_policy(policy_s);
     net->w = option_find_int(options, "width", 0);
     net->h = option_find_int(options, "height", 0);
     net->c = option_find_int(options, "channels", 0);
@@ -214,6 +212,33 @@ void parse_net_options(struct list *options, struct network *net)
         exit(-1);
     }
     net->max_batches = option_find_int(options, "max_batches", 0);
+    char *policy_s = option_find_str(options, "policy", "constant");
+    net->policy = get_policy(policy_s);
+    if (net->policy == STEPS){
+		char *steps_str = option_find(options, "steps");
+		char *scales_str = option_find(options, "scales");
+		if(!steps_str || !scales_str) error("STEPS policy must have steps and scales in cfg file");
+
+		int len = strlen(steps_str);
+		int n = 1;
+		int i;
+		for(i = 0; i < len; ++i){
+			if (steps_str[i] == ',') ++n;
+		}
+		int *steps = calloc(n, sizeof(int));
+		float *scales = calloc(n, sizeof(float));
+		for(i = 0; i < n; ++i){
+			int step    = atoi(steps_str);
+			float scale = atof(scales_str);
+			steps_str = strchr(steps_str, ',')+1;
+			scales_str = strchr(scales_str, ',')+1;
+			steps[i] = step;
+			scales[i] = scale;
+		}
+		net->scales = scales;
+		net->steps = steps;
+		net->num_steps = n;
+	}
 }
 
 struct network *parse_network_cfg(char *filename)

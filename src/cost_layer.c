@@ -1,10 +1,6 @@
-#include <math.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 #include "cost_layer.h"
-#include "utils.h"
+
+#include <unistd.h>
 
 enum COST_TYPE get_cost_type(char *s)
 {
@@ -64,6 +60,8 @@ void resize_cost_layer(cost_layer *l, int inputs)
 
 void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
 {
+    printf("%f\n", *input);
+
     if (net->test) return;
     if(l->cost_type == MASKED){
         int i;
@@ -77,6 +75,8 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
         l2_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
     }
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);
+    printf("forward_cost_layer %f %f   %f %f %f\n", net->truth[0], net->truth[1], *l->delta, l->cost[0], *l->output);
+    //sleep(1);
 }
 
 void backward_cost_layer(const cost_layer *l, float *delta)

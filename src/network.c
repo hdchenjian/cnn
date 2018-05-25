@@ -8,7 +8,24 @@ struct network *make_network(int n)
     net->layers_type = calloc(net->n, sizeof(enum LAYER_TYPE));
     net->batch = 1;
     net->seen = 0;
+    net->batch_train = 0;
     return net;
+}
+
+float get_current_learning_rate(struct network * net)
+{
+    float rate = net->learning_rate;
+    switch (net->policy) {
+        case STEPS:
+            for(int i = 0; i < net->num_steps; ++i){
+                if(net->steps[i] > net->batch_train) return rate;
+                else rate *= net->scales[i];
+            }
+            return rate;
+        default:
+            fprintf(stderr, "Policy is weird!\n");
+            return net->learning_rate;
+    }
 }
 
 void forward_network(struct network *net, float *input)
@@ -23,6 +40,7 @@ void forward_network(struct network *net, float *input)
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             forward_maxpool_layer(layer, input);
             input = layer->output;
+
         } else if(net->layers_type[i] == AVGPOOL){
         	avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             forward_avgpool_layer(layer, input);
@@ -42,13 +60,13 @@ void forward_network(struct network *net, float *input)
     }
 }
 
-void update_network(struct network *net, double step)
+void update_network(struct network *net, float step)
 {
     int i;
     for(i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            update_convolutional_layer(layer, step, 0.9, .01);
+            update_convolutional_layer(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == MAXPOOL){
         } else if(net->layers_type[i] == AVGPOOL){
         } else if(net->layers_type[i] == SOFTMAX){
@@ -104,7 +122,7 @@ void backward_network(struct network *net, float *input)
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             learn_convolutional_layer(layer, prev_input);
-            if(i != 0) backward_convolutional_layer(layer, prev_input, prev_delta);
+            if(i != 0) backward_convolutional_layer(layer, prev_delta);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(i != 0) backward_maxpool_layer(layer, prev_input, prev_delta);
@@ -133,6 +151,8 @@ void train_network_batch(struct network *net, batch b)
         backward_network(net, b.images[i].data);
         update_network(net, .001);
     }
+    net->seen += net->batch;
+    net->batch_train += 1;
 }
 
 int get_network_output_size_layer(struct network *net, int i)

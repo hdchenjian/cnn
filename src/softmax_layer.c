@@ -1,7 +1,4 @@
 #include "softmax_layer.h"
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 softmax_layer *make_softmax_layer(int inputs)
 {
@@ -17,11 +14,17 @@ void forward_softmax_layer(const softmax_layer *layer, float *input)
 {
     int i;
     float sum = 0;
+    float largest = -FLT_MAX;
     for(i = 0; i < layer->inputs; ++i){
-        sum += exp(input[i]);
+        if(input[i] > largest) largest = input[i];
     }
     for(i = 0; i < layer->inputs; ++i){
-        layer->output[i] = exp(input[i])/sum;
+        sum += exp(input[i]-largest);
+    }
+
+    for(i = 0; i < layer->inputs; ++i){
+        layer->output[i] = exp(input[i]-largest) / sum;
+        printf("forward_softmax_layer %f\n", layer->output[i]);
     }
 }
 

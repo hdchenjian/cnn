@@ -59,19 +59,17 @@ image load_image(char *filename, int w, int h, int c);
 
 image load_image_me(char *filename);
 image float_to_image(int h, int w, int c, float *data);
-image make_random_kernel(int size, int c, double scale);
+image make_random_kernel(int size, int c, float scale);
 void z_normalize_image(image p);
 void show_image(image p, const char *name);
-void back_convolve(image m, image kernel, int stride, int channel, image out, int edge);
-void kernel_update(image m, image update, int stride, int channel, image out, int edge);
-void convolve(image m, image kernel, int stride, int channel, image out, int edge);
+void back_convolve(image in_delta, image kernel, int stride, int channel, image out_delta);
+void kernel_update(image m, image update, int stride, int channel, image out_delta);
+void convolve(image m, image kernel, int stride, int channel, image out);
 void zero_image(image m);
-void two_d_convolve(image m, int mc, image kernel, int kc, int stride, image out, int oc, int edge);
-void rotate_image_me(image m);
+void two_d_convolve(image m, int mc, image kernel, int kc, int stride, image out, int oc);
 float get_pixel(image m, int x, int y, int c);
 void set_pixel(image m, int x, int y, int c, float val);
-void upsample_image(image m, int stride, image out);
-double avg_image_layer(image m, int l);
+float avg_image_layer(image m, int l);
 void normalize_image(image p);
 
 

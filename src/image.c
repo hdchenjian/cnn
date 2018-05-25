@@ -469,7 +469,7 @@ void save_image_png(image im, const char *name)
     int i,k;
     for(k = 0; k < im.c; ++k){
         for(i = 0; i < im.w*im.h; ++i){
-            data[i*im.c+k] = (unsigned char) (255*im.data[i + k*im.w*im.h]);
+            data[i*im.c+k] = (unsigned char) (255.0F*im.data[i + k*im.w*im.h]);
         }
     }
     int success = stbi_write_png(buff, im.w, im.h, im.c, data, im.w*im.c);
@@ -543,7 +543,7 @@ image make_random_image(int w, int h, int c)
     out.data = calloc(h*w*c, sizeof(float));
     int i;
     for(i = 0; i < w*h*c; ++i){
-        out.data[i] = (rand_normal() * .25) + .5;
+        out.data[i] = rand_uniform(0, 1);
     }
     return out;
 }
@@ -1160,67 +1160,37 @@ image load_image_me(char *filename)
 
 void zero_image(image m)
 {
-    memset(m.data, 0, m.h*m.w*m.c*sizeof(double));
+    memset(m.data, 0, m.h*m.w*m.c*sizeof(float));
 }
 
 void zero_channel(image m, int c)
 {
-    memset(&(m.data[c*m.h*m.w]), 0, m.h*m.w*sizeof(double));
+    memset(&(m.data[c*m.h*m.w]), 0, m.h*m.w*sizeof(float));
 }
 
-void rotate_image_me(image m)
-{
-    int i,j;
-    for(j = 0; j < m.c; ++j){
-        for(i = 0; i < m.h*m.w/2; ++i){
-            double swap = m.data[j*m.h*m.w + i];
-            m.data[j*m.h*m.w + i] = m.data[j*m.h*m.w + (m.h*m.w-1 - i)];
-            m.data[j*m.h*m.w + (m.h*m.w-1 - i)] = swap;
-        }
-    }
-}
-
-double avg_image_layer(image m, int l)
+float avg_image_layer(image m, int l)
 {
     int i;
-    double sum = 0;
+    float sum = 0;
     for(i = 0; i < m.h*m.w; ++i){
         sum += m.data[l*m.h*m.w + i];
     }
     return sum/(m.h*m.w);
 }
 
-void upsample_image(image m, int stride, image out)
-{
-    int i,j,k;
-    zero_image(out);
-    for(k = 0; k < m.c; ++k){
-        for(i = 0; i < m.h; ++i){
-            for(j = 0; j< m.w; ++j){
-                double val = get_pixel(m, i, j, k);
-                set_pixel(out, i*stride, j*stride, k, val);
-            }
-        }
-    }
-}
-
-void two_d_convolve(image m, int mc, image kernel, int kc, int stride, image out, int oc, int edge)
+void two_d_convolve(image m, int mc, image kernel, int kc, int stride, image out, int oc)
 {
     int x,y,i,j;
     int xstart, xend, ystart, yend;
-    if(edge){
-        xstart = ystart = 0;
-        xend = m.h;
-        yend = m.w;
-    }else{
-        xstart = kernel.h/2;
-        ystart = kernel.w/2;
-        xend = m.h-kernel.h/2;
-        yend = m.w - kernel.w/2;
-    }
+
+    xstart = kernel.h/2;
+    ystart = kernel.w/2;
+    xend = m.h-kernel.h/2;
+    yend = m.w - kernel.w/2;
+
     for(x = xstart; x < xend; x += stride){
         for(y = ystart; y < yend; y += stride){
-            double sum = 0;
+        	float sum = 0;
             for(i = 0; i < kernel.h; ++i){
                 for(j = 0; j < kernel.w; ++j){
                     sum += get_pixel(kernel, i, j, kc)*get_pixel_extend(m, x+i-kernel.h/2, y+j-kernel.w/2, mc);
@@ -1231,103 +1201,76 @@ void two_d_convolve(image m, int mc, image kernel, int kc, int stride, image out
     }
 }
 
-void convolve(image m, image kernel, int stride, int channel, image out, int edge)
+void convolve(image m, image kernel, int stride, int channel, image out)
 {
     assert(m.c == kernel.c);
     int i;
     zero_channel(out, channel);
     for(i = 0; i < m.c; ++i){
-        two_d_convolve(m, i, kernel, i, stride, out, channel, edge);
+        two_d_convolve(m, i, kernel, i, stride, out, channel);
     }
-    /*
-    int j;
-    for(i = 0; i < m.h; i += stride){
-        for(j = 0; j < m.w; j += stride){
-            double val = single_convolve(m, kernel, i, j);
-            set_pixel(out, i/stride, j/stride, channel, val);
-        }
-    }
-    */
 }
 
-void single_update(image m, image update, int x, int y, double error)
+void single_update(image m, image update, int x, int y, float error)
 {
     int i, j, k;
     for(i = 0; i < update.h; ++i){
         for(j = 0; j < update.w; ++j){
             for(k = 0; k < update.c; ++k){
-                double val = get_pixel_extend(m, x+i-update.h/2, y+j-update.w/2, k);
+            	float val = get_pixel_extend(m, x+i-update.h/2, y+j-update.w/2, k);
                 add_pixel(update, i, j, k, val*error);
             }
         }
     }
 }
 
-void kernel_update(image m, image update, int stride, int channel, image out, int edge)
+void kernel_update(image in, image update, int stride, int channel, image out_delta)
 {
-    assert(m.c == update.c);
+    assert(in.c == update.c);
     zero_image(update);
     int i, j, istart, jstart, iend, jend;
-    if(edge){
-        istart = jstart = 0;
-        iend = m.h;
-        jend = m.w;
-    }else{
-        istart = update.h/2;
-        jstart = update.w/2;
-        iend = m.h-update.h/2;
-        jend = m.w - update.w/2;
-    }
+    istart = jstart = 0;
+    iend = in.h;
+    jend = in.w;
+
     for(i = istart; i < iend; i += stride){
         for(j = jstart; j < jend; j += stride){
-            double error = get_pixel(out, (i-istart)/stride, (j-jstart)/stride, channel);
-            single_update(m, update, i, j, error);
+        	float error = get_pixel(out_delta, (i-istart)/stride, (j-jstart)/stride, channel);
+            single_update(in, update, i, j, error);
         }
     }
-    /*
-    for(i = 0; i < update.h*update.w*update.c; ++i){
-        update.data[i] /= (m.h/stride)*(m.w/stride);
-    }
-    */
 }
 
-void add_pixel_extend(image m, int x, int y, int c, double val)
+void add_pixel_extend(image m, int x, int y, int c, float val)
 {
     if(x < 0 || x >= m.h || y < 0 || y >= m.w || c < 0 || c >= m.c) return;
     add_pixel(m, x, y, c, val);
 }
 
-void single_back_convolve(image m, image kernel, int x, int y, double val)
+void single_back_convolve(image in_delta, image kernel, int x, int y, float val)
 {
     int i, j, k;
     for(i = 0; i < kernel.h; ++i){
         for(j = 0; j < kernel.w; ++j){
             for(k = 0; k < kernel.c; ++k){
-                double pval = get_pixel(kernel, i, j, k) * val;
-                add_pixel_extend(m, x+i-kernel.h/2, y+j-kernel.w/2, k, pval);
+            	float pval = get_pixel(kernel, i, j, k) * val;
+                add_pixel_extend(in_delta, x+i-kernel.h/2, y+j-kernel.w/2, k, pval);
             }
         }
     }
 }
 
-void back_convolve(image m, image kernel, int stride, int channel, image out, int edge)
+void back_convolve(image in_delta, image kernel, int stride, int channel, image out_delta)
 {
-    assert(m.c == kernel.c);
-    int i, j, istart, jstart, iend, jend;
-    if(edge){
-        istart = jstart = 0;
-        iend = m.h;
-        jend = m.w;
-    }else{
-        istart = kernel.h/2;
-        jstart = kernel.w/2;
-        iend = m.h-kernel.h/2;
-        jend = m.w - kernel.w/2;
-    }
-    for(i = istart; i < iend; i += stride){
-        for(j = jstart; j < jend; j += stride){
-            double val = get_pixel(out, (i-istart)/stride, (j-jstart)/stride, channel);
-            single_back_convolve(m, kernel, i, j, val);
+    assert(in_delta.c == kernel.c);
+    int i, j, iend, jend;
+	iend = in_delta.h;
+	jend = in_delta.w;
+
+    for(i = 0; i < iend; i += stride){
+        for(j = 0; j < jend; j += stride){
+        	float val = get_pixel(out_delta, i/stride, j/stride, channel);
+            single_back_convolve(in_delta, kernel, i, j, val);
         }
     }
 }
@@ -1344,7 +1287,7 @@ void z_normalize_image(image p)
     normalize_array(p.data, p.h*p.w*p.c);
 }
 
-image make_random_kernel(int size, int c, double scale)
+image make_random_kernel(int size, int c, float scale)
 {
     int pad;
     if((pad=(size%2==0))) ++size;

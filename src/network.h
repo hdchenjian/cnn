@@ -6,6 +6,7 @@
 #include "utils.h"
 
 #include "convolutional_layer.h"
+#include "connected_layer.h"
 #include "maxpool_layer.h"
 #include "softmax_layer.h"
 
@@ -85,7 +86,8 @@ struct network{
     int n;                  // the size of network
     int max_batches; // max iteration times of batch
     int seen;    // the number of image processed
-    int batch;
+    int batch;   // the number of batch processed
+    int batch_train;   // the number of batch trained
     int w, h, c;
     int test;    // 0: train, 1: test
     int classes;    // train data classes
@@ -115,12 +117,13 @@ void backward_cost_layer(const cost_layer *l, float *delta);
 struct network *make_network(int n);
 void forward_network(struct network *net, float *input);
 void learn_network(struct network *net, float *input);
-void update_network(struct network *net, double step);
+void update_network(struct network *net, float step);
 void train_network_batch(struct network *net, batch b);
 int get_network_output_size_layer(struct network *net, int i);
 int get_network_output_size(struct network *net);
 image get_network_image_layer(struct network *net, int i);
 float *get_network_output(struct network *net);
+float get_current_learning_rate(struct network * net);
 
 #endif
 

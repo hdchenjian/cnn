@@ -12,7 +12,6 @@ batch make_batch(int batch_size, int classes)
     b.n = batch_size;
     b.images = calloc(batch_size, sizeof(image));
     b.truth = calloc(batch_size, sizeof(float *));
-    if(classes < 3) classes = 1;
     for(int i =0 ; i < batch_size; ++i) b.truth[i] = calloc(classes, sizeof(float));
     return b;
 }
@@ -53,13 +52,13 @@ void fill_truth(char *path, char **labels, int classes, float *truth)
 
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size)
 {
-    batch b = make_batch(batch_size, 1);
+    batch b = make_batch(batch_size, classes);
     for(int i = 0; i < batch_size; ++i){
         int index = rand() % train_set_size;
         b.images[i] = load_image_me(paths[index]);
-        //scale_image(b.images[i], 1./255.);
         z_normalize_image(b.images[i]);
         fill_truth(paths[index], labels, classes, b.truth[i]);
+        //printf("%s %f\n", paths[index], *b.truth[i]);
     }
     return b;
 }
