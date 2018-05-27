@@ -29,24 +29,39 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 
     char *backup_directory = option_find_str(options, "backup", "/backup/");
     char *label_list = option_find_str(options, "labels", "data/labels.list");
-    char *train_list = option_find_str(options, "train", "data/train.list");
-    int classes = option_find_int(options, "classes", 2);
-    net->classes = classes;
-
     char **labels = get_labels(label_list);
-    struct list *plist = get_paths(train_list);
-    char **paths = (char **)list_to_array(plist);
-    printf("train data size: %d\n", plist->size);
-    int train_set_size = plist->size;
+    char *train_list = option_find_str(options, "train", "data/train.list");
+    net->classes = option_find_int(options, "classes", 2);
+
+    int train_set_size = 0;
+	int train_data_type = 0;	//  0: csv, load to memory
+	char **paths = 0;
+	struct list *plist;
+	batch *all_train_data;
+	if(0 == train_data_type) {
+		train_set_size = option_find_int(options, "train_num", 0);
+		all_train_data = load_csv_image_to_memory(train_list, 1, labels, net->classes, train_set_size);
+	} else {
+		plist = get_paths(train_list);
+		paths = (char **)list_to_array(plist);
+		train_set_size = plist->size;
+	}
     double time;
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
     printf("image net has seen: %d, train_set_size: %d, max_batches of net: %d, net->classes: %d\n",
     		net->seen, train_set_size, net->max_batches, net->classes);
 
     while(net->seen < net->max_batches || net->max_batches == 0){
-    	batch train = random_batch(paths, 1, labels, classes, train_set_size);
-    	train_network_batch(net, train);
-    	free_batch(train);
+    	batch train;
+    	if(0 == train_data_type) {
+            int index = rand() % train_set_size;
+    		train = all_train_data[index];
+        	train_network_batch(net, train);
+    	} else {
+        	train = random_batch(paths, 1, labels, net->classes, train_set_size);
+        	train_network_batch(net, train);
+        	free_batch(train);
+    	}
     	printf("Round %d\n", net->seen);
         time = what_time_is_it_now();
         float loss = 0;
@@ -63,7 +78,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
     //save_weights(net, buff);
     //free_network(net);
-    free_ptrs((void**)labels, classes);
+    free_ptrs((void**)labels, net->classes);
     free_ptrs((void**)paths, plist->size);
     free_list_contents(plist);
     free_list(plist);

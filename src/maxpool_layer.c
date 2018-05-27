@@ -41,8 +41,8 @@ void forward_maxpool_layer(const maxpool_layer *layer, float *in)
     for(k = 0; k < input.c; ++k){
         for(i = 0; i < input.h; ++i){
             for(j = 0; j < input.w; ++j){
-            	float val = get_pixel(input, i, j, k);
-            	float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
+                float val = get_pixel(input, i, j, k);
+                float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
                 if(val > cur) set_pixel(output, i/layer->stride, j/layer->stride, k, val);
                 if(val > max) max = val;
                             if(val < min) min = val;
@@ -63,13 +63,13 @@ void backward_maxpool_layer(const maxpool_layer *layer, float *in, float *delta)
     for(k = 0; k < input.c; ++k){
         for(i = 0; i < input.h; ++i){
             for(j = 0; j < input.w; ++j){
-            	float val = get_pixel(input, i, j, k);
-            	float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
-            	float d = get_pixel(output_delta, i/layer->stride, j/layer->stride, k);
+                float val = get_pixel(input, i, j, k);
+                float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
+                float d = get_pixel(output_delta, i/layer->stride, j/layer->stride, k);
                 if(val == cur) {
                     set_pixel(input_delta, i, j, k, d);
                 } else {
-                	set_pixel(input_delta, i, j, k, 0);
+                    set_pixel(input_delta, i, j, k, 0);
                 }
             }
         }

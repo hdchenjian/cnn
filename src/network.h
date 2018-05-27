@@ -53,10 +53,11 @@ enum learning_rate_policy{
 
 enum LAYER_TYPE{
     CONVOLUTIONAL,
+    CONNECTED,
     MAXPOOL,
-	AVGPOOL,
+    AVGPOOL,
     SOFTMAX,
-	COST,
+    COST,
 };
 
 typedef struct {
@@ -72,7 +73,7 @@ typedef struct {
 } avgpool_layer;
 
 typedef struct {
-	float scale;
+    float scale;
     int batch;
     int inputs;
     int outputs;

@@ -50,6 +50,44 @@ void fill_truth(char *path, char **labels, int classes, float *truth)
     }
 }
 
+batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size)
+{
+    FILE *fp = fopen(filename, "r");
+    if(!fp) file_error(filename);
+    batch *train_data = calloc(train_set_size, sizeof(batch));
+    int fields = 0;  // the number of pixel per image
+    int w, h;
+    int n = 0;
+    char *line;
+    while((line = fgetl(fp))){
+        train_data[n].n = batch_size;
+        char class = line[0];
+        if(0 == fields){
+            fields = count_fields(line);
+            w = sqrt(fields);
+            h = sqrt(fields);
+        }
+        float *value = parse_fields(line, fields);
+        image *im = calloc(1, sizeof(image));
+        im->h = h;
+        im->w = w;
+        im->c = 1;
+        im->data = value + 1;
+        train_data[n].images = im;
+        train_data[n].truth = calloc(batch_size, sizeof(float *));
+        for(int i =0 ; i < batch_size; ++i){
+            train_data[n].truth[i] = calloc(classes, sizeof(float));
+            char name[16] = {0};
+            sprintf(name, "%c.png", class);
+            fill_truth(name, labels, classes, train_data[n].truth[i]);
+        }
+        free(line);
+        n += 1;
+    }
+    fclose(fp);
+    return train_data;
+}
+
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size)
 {
     batch b = make_batch(batch_size, classes);
@@ -65,7 +103,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
 
 char **get_labels(char *filename)
 {
-	struct list *plist = get_paths(filename);
+    struct list *plist = get_paths(filename);
     char **labels = (char **)list_to_array(plist);
     free_list(plist);
     return labels;

@@ -57,6 +57,7 @@ image crop_image(image im, int dx, int dy, int w, int h);
 image resize_image(image im, int w, int h);
 image load_image(char *filename, int w, int h, int c);
 
+void save_image_png(image im, const char *name);
 image load_image_me(char *filename);
 image float_to_image(int h, int w, int c, float *data);
 image make_random_kernel(int size, int c, float scale);

@@ -5,8 +5,8 @@
 image get_convolutional_image(const convolutional_layer *layer)
 {
     int h,w,c;
-	h = (layer->h-1)/layer->stride + 1;
-	w = (layer->w-1)/layer->stride + 1;
+    h = (layer->h-1)/layer->stride + 1;
+    w = (layer->w-1)/layer->stride + 1;
 
     c = layer->n;
     return float_to_image(h,w,c,layer->output);
@@ -15,8 +15,8 @@ image get_convolutional_image(const convolutional_layer *layer)
 image get_convolutional_delta(const convolutional_layer *layer)
 {
     int h,w,c;
-	h = (layer->h-1)/layer->stride + 1;
-	w = (layer->w-1)/layer->stride + 1;
+    h = (layer->h-1)/layer->stride + 1;
+    w = (layer->w-1)/layer->stride + 1;
 
     c = layer->n;
     return float_to_image(h,w,c,layer->delta);
@@ -44,14 +44,12 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         layer->kernel_updates[i] = make_random_kernel(size, c, 0);
         layer->kernel_momentum[i] = make_random_kernel(size, c, 0);
     }
-    layer->size = 2*(size/2)+1;
-        out_h = (layer->h-1)/layer->stride + 1;
-        out_w = (layer->w-1)/layer->stride + 1;
-        out_h = (layer->h - layer->size)/layer->stride+1;
-        out_w = (layer->h - layer->size)/layer->stride+1;
+	out_h = (layer->h-1)/layer->stride + 1;
+	out_w = (layer->w-1)/layer->stride + 1;
+
 
     fprintf(stderr, "Convolutional:      %d x %d x %d image, %d filters size: %d -> %d x %d x %d image\n",
-    		h,w,c, n,size, out_h, out_w, n);
+            h,w,c, n,size, out_h, out_w, n);
     layer->output = calloc(out_h * out_w * n, sizeof(float));
     layer->delta  = calloc(out_h * out_w * n, sizeof(float));
     layer->activation = activation;

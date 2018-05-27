@@ -7,7 +7,6 @@
 typedef struct {
     int h,w,c;
     int n;
-    int size;
     int stride;
     image *kernels;
     image *kernel_updates;

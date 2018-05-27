@@ -4,11 +4,11 @@
 
 struct list *make_list()
 {
-	struct list *l = malloc(sizeof(struct list));
-	l->size = 0;
-	l->front = 0;
-	l->back = 0;
-	return l;
+    struct list *l = malloc(sizeof(struct list));
+    l->size = 0;
+    l->front = 0;
+    l->back = 0;
+    return l;
 }
 
 void *list_pop(struct list *l){
@@ -25,44 +25,44 @@ void *list_pop(struct list *l){
 
 void list_insert(struct list *l, void *val)
 {
-	struct node *new = malloc(sizeof(struct node));
-	new->val = val;
-	new->next = 0;
+    struct node *new = malloc(sizeof(struct node));
+    new->val = val;
+    new->next = 0;
 
-	if(!l->back){
-		l->front = new;
-		new->prev = 0;
-	}else{
-		l->back->next = new;
-		new->prev = l->back;
-	}
-	l->back = new;
-	++l->size;
+    if(!l->back){
+        l->front = new;
+        new->prev = 0;
+    }else{
+        l->back->next = new;
+        new->prev = l->back;
+    }
+    l->back = new;
+    ++l->size;
 }
 
 void free_node(struct node *n)
 {
-	struct node *next;
-	while(n) {
-		next = n->next;
-		free(n);
-		n = next;
-	}
+    struct node *next;
+    while(n) {
+        next = n->next;
+        free(n);
+        n = next;
+    }
 }
 
 void free_list(struct list *l)
 {
-	free_node(l->front);
-	free(l);
+    free_node(l->front);
+    free(l);
 }
 
 void free_list_contents(struct list *l)
 {
-	struct node *n = l->front;
-	while(n){
-		free(n->val);
-		n = n->next;
-	}
+    struct node *n = l->front;
+    while(n){
+        free(n->val);
+        n = n->next;
+    }
 }
 
 void **list_to_array(struct list *l)

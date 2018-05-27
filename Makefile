@@ -69,7 +69,7 @@ EXECOBJ_TEST = $(addprefix $(OBJDIR), $(EXECOBJA_TEST))
 OBJS = $(addprefix $(OBJDIR), $(OBJ))
 DEPS = $(wildcard src/*.h) Makefile
 
-all: backup obj $(SLIB) $(ALIB) $(EXEC)
+all: backup obj $(SLIB) $(ALIB) $(EXEC) $(EXEC_TEST)
 #all: obj $(SLIB) $(ALIB) $(EXEC)
 
 $(EXEC): $(EXECOBJ) $(ALIB)

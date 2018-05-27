@@ -23,24 +23,40 @@ void free_section(struct section *s)
 
 convolutional_layer *parse_convolutional(struct list *options, struct network *net, int count)
 {
-	int h,w,c;
-	int n = option_find_int(options, "filters", 1);
-	int size = option_find_int(options, "size", 1);
-	int stride = option_find_int(options, "stride", 1);
-	char *activation_s = option_find_str(options, "activation", "sigmoid");
-	ACTIVATION activation = get_activation(activation_s);
-	if (count == 0) {
-		h = net->h;
-		w = net->w;
-		c = net->c;
-	} else {
-		image m = get_network_image_layer(net, count - 1);
-		h = m.h;
-		w = m.w;
-		c = m.c;
-		if (h == 0) error("Layer before convolutional layer must output image.");
-	}
-	convolutional_layer *layer = make_convolutional_layer(h, w, c, n, size, stride, activation);
+    int h,w,c;
+    int n = option_find_int(options, "filters", 1);
+    int size = option_find_int(options, "size", 1);
+    int stride = option_find_int(options, "stride", 1);
+    char *activation_s = option_find_str(options, "activation", "sigmoid");
+    ACTIVATION activation = get_activation(activation_s);
+    if (count == 0) {
+        h = net->h;
+        w = net->w;
+        c = net->c;
+    } else {
+        image m = get_network_image_layer(net, count - 1);
+        h = m.h;
+        w = m.w;
+        c = m.c;
+        if (h == 0) error("Layer before convolutional layer must output image.");
+    }
+    convolutional_layer *layer = make_convolutional_layer(h, w, c, n, size, stride, activation);
+    option_unused(options);
+    return layer;
+}
+
+connected_layer *parse_connected(struct list *options, struct network *net, int count)
+{
+    char *activation_s = option_find_str(options, "activation", "sigmoid");
+    ACTIVATION activation = get_activation(activation_s);
+    int output = option_find_int(options, "output",1);
+    int input;
+    if(count == 0){
+        input = option_find_int(options, "input",1);
+    }else{
+        input =  get_network_output_size_layer(net, count-1);
+    }
+    connected_layer *layer = make_connected_layer(input, output, activation);
     option_unused(options);
     return layer;
 }
@@ -50,11 +66,11 @@ maxpool_layer *parse_maxpool(struct list *options, struct network *net, int coun
     int h,w,c;
     int stride = option_find_int(options, "stride",1);
     if(count == 0){
-    	h = net->h;
-    	w = net->w;
-    	c = net->c;
+        h = net->h;
+        w = net->w;
+        c = net->c;
     }else{
-    	image m =  get_network_image_layer(net, count-1);
+        image m =  get_network_image_layer(net, count-1);
         h = m.h;
         w = m.w;
         c = m.c;
@@ -68,7 +84,7 @@ maxpool_layer *parse_maxpool(struct list *options, struct network *net, int coun
 avgpool_layer *parse_avgpool(struct list *options, struct network *net, int count)
 {
     int w,h,c;
-	image m =  get_network_image_layer(net, count-1);
+    image m =  get_network_image_layer(net, count-1);
     w = m.w;
     h = m.h;
     c = m.c;
@@ -153,8 +169,8 @@ struct list *read_cfg(char *filename)
 {
     FILE *file = fopen(filename, "r");
     if(file == 0){
-    	fprintf(stderr, "Couldn't open file: %s\n", filename);
-    	exit(-1);
+        fprintf(stderr, "Couldn't open file: %s\n", filename);
+        exit(-1);
     }
     char *line;
     int nu = 0;
@@ -215,69 +231,75 @@ void parse_net_options(struct list *options, struct network *net)
     char *policy_s = option_find_str(options, "policy", "constant");
     net->policy = get_policy(policy_s);
     if (net->policy == STEPS){
-		char *steps_str = option_find(options, "steps");
-		char *scales_str = option_find(options, "scales");
-		if(!steps_str || !scales_str) error("STEPS policy must have steps and scales in cfg file");
+        char *steps_str = option_find(options, "steps");
+        char *scales_str = option_find(options, "scales");
+        if(!steps_str || !scales_str) error("STEPS policy must have steps and scales in cfg file");
 
-		int len = strlen(steps_str);
-		int n = 1;
-		int i;
-		for(i = 0; i < len; ++i){
-			if (steps_str[i] == ',') ++n;
-		}
-		int *steps = calloc(n, sizeof(int));
-		float *scales = calloc(n, sizeof(float));
-		for(i = 0; i < n; ++i){
-			int step    = atoi(steps_str);
-			float scale = atof(scales_str);
-			steps_str = strchr(steps_str, ',')+1;
-			scales_str = strchr(scales_str, ',')+1;
-			steps[i] = step;
-			scales[i] = scale;
-		}
-		net->scales = scales;
-		net->steps = steps;
-		net->num_steps = n;
-	}
+        int len = strlen(steps_str);
+        int n = 1;
+        int i;
+        for(i = 0; i < len; ++i){
+            if (steps_str[i] == ',') ++n;
+        }
+        int *steps = calloc(n, sizeof(int));
+        float *scales = calloc(n, sizeof(float));
+        for(i = 0; i < n; ++i){
+            int step    = atoi(steps_str);
+            float scale = atof(scales_str);
+            steps_str = strchr(steps_str, ',')+1;
+            scales_str = strchr(scales_str, ',')+1;
+            steps[i] = step;
+            scales[i] = scale;
+        }
+        net->scales = scales;
+        net->steps = steps;
+        net->num_steps = n;
+    }
 }
 
 struct network *parse_network_cfg(char *filename)
 {
-	struct list *sections = read_cfg(filename);
-	struct network *net = make_network(sections->size - 1);
-	struct node *n = sections->front;
-	struct section *s = (struct section *)n->val;
-	if(!(strcmp(s->type, "[network]")==0)) error("First section must be [network]");
+    struct list *sections = read_cfg(filename);
+    struct network *net = make_network(sections->size - 1);
+    struct node *n = sections->front;
+    struct section *s = (struct section *)n->val;
+    if(!(strcmp(s->type, "[network]")==0)) error("First section must be [network]");
     struct list *options = s->options;
-	parse_net_options(options, net);
+    parse_net_options(options, net);
 
-	n = n->next;
+    n = n->next;
     int count = 0;
     while(n){
-    	struct section *s = (struct section *)n->val;
+        struct section *s = (struct section *)n->val;
         struct list *options = s->options;
+        fprintf(stderr, "%3d: ", count);
         if(strcmp(s->type, "[convolutional]")==0){
-        	convolutional_layer *layer = parse_convolutional(options, net, count);
+            convolutional_layer *layer = parse_convolutional(options, net, count);
             net->layers_type[count] = CONVOLUTIONAL;
             net->layers[count] = layer;
+        } else if(strcmp(s->type, "[connected]")==0){
+            connected_layer *layer = parse_connected(options, net, count);
+            net->layers_type[count] = CONNECTED;
+            net->layers[count] = layer;
         }else if(strcmp(s->type, "[softmax]")==0){
-        	softmax_layer *layer = parse_softmax(options, net, count);
+            softmax_layer *layer = parse_softmax(options, net, count);
             net->layers_type[count] = SOFTMAX;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[maxpool]")==0){
-        	maxpool_layer *layer = parse_maxpool(options, net, count);
+            maxpool_layer *layer = parse_maxpool(options, net, count);
             net->layers_type[count] = MAXPOOL;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[cost]")==0){
-        	cost_layer *layer = parse_cost(options, net, count);
-        	net->layers_type[count] = COST;
-        	net->layers[count] = layer;
+            cost_layer *layer = parse_cost(options, net, count);
+            net->layers_type[count] = COST;
+            net->layers[count] = layer;
         }else if(strcmp(s->type, "[avgpool]")==0){
-        	avgpool_layer *layer = parse_avgpool(options, net, count);
-        	net->layers_type[count] = AVGPOOL;
-        	net->layers[count] = layer;
+            avgpool_layer *layer = parse_avgpool(options, net, count);
+            net->layers_type[count] = AVGPOOL;
+            net->layers[count] = layer;
         }else{
-            fprintf(stderr, "Type not recognized: %s\n", s->type);
+            fprintf(stderr, "layer type not recognized: %s\n", s->type);
+            exit(-1);
         }
         free_section(s);
         ++count;

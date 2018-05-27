@@ -1190,7 +1190,7 @@ void two_d_convolve(image m, int mc, image kernel, int kc, int stride, image out
 
     for(x = xstart; x < xend; x += stride){
         for(y = ystart; y < yend; y += stride){
-        	float sum = 0;
+            float sum = 0;
             for(i = 0; i < kernel.h; ++i){
                 for(j = 0; j < kernel.w; ++j){
                     sum += get_pixel(kernel, i, j, kc)*get_pixel_extend(m, x+i-kernel.h/2, y+j-kernel.w/2, mc);
@@ -1217,7 +1217,7 @@ void single_update(image m, image update, int x, int y, float error)
     for(i = 0; i < update.h; ++i){
         for(j = 0; j < update.w; ++j){
             for(k = 0; k < update.c; ++k){
-            	float val = get_pixel_extend(m, x+i-update.h/2, y+j-update.w/2, k);
+                float val = get_pixel_extend(m, x+i-update.h/2, y+j-update.w/2, k);
                 add_pixel(update, i, j, k, val*error);
             }
         }
@@ -1235,7 +1235,7 @@ void kernel_update(image in, image update, int stride, int channel, image out_de
 
     for(i = istart; i < iend; i += stride){
         for(j = jstart; j < jend; j += stride){
-        	float error = get_pixel(out_delta, (i-istart)/stride, (j-jstart)/stride, channel);
+            float error = get_pixel(out_delta, (i-istart)/stride, (j-jstart)/stride, channel);
             single_update(in, update, i, j, error);
         }
     }
@@ -1253,7 +1253,7 @@ void single_back_convolve(image in_delta, image kernel, int x, int y, float val)
     for(i = 0; i < kernel.h; ++i){
         for(j = 0; j < kernel.w; ++j){
             for(k = 0; k < kernel.c; ++k){
-            	float pval = get_pixel(kernel, i, j, k) * val;
+                float pval = get_pixel(kernel, i, j, k) * val;
                 add_pixel_extend(in_delta, x+i-kernel.h/2, y+j-kernel.w/2, k, pval);
             }
         }
@@ -1264,12 +1264,12 @@ void back_convolve(image in_delta, image kernel, int stride, int channel, image 
 {
     assert(in_delta.c == kernel.c);
     int i, j, iend, jend;
-	iend = in_delta.h;
-	jend = in_delta.w;
+    iend = in_delta.h;
+    jend = in_delta.w;
 
     for(i = 0; i < iend; i += stride){
         for(j = 0; j < jend; j += stride){
-        	float val = get_pixel(out_delta, i/stride, j/stride, channel);
+            float val = get_pixel(out_delta, i/stride, j/stride, channel);
             single_back_convolve(in_delta, kernel, i, j, val);
         }
     }

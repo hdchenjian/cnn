@@ -14,7 +14,7 @@ void option_insert(struct list *l, char *key, char *val)
 
 void option_unused(struct list *l)
 {
-	struct node *n = l->front;
+    struct node *n = l->front;
     while(n){
         kvp *p = (kvp *)n->val;
         if(!p->used){
@@ -26,7 +26,7 @@ void option_unused(struct list *l)
 
 char *option_find(struct list *l, char *key)
 {
-	struct node *n = l->front;
+    struct node *n = l->front;
     while(n){
         kvp *p = (kvp *)n->val;
         if(strcmp(p->key, key) == 0){

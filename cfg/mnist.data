@@ -1,6 +1,8 @@
-classes=2
-train  = .data/cifar/train.list
-valid  = .data/cifar/test.list
-labels = .data/cifar/labels.txt
+classes=10
+train  = .data/mnist/mnist_train.csv
+train_num = 60000
+valid  = .data/mnist/mnist_test.csv
+valid_num = 10000
+labels = .data/mnist/labels.txt
 backup = backup
 top=1

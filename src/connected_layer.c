@@ -8,19 +8,19 @@ connected_layer *make_connected_layer(int inputs, int outputs, ACTIVATION activa
     layer->inputs = inputs;
     layer->outputs = outputs;
 
-    layer->output = calloc(outputs, sizeof(double*));
-    layer->delta = calloc(outputs, sizeof(double*));
+    layer->output = calloc(outputs, sizeof(float*));
+    layer->delta = calloc(outputs, sizeof(float*));
 
-    layer->weight_updates = calloc(inputs*outputs, sizeof(double));
-    layer->weight_momentum = calloc(inputs*outputs, sizeof(double));
-    layer->weights = calloc(inputs*outputs, sizeof(double));
-    double scale = 2./inputs;
+    layer->weight_updates = calloc(inputs*outputs, sizeof(float));
+    layer->weight_momentum = calloc(inputs*outputs, sizeof(float));
+    layer->weights = calloc(inputs*outputs, sizeof(float));
+    float scale = 1.0F/inputs;
     for(i = 0; i < inputs*outputs; ++i)
-        layer->weights[i] = rand_normal()*scale;
+        layer->weights[i] = rand_uniform(0, 1) * scale;
 
-    layer->bias_updates = calloc(outputs, sizeof(double));
-    layer->bias_momentum = calloc(outputs, sizeof(double));
-    layer->biases = calloc(outputs, sizeof(double));
+    layer->bias_updates = calloc(outputs, sizeof(float));
+    layer->bias_momentum = calloc(outputs, sizeof(float));
+    layer->biases = calloc(outputs, sizeof(float));
     for(i = 0; i < outputs; ++i)
         //layer->biases[i] = rand_normal()*scale + scale;
         layer->biases[i] = 0;
@@ -29,7 +29,7 @@ connected_layer *make_connected_layer(int inputs, int outputs, ACTIVATION activa
     return layer;
 }
 
-void forward_connected_layer(connected_layer *layer, double *input)
+void forward_connected_layer(connected_layer *layer, float *input)
 {
     int i, j;
     for(i = 0; i < layer->outputs; ++i){
@@ -41,7 +41,7 @@ void forward_connected_layer(connected_layer *layer, double *input)
     }
 }
 
-void learn_connected_layer(connected_layer *layer, double *input)
+void learn_connected_layer(connected_layer *layer, float *input)
 {
     int i, j;
     for(i = 0; i < layer->outputs; ++i){
@@ -53,7 +53,7 @@ void learn_connected_layer(connected_layer *layer, double *input)
     }
 }
 
-void update_connected_layer(connected_layer *layer, double step, double momentum, double decay)
+void update_connected_layer(connected_layer *layer, float step, float momentum, float decay)
 {
     int i,j;
     for(i = 0; i < layer->outputs; ++i){
@@ -66,11 +66,11 @@ void update_connected_layer(connected_layer *layer, double step, double momentum
             //layer->weights[index] = constrain(layer->weights[index], 100.);
         }
     }
-    memset(layer->bias_updates, 0, layer->outputs*sizeof(double));
-    memset(layer->weight_updates, 0, layer->outputs*layer->inputs*sizeof(double));
+    memset(layer->bias_updates, 0, layer->outputs*sizeof(float));
+    memset(layer->weight_updates, 0, layer->outputs*layer->inputs*sizeof(float));
 }
 
-void backward_connected_layer(connected_layer *layer, double *input, double *delta)
+void backward_connected_layer(connected_layer *layer, float *delta)
 {
     int i, j;
 
