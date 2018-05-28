@@ -54,7 +54,7 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -lcudnn
 endif
 
-OBJ=utils.o image.o box.o blas.o data.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o
+OBJ=utils.o gemm.o image.o box.o blas.o data.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
