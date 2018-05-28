@@ -20,7 +20,7 @@ float get_current_learning_rate(struct network * net)
         case STEPS:
             for(int i = 0; i < net->num_steps; ++i){
                 if(net->steps[i] == net->batch_train){
-                	net->learning_rate *= net->scales[i];
+                    net->learning_rate *= net->scales[i];
                 }
             }
             return net->learning_rate;;
@@ -32,8 +32,7 @@ float get_current_learning_rate(struct network * net)
 
 void forward_network(struct network *net, float *input)
 {
-    int i;
-    for(i = 0; i < net->n; ++i){
+    for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input);
@@ -68,8 +67,7 @@ void forward_network(struct network *net, float *input)
 
 void update_network(struct network *net, float step)
 {
-    int i;
-    for(i = 0; i < net->n; ++i){
+    for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             update_convolutional_layer(layer, net->learning_rate, net->momentum, net->decay);
@@ -171,8 +169,8 @@ void train_network_batch(struct network *net, batch b)
     net->seen += net->batch;
     net->correct_num_count += net->batch;
     if(net->correct_num_count > 1000){
-    	net->correct_num_count = 0;
-    	net->correct_num = 0;
+        net->correct_num_count = 0;
+        net->correct_num = 0;
     }
     net->batch_train += 1;
 }
@@ -226,6 +224,50 @@ image get_network_image_layer(struct network *net, int i)
     }
 }
 
+void save_convolutional_weights(const convolutional_layer *l, FILE *fp)
+{
+#ifdef GPU
+    if(gpu_index >= 0){
+        pull_convolutional_layer(l);
+    }
+#endif
+    fwrite(l->biases, sizeof(float), l->n, fp);
+    fwrite(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
+}
+
+void load_convolutional_weights(const convolutional_layer *l, FILE *fp)
+{
+    fread(l->biases, sizeof(float), l->n, fp);
+    fread(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
+#ifdef GPU
+    if(gpu_index >= 0){
+        push_convolutional_layer(l);
+    }
+#endif
+}
+
+void save_connected_weights(const connected_layer *l, FILE *fp)
+{
+#ifdef GPU
+    if(gpu_index >= 0){
+        pull_connected_layer(l);
+    }
+#endif
+    fwrite(l->biases, sizeof(float), l->outputs, fp);
+    fwrite(l->weights, sizeof(float), l->outputs*l->inputs, fp);
+}
+
+void load_connected_weights(const connected_layer *l, FILE *fp)
+{
+    fread(l->biases, sizeof(float), l->outputs, fp);
+    fread(l->weights, sizeof(float), l->outputs*l->inputs, fp);
+#ifdef GPU
+    if(gpu_index >= 0){
+        push_connected_layer(l);
+    }
+#endif
+}
+
 void save_weights(struct network *net, char *filename)
 {
 #ifdef GPU
@@ -245,15 +287,13 @@ void save_weights(struct network *net, char *filename)
     fwrite(&major, sizeof(int), 1, fp);
     fwrite(&minor, sizeof(int), 1, fp);
     fwrite(&revision, sizeof(int), 1, fp);
-    fwrite(net->seen, sizeof(size_t), 1, fp);
+    fwrite(&(net->seen), sizeof(int), 1, fp);
 
     for(int i = 0; i < net->n; ++i){
-        layer l = net->layers[i];
-        if (l.dontsave) continue;
-        if(l.type == CONVOLUTIONAL || l.type == DECONVOLUTIONAL){
-            save_convolutional_weights(l, fp);
-        } if(l.type == CONNECTED){
-            save_connected_weights(l, fp);
+        if(net->layers_type[i] == CONVOLUTIONAL){
+            save_convolutional_weights((convolutional_layer *)net->layers[i], fp);
+        } if(net->layers_type[i] == CONNECTED){
+            save_connected_weights((connected_layer *)net->layers[i], fp);
         }
     }
     fclose(fp);
@@ -277,16 +317,14 @@ void load_weights(struct network *net, char *filename)
     fread(&major, sizeof(int), 1, fp);
     fread(&minor, sizeof(int), 1, fp);
     fread(&revision, sizeof(int), 1, fp);
-    fread(net->seen, sizeof(int), 1, fp);
+    fread(&(net->seen), sizeof(int), 1, fp);
     printf("\nweights version info: major: %d, minor: %d, revision: %d\n", major, minor, revision);
 
     for(int i = 0; i < net->n; ++i){
-        layer l = net->layers[i];
-        if(l.type == CONVOLUTIONAL || l.type == DECONVOLUTIONAL){
-            load_convolutional_weights(l, fp);
-        }
-        if(l.type == CONNECTED){
-            load_connected_weights(l, fp, transpose);
+        if(net->layers_type[i] == CONVOLUTIONAL){
+            load_convolutional_weights((convolutional_layer *)net->layers[i], fp);
+        } if(net->layers_type[i] == CONNECTED){
+            load_connected_weights((connected_layer *)net->layers[i], fp);
         }
     }
     fprintf(stderr, "Loading weights Done!\n");

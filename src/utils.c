@@ -262,7 +262,7 @@ unsigned char *read_file(char *filename)
     unsigned char *text = calloc(size+1, sizeof(char));
     int read_num = fread(text, 1, size, fp);
     if(read_num == 0){
-    	fprintf(stderr, "fread read 0 object");
+        fprintf(stderr, "fread read 0 object");
     }
     fclose(fp);
     return text;

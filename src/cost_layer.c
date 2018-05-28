@@ -75,12 +75,12 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
     int max_i = 0;
     double max = input[0];
     for(int j = 0; j < net->classes; ++j){
-		if(input[j] > max){
-			max = input[j];
-			max_i = j;
-		}
-	}
-	if(net->truth[max_i] > 0.99F) net->correct_num += 1;
+        if(input[j] > max){
+            max = input[j];
+            max_i = j;
+        }
+    }
+    if(net->truth[max_i] > 0.99F) net->correct_num += 1;
 
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);
     /*
@@ -91,7 +91,7 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
 
 void backward_cost_layer(const cost_layer *l, float *delta)
 {
-	for(int i = 0; i < l->batch*l->inputs; ++i) delta[i] = l->scale * l->delta[i];
+    for(int i = 0; i < l->batch*l->inputs; ++i) delta[i] = l->scale * l->delta[i];
 }
 
 #ifdef GPU

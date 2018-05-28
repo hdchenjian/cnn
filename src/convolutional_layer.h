@@ -6,11 +6,11 @@
 
 typedef struct {
     int h,w,c;
-    int n;
+    int n, size;
     int stride;
-    image *filters;
-    image *filter_updates;
-    image *filter_momentum;
+    image *weights;
+    image *weight_updates;
+    image *weight_momentum;
     float *biases;
     float *bias_updates;
     float *bias_momentum;

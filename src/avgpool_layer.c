@@ -58,7 +58,7 @@ void backward_avgpool_layer(const avgpool_layer *l, float *delta)
     int b,i,k;
 
     for(int j = 0; j < l->h*l->w * l->c * l->batch; j++) {
-    	delta[j] = 0.0F;
+        delta[j] = 0.0F;
     }
     for(b = 0; b < l->batch; ++b){
         for(k = 0; k < l->c; ++k){

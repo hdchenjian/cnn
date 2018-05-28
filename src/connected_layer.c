@@ -62,7 +62,7 @@ void update_connected_layer(connected_layer *layer, float step, float momentum, 
         for(j = 0; j < layer->inputs; ++j){
             int index = i*layer->inputs+j;
             layer->weight_momentum[index] = step*(layer->weight_updates[index] - decay*layer->weights[index]) +
-            		momentum*layer->weight_momentum[index];
+                    momentum*layer->weight_momentum[index];
             layer->weights[index] += layer->weight_momentum[index];
             //layer->weights[index] = constrain(layer->weights[index], 100.);
         }
