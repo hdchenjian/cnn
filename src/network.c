@@ -226,12 +226,69 @@ image get_network_image_layer(struct network *net, int i)
     }
 }
 
-image get_network_image(struct network *net)
+void save_weights(struct network *net, char *filename)
 {
-    int i;
-    for(i = net->n-1; i >= 0; --i){
-        image m = get_network_image_layer(net, i);
-        if(m.h != 0) return m;
+#ifdef GPU
+    if(net->gpu_index >= 0){
+        cuda_set_device(net->gpu_index);
     }
-    return make_empty_image(0,0,0);
+#endif
+    fprintf(stderr, "Saving weights to %s\n", filename);
+    FILE *fp = fopen(filename, "wb");
+    if(!fp) file_error(filename);
+
+    int major = 0;
+    int minor = 2;
+    int revision = 0;
+    printf("\nweights version info: major: %d, minor: %d, revision: %d\n", major, minor, revision);
+
+    fwrite(&major, sizeof(int), 1, fp);
+    fwrite(&minor, sizeof(int), 1, fp);
+    fwrite(&revision, sizeof(int), 1, fp);
+    fwrite(net->seen, sizeof(size_t), 1, fp);
+
+    for(int i = 0; i < net->n; ++i){
+        layer l = net->layers[i];
+        if (l.dontsave) continue;
+        if(l.type == CONVOLUTIONAL || l.type == DECONVOLUTIONAL){
+            save_convolutional_weights(l, fp);
+        } if(l.type == CONNECTED){
+            save_connected_weights(l, fp);
+        }
+    }
+    fclose(fp);
+}
+
+void load_weights(struct network *net, char *filename)
+{
+#ifdef GPU
+    if(net->gpu_index >= 0){
+        cuda_set_device(net->gpu_index);
+    }
+#endif
+    fprintf(stderr, "Loading weights from %s\n", filename);
+    fflush(stdout);
+    FILE *fp = fopen(filename, "rb");
+    if(!fp) file_error(filename);
+
+    int major;
+    int minor;
+    int revision;
+    fread(&major, sizeof(int), 1, fp);
+    fread(&minor, sizeof(int), 1, fp);
+    fread(&revision, sizeof(int), 1, fp);
+    fread(net->seen, sizeof(int), 1, fp);
+    printf("\nweights version info: major: %d, minor: %d, revision: %d\n", major, minor, revision);
+
+    for(int i = 0; i < net->n; ++i){
+        layer l = net->layers[i];
+        if(l.type == CONVOLUTIONAL || l.type == DECONVOLUTIONAL){
+            load_convolutional_weights(l, fp);
+        }
+        if(l.type == CONNECTED){
+            load_connected_weights(l, fp, transpose);
+        }
+    }
+    fprintf(stderr, "Loading weights Done!\n");
+    fclose(fp);
 }

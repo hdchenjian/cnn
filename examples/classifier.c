@@ -35,7 +35,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     net->classes = option_find_int(options, "classes", 2);
 
     int train_set_size = 0;
-	int train_data_type = 0;	//  0: csv, load to memory
+	int train_data_type = option_find_int(options, "train_data_type", 1);	//  0: csv, load to memory
 	char **paths = NULL;
 	struct list *plist = NULL;
 	batch *all_train_data;
