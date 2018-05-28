@@ -2,7 +2,7 @@
 
 connected_layer *make_connected_layer(int inputs, int outputs, ACTIVATION activation)
 {
-    fprintf(stderr, "Connected Layer: %d inputs, %d outputs\n", inputs, outputs);
+    fprintf(stderr, "Connected Layer:    %d inputs, %d outputs\n", inputs, outputs);
     int i;
     connected_layer *layer = calloc(1, sizeof(connected_layer));
     layer->inputs = inputs;
@@ -61,7 +61,8 @@ void update_connected_layer(connected_layer *layer, float step, float momentum, 
         layer->biases[i] += layer->bias_momentum[i];
         for(j = 0; j < layer->inputs; ++j){
             int index = i*layer->inputs+j;
-            layer->weight_momentum[index] = step*(layer->weight_updates[index] - decay*layer->weights[index]) + momentum*layer->weight_momentum[index];
+            layer->weight_momentum[index] = step*(layer->weight_updates[index] - decay*layer->weights[index]) +
+            		momentum*layer->weight_momentum[index];
             layer->weights[index] += layer->weight_momentum[index];
             //layer->weights[index] = constrain(layer->weights[index], 100.);
         }

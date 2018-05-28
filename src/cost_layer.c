@@ -60,12 +60,9 @@ void resize_cost_layer(cost_layer *l, int inputs)
 
 void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
 {
-    printf("%f\n", *input);
-
     if (net->test) return;
     if(l->cost_type == MASKED){
-        int i;
-        for(i = 0; i < l->batch*l->inputs; ++i){
+        for(int i = 0; i < l->batch*l->inputs; ++i){
             if(net->truth[i] == SECRET_NUM) input[i] = SECRET_NUM;
         }
     }
@@ -74,14 +71,27 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
     } else {
         l2_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
     }
+
+    int max_i = 0;
+    double max = input[0];
+    for(int j = 0; j < net->classes; ++j){
+		if(input[j] > max){
+			max = input[j];
+			max_i = j;
+		}
+	}
+	if(net->truth[max_i] > 0.99F) net->correct_num += 1;
+
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);
-    printf("forward_cost_layer %f %f   %f %f %f\n", net->truth[0], net->truth[1], *l->delta, l->cost[0], *l->output);
-    //sleep(1);
+    /*
+    for(int i = 0; i < l->batch*l->inputs; ++i){
+        printf("forward_cost_layer: %f %f %f %f\n", net->truth[i], input[i], l->delta[i], l->output[i]);
+    }*/
 }
 
 void backward_cost_layer(const cost_layer *l, float *delta)
 {
-    axpy_cpu(l->batch*l->inputs, l->scale, l->delta, 1, delta, 1);
+	for(int i = 0; i < l->batch*l->inputs; ++i) delta[i] = l->scale * l->delta[i];
 }
 
 #ifdef GPU

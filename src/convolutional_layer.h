@@ -8,9 +8,9 @@ typedef struct {
     int h,w,c;
     int n;
     int stride;
-    image *kernels;
-    image *kernel_updates;
-    image *kernel_momentum;
+    image *filters;
+    image *filter_updates;
+    image *filter_momentum;
     float *biases;
     float *bias_updates;
     float *bias_momentum;

@@ -61,7 +61,6 @@ void save_image_png(image im, const char *name);
 image load_image_me(char *filename);
 image float_to_image(int h, int w, int c, float *data);
 image make_random_kernel(int size, int c, float scale);
-void z_normalize_image(image p);
 void show_image(image p, const char *name);
 void back_convolve(image in_delta, image kernel, int stride, int channel, image out_delta);
 void kernel_update(image m, image update, int stride, int channel, image out_delta);

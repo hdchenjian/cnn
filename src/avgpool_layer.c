@@ -34,8 +34,8 @@ void resize_avgpool_layer(avgpool_layer *l, int w, int h)
 void forward_avgpool_layer(const avgpool_layer *l, float *in)
 {
     int b,i,k;
-    float max = 0.0F;
-            float min = 0.0F;
+    //float max = 0.0F;
+    //float min = 0.0F;
     for(b = 0; b < l->batch; ++b){
         for(k = 0; k < l->c; ++k){
             int out_index = k + b*l->c;
@@ -45,20 +45,21 @@ void forward_avgpool_layer(const avgpool_layer *l, float *in)
                 l->output[out_index] += in[in_index];
             }
             l->output[out_index] /= l->h*l->w;
-            if(l->output[out_index] > max) max = l->output[out_index];
-            if(l->output[out_index] < min) min = l->output[out_index];
-            printf("forward_avgpool_layer %f   ", l->output[out_index]);
+            //if(l->output[out_index] > max) max = l->output[out_index];
+            //if(l->output[out_index] < min) min = l->output[out_index];
+            //printf("forward_avgpool_layer %f   ", l->output[out_index]);
         }
     }
-    printf("forward_avgpool_layer %f %f\n", max, min);
-
-
+    //printf("forward_avgpool_layer %f %f\n", max, min);
 }
 
 void backward_avgpool_layer(const avgpool_layer *l, float *delta)
 {
     int b,i,k;
 
+    for(int j = 0; j < l->h*l->w * l->c * l->batch; j++) {
+    	delta[j] = 0.0F;
+    }
     for(b = 0; b < l->batch; ++b){
         for(k = 0; k < l->c; ++k){
             int out_index = k + b*l->c;

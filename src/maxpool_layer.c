@@ -19,7 +19,7 @@ image get_maxpool_delta(const maxpool_layer *layer)
 
 maxpool_layer *make_maxpool_layer(int h, int w, int c, int stride)
 {
-    fprintf(stderr, "Maxpool:            %d x %d x %d image, %d stride\n", h,w,c,stride);
+    fprintf(stderr, "Maxpool:            %d x %d x %d inputs, %d stride\n", h,w,c,stride);
     maxpool_layer *layer = calloc(1, sizeof(maxpool_layer));
     layer->h = h;
     layer->w = w;
@@ -36,21 +36,20 @@ void forward_maxpool_layer(const maxpool_layer *layer, float *in)
     image output = get_maxpool_image(layer);
     int i,j,k;
     for(i = 0; i < output.h*output.w*output.c; ++i) output.data[i] = -FLT_MAX;
-    float max = 0.0F;
-        float min = 0.0F;
+    //float max = 0.0F;
+    //float min = 0.0F;
     for(k = 0; k < input.c; ++k){
         for(i = 0; i < input.h; ++i){
             for(j = 0; j < input.w; ++j){
                 float val = get_pixel(input, i, j, k);
                 float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
                 if(val > cur) set_pixel(output, i/layer->stride, j/layer->stride, k, val);
-                if(val > max) max = val;
-                            if(val < min) min = val;
+                //if(val > max) max = val;
+                //if(val < min) min = val;
             }
         }
     }
-    printf("forward_maxpool_layer %f %f\n", max, min);
-
+    //printf("forward_maxpool_layer %f %f\n", max, min);
 }
 
 void backward_maxpool_layer(const maxpool_layer *layer, float *in, float *delta)

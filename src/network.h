@@ -93,6 +93,8 @@ struct network{
     int test;    // 0: train, 1: test
     int classes;    // train data classes
     float *truth;  // train data label
+    int correct_num;
+    int correct_num_count;
 
     enum learning_rate_policy policy;
     float learning_rate;

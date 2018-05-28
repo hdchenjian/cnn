@@ -59,7 +59,7 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
     int w, h;
     int n = 0;
     char *line;
-    while((line = fgetl(fp))){
+    while((line = fgetl(fp)) && (n < train_set_size)){
         train_data[n].n = batch_size;
         char class = line[0];
         if(0 == fields){
@@ -73,6 +73,7 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
         im->w = w;
         im->c = 1;
         im->data = value + 1;
+        normalize_array(im->data, im->h*im->w*im->c);
         train_data[n].images = im;
         train_data[n].truth = calloc(batch_size, sizeof(float *));
         for(int i =0 ; i < batch_size; ++i){
@@ -94,7 +95,8 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
     for(int i = 0; i < batch_size; ++i){
         int index = rand() % train_set_size;
         b.images[i] = load_image_me(paths[index]);
-        z_normalize_image(b.images[i]);
+        normalize_array(b.images[i].data, b.images[i].h*b.images[i].w*b.images[i].c);
+
         fill_truth(paths[index], labels, classes, b.truth[i]);
         //printf("%s %f\n", paths[index], *b.truth[i]);
     }

@@ -1282,11 +1282,6 @@ image float_to_image(int h, int w, int c, float *data)
     return out;
 }
 
-void z_normalize_image(image p)
-{
-    normalize_array(p.data, p.h*p.w*p.c);
-}
-
 image make_random_kernel(int size, int c, float scale)
 {
     int pad;

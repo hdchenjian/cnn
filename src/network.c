@@ -9,21 +9,23 @@ struct network *make_network(int n)
     net->batch = 1;
     net->seen = 0;
     net->batch_train = 0;
+    net->correct_num = 0;
+    net->correct_num_count = 0;
     return net;
 }
 
 float get_current_learning_rate(struct network * net)
 {
-    float rate = net->learning_rate;
     switch (net->policy) {
         case STEPS:
             for(int i = 0; i < net->num_steps; ++i){
-                if(net->steps[i] > net->batch_train) return rate;
-                else rate *= net->scales[i];
+                if(net->steps[i] == net->batch_train){
+                	net->learning_rate *= net->scales[i];
+                }
             }
-            return rate;
+            return net->learning_rate;;
         default:
-            fprintf(stderr, "Policy is weird!\n");
+            //fprintf(stderr, "Policy is weird!\n");
             return net->learning_rate;
     }
 }
@@ -167,6 +169,11 @@ void train_network_batch(struct network *net, batch b)
         update_network(net, .001);
     }
     net->seen += net->batch;
+    net->correct_num_count += net->batch;
+    if(net->correct_num_count > 1000){
+    	net->correct_num_count = 0;
+    	net->correct_num = 0;
+    }
     net->batch_train += 1;
 }
 

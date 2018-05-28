@@ -14,6 +14,26 @@ void forward_softmax_layer(const softmax_layer *layer, float *input)
 {
     int i;
     float sum = 0;
+    float largest = 0;
+    for(i = 0; i < layer->inputs; ++i){
+        if(input[i] > largest) largest = input[i];
+    }
+    for(i = 0; i < layer->inputs; ++i){
+        sum += exp(input[i]-largest);
+        //printf("%f, ", input[i]);
+    }
+    //printf("\n");
+    if(sum) sum = largest+log(sum);
+    else sum = largest-100;
+    for(i = 0; i < layer->inputs; ++i){
+        layer->output[i] = exp(input[i]-sum);
+    }
+}
+
+void forward_softmax_layer_me(const softmax_layer *layer, float *input)
+{
+    int i;
+    float sum = 0;
     float largest = -FLT_MAX;
     for(i = 0; i < layer->inputs; ++i){
         if(input[i] > largest) largest = input[i];
@@ -24,7 +44,7 @@ void forward_softmax_layer(const softmax_layer *layer, float *input)
 
     for(i = 0; i < layer->inputs; ++i){
         layer->output[i] = exp(input[i]-largest) / sum;
-        printf("forward_softmax_layer %f\n", layer->output[i]);
+        //printf("forward_softmax_layer %d %f\n", i, layer->output[i]);
     }
 }
 
@@ -33,6 +53,7 @@ void backward_softmax_layer(const softmax_layer *layer, float *delta)
     int i;
     for(i = 0; i < layer->inputs; ++i){
         delta[i] = layer->delta[i];
+        //printf("backward_softmax_layer: delta %f\n", delta[i]);
     }
 }
 

@@ -35,7 +35,8 @@ void load_csv_image(char *filename, char *save_dir)
 int main(int argc, char **argv)
 {
     // https://pjreddie.com/projects/mnist-in-csv/
-    load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_train.csv", "/home/luyao/git/cnn/.data/mnist/train");
-    load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
+    //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_train.csv", "/home/luyao/git/cnn/.data/mnist/train");
+    //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
+	//test_convolutional_layer();
     return 0;
 }

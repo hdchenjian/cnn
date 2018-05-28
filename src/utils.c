@@ -260,7 +260,10 @@ unsigned char *read_file(char *filename)
     fseek(fp, 0, SEEK_SET); 
 
     unsigned char *text = calloc(size+1, sizeof(char));
-    fread(text, 1, size, fp);
+    int read_num = fread(text, 1, size, fp);
+    if(read_num == 0){
+    	fprintf(stderr, "fread read 0 object");
+    }
     fclose(fp);
     return text;
 }
@@ -337,7 +340,10 @@ char *fgetl(FILE *fp)
         }
         size_t readsize = size-curr;
         if(readsize > INT_MAX) readsize = INT_MAX-1;
-        fgets(&line[curr], readsize, fp);
+        char *return_point = fgets(&line[curr], readsize, fp);
+        if(return_point == 0){
+            fprintf(stderr, "fread read 0 object");
+        }
         curr = strlen(line);
     }
     if(line[curr-1] == '\n') line[curr-1] = '\0';
