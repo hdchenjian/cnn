@@ -10,7 +10,6 @@
 
 void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear)
 {
-    float avg_loss = -1;
     char *base = basecfg(cfgfile);   // get projetc name by cfgfile, cifar.cfg -> cifar
     printf("train data base name: %s\n", base);
     printf("the number of GPU: %d\n", ngpus);
@@ -27,7 +26,6 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     }
     struct network *net = nets[0];
     struct list *options = read_data_cfg(datacfg);
-
     char *backup_directory = option_find_str(options, "backup", "/backup/");
     char *label_list = option_find_str(options, "labels", "data/labels.list");
     char **labels = get_labels(label_list);
@@ -49,9 +47,10 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 	}
     double time;
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
-    printf("image net has seen: %d, train_set_size: %d, max_batches of net: %d, net->classes: %d\n\n\n",
+    printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d\n\n\n",
     		net->seen, train_set_size, net->max_batches, net->classes);
 
+    float avg_loss = -1;
     while(net->seen < net->max_batches || net->max_batches == 0){
     	batch train;
     	if(0 == train_data_type) {
@@ -80,13 +79,13 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 		}
         avg_loss = avg_loss*.9 + loss*.1;
         net->learning_rate = get_current_learning_rate(net);
-        fprintf(stderr, "batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, seen %d images\n",
-        		net->seen, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss,
+        fprintf(stderr, "batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, seen %lu images\n",
+        		net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss,
 				net->learning_rate, what_time_is_it_now()-time, net->seen);
     }
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
-    //save_weights(net, buff);
+    save_weights(net, buff);
     //free_network(net);
     free_ptrs((void**)labels, net->classes);
     if(paths) free_ptrs((void**)paths, plist->size);
@@ -97,6 +96,10 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     free(base);
 }
 
+void validate_classifier(data, cfg, weights)
+{
+
+}
 void run_classifier(int argc, char **argv)
 {
     double time_start = what_time_is_it_now();;
@@ -121,7 +124,7 @@ void run_classifier(int argc, char **argv)
     	train_classifier(data, cfg, weights, gpus, ngpus, clear);
     }
     else if(0==strcmp(argv[2], "valid")){
-    	;//validate_classifier_single(data, cfg, weights);
+    	validate_classifier(data, cfg, weights);
     }
     printf("total %.2lf seconds\n", what_time_is_it_now() - time_start);
 }

@@ -1,7 +1,8 @@
 #ifndef GEMM_H
 #define GEMM_H
 
-void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA, 
+/* C = ALPHA * A * B + BETA * C,     C: M * N,      lda ldb ldc is the column of A B C */
+void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
         float *A, int lda, 
         float *B, int ldb,
         float BETA,

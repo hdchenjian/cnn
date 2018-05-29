@@ -11,6 +11,8 @@ struct network *make_network(int n)
     net->batch_train = 0;
     net->correct_num = 0;
     net->correct_num_count = 0;
+    net->workspace_size = 0;
+    net->workspace = NULL;
     return net;
 }
 
@@ -35,7 +37,7 @@ void forward_network(struct network *net, float *input)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            forward_convolutional_layer(layer, input);
+            forward_convolutional_layer(layer, input, net->workspace);
             input = layer->output;
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
@@ -112,11 +114,6 @@ float *get_network_layer_data(struct network *net, int i, int data_type)
     }
 }
 
-float *get_network_output(struct network *net)
-{
-    return get_network_layer_data(net, net->n-1, 0);
-}
-
 void backward_network(struct network *net, float *input)
 {
     float *prev_input;
@@ -131,12 +128,10 @@ void backward_network(struct network *net, float *input)
         }
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            learn_convolutional_layer(layer, prev_input);
-            if(i != 0) backward_convolutional_layer(layer, prev_delta);
+            backward_convolutional_layer(layer, prev_input, prev_delta, net->workspace);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            learn_connected_layer(layer, prev_input);
-            if(i != 0) backward_connected_layer(layer, prev_delta);
+            backward_connected_layer(layer, prev_input, prev_delta);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(i != 0) backward_maxpool_layer(layer, prev_input, prev_delta);
@@ -179,8 +174,7 @@ int get_network_output_size_layer(struct network *net, int i)
 {
     if(net->layers_type[i] == CONVOLUTIONAL){
         convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-        image output = get_convolutional_image(layer);
-        return output.h*output.w*output.c;
+        return layer->out_w * layer->out_h * layer->n;
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
         return layer->outputs;
@@ -203,19 +197,17 @@ int get_network_output_size_layer(struct network *net, int i)
     }
 }
 
-int get_network_output_size(struct network *net)
-{
-    int i = net->n-1;
-    return get_network_output_size_layer(net, i);
-}
-
 image get_network_image_layer(struct network *net, int i)
 {
-    if(net->layers_type[i] == CONVOLUTIONAL){
-        convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-        return get_convolutional_image(layer);
-    }
-    else if(net->layers_type[i] == MAXPOOL){
+	image im;
+	if(net->layers_type[i] == CONVOLUTIONAL){
+		convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+		im.h = layer->out_h;
+		im.w = layer->out_w;
+		im.c = layer->n;
+		im.data = layer->output;
+		return im;
+	} else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         return get_maxpool_image(layer);
     } else {
@@ -282,12 +274,12 @@ void save_weights(struct network *net, char *filename)
     int major = 0;
     int minor = 2;
     int revision = 0;
-    printf("\nweights version info: major: %d, minor: %d, revision: %d\n", major, minor, revision);
+    printf("weights version info: major: %d, minor: %d, revision: %d, net->seen: %lu\n", major, minor, revision, net->seen);
 
     fwrite(&major, sizeof(int), 1, fp);
     fwrite(&minor, sizeof(int), 1, fp);
     fwrite(&revision, sizeof(int), 1, fp);
-    fwrite(&(net->seen), sizeof(int), 1, fp);
+    fwrite(&(net->seen), sizeof(size_t), 1, fp);
 
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
@@ -296,6 +288,7 @@ void save_weights(struct network *net, char *filename)
             save_connected_weights((connected_layer *)net->layers[i], fp);
         }
     }
+    fprintf(stderr, "Saving weights Done!\n\n");
     fclose(fp);
 }
 
@@ -317,8 +310,8 @@ void load_weights(struct network *net, char *filename)
     fread(&major, sizeof(int), 1, fp);
     fread(&minor, sizeof(int), 1, fp);
     fread(&revision, sizeof(int), 1, fp);
-    fread(&(net->seen), sizeof(int), 1, fp);
-    printf("\nweights version info: major: %d, minor: %d, revision: %d\n", major, minor, revision);
+    fread(&(net->seen), sizeof(size_t), 1, fp);
+    printf("weights version info: major: %d, minor: %d, revision: %d, net->seen: %lu\n", major, minor, revision, net->seen);
 
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){

@@ -40,7 +40,8 @@ convolutional_layer *parse_convolutional(struct list *options, struct network *n
         c = m.c;
         if (h == 0) error("Layer before convolutional layer must output image.");
     }
-    convolutional_layer *layer = make_convolutional_layer(h, w, c, n, size, stride, activation);
+    convolutional_layer *layer = make_convolutional_layer(
+    		h, w, c, n, size, stride, activation, &(net->workspace_size));
     option_unused(options);
     return layer;
 }
@@ -54,7 +55,7 @@ connected_layer *parse_connected(struct list *options, struct network *net, int 
     if(count == 0){
         input = option_find_int(options, "input",1);
     }else{
-        input =  get_network_output_size_layer(net, count-1);
+        input = get_network_output_size_layer(net, count-1);
     }
     connected_layer *layer = make_connected_layer(input, output, activation);
     option_unused(options);
@@ -305,8 +306,7 @@ struct network *parse_network_cfg(char *filename)
         ++count;
         n = n->next;
     }
+    net->workspace = calloc(1, net->workspace_size);
     free_list(sections);
-    net->outputs = get_network_output_size(net);
-    net->output = get_network_output(net);
     return net;
 }

@@ -72,13 +72,9 @@ void gemm_tt(int M, int N, int K, float ALPHA,
 
 
 /* C = ALPHA * A * B + BETA * C,     C: M * N,      lda ldb ldc is the column of A B C */
-void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA, 
-        float *A, int lda, 
-        float *B, int ldb,
-        float BETA,
-        float *C, int ldc)
+void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
+        float *A, int lda, float *B, int ldb, float BETA, float *C, int ldc)
 {
-    //printf("cpu: %d %d %d %d %d %f %d %d %f %d\n",TA, TB, M, N, K, ALPHA, lda, ldb, BETA, ldc);
     int i, j;
     for(i = 0; i < M; ++i){
         for(j = 0; j < N; ++j){
@@ -99,11 +95,8 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
 #ifdef GPU
 #include "cuda.h"
 
-void gemm_gpu(int TA, int TB, int M, int N, int K, float ALPHA, 
-        float *A_gpu, int lda, 
-        float *B_gpu, int ldb,
-        float BETA,
-        float *C_gpu, int ldc)
+void gemm_gpu(int TA, int TB, int M, int N, int K, float ALPHA, float *A_gpu, int lda,
+        float *B_gpu, int ldb, float BETA, float *C_gpu, int ldc)
 {
     cublasHandle_t handle = blas_handle();
     cudaError_t status = cublasSgemm(handle, (TB ? CUBLAS_OP_T : CUBLAS_OP_N), 

@@ -86,7 +86,7 @@ typedef struct {
 struct network{
     int n;                  // the size of network
     int max_batches; // max iteration times of batch
-    int seen;    // the number of image processed
+    size_t seen;    // the number of image processed
     int batch;   // the number of batch processed
     int batch_train;   // the number of batch trained
     int w, h, c;
@@ -95,38 +95,31 @@ struct network{
     float *truth;  // train data label
     int correct_num;
     int correct_num_count;
+    float *workspace;  // for convolutional_layer image reorder
+    size_t workspace_size;
 
     enum learning_rate_policy policy;
     float learning_rate;
     float momentum;
     float decay;
-
     float *scales; // for STEP STEPS learning_rate_policy
     int   *steps;
     int num_steps;
 
     void **layers;
     enum LAYER_TYPE *layers_type;
-    int inputs;
-    int outputs;
-    float *output;
 };
-void forward_cost_layer(const cost_layer *l, float *input, struct network *net);
 void forward_avgpool_layer(const avgpool_layer *l, float *in);
 void backward_avgpool_layer(const avgpool_layer *l, float *delta);
+void forward_cost_layer(const cost_layer *l, float *input, struct network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
 
-
 struct network *make_network(int n);
-void forward_network(struct network *net, float *input);
-void learn_network(struct network *net, float *input);
-void update_network(struct network *net, float step);
 void train_network_batch(struct network *net, batch b);
 int get_network_output_size_layer(struct network *net, int i);
-int get_network_output_size(struct network *net);
 image get_network_image_layer(struct network *net, int i);
-float *get_network_output(struct network *net);
 float get_current_learning_rate(struct network * net);
-
+void save_weights(struct network *net, char *filename);
+void load_weights(struct network *net, char *filename);
 #endif
 

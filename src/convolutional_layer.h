@@ -1,34 +1,32 @@
 #ifndef CONVOLUTIONAL_LAYER_H
 #define CONVOLUTIONAL_LAYER_H
 
-#include "image.h"
+#include <stdlib.h>
+#include <string.h>
+
 #include "activations.h"
+#include "gemm.h"
+#include "utils.h"
 
 typedef struct {
     int h,w,c;
     int n, size;
     int stride;
-    image *weights;
-    image *weight_updates;
-    image *weight_momentum;
+    int out_h, out_w;
+    float *delta;
+    float *output;
+    float *weights;
+    float *weight_updates;
+    float *weight_momentum;
     float *biases;
     float *bias_updates;
     float *bias_momentum;
-    float *delta;
-    float *output;
-
     ACTIVATION activation;
 } convolutional_layer;
 
-convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, ACTIVATION activation);
-void forward_convolutional_layer(const convolutional_layer *layer, float *in);
-void backward_convolutional_layer(const convolutional_layer *layer, float *delta);
-void learn_convolutional_layer(const convolutional_layer *layer, float *input);
-
+convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride,
+		ACTIVATION activation, size_t *workspace_size);
+void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace);
+void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace);
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay);
-
-image get_convolutional_image(const convolutional_layer *layer);
-image get_convolutional_delta(const convolutional_layer *layer);
-
 #endif
-
