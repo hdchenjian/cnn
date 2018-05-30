@@ -1,12 +1,12 @@
+#include <unistd.h>
+#include <sys/time.h>
+#include <assert.h>
+
 #include "utils.h"
 #include "parser.h"
 #include "data.h"
 #include "option_list.h"
-
-#include <unistd.h>
-
-#include <sys/time.h>
-#include <assert.h>
+#include "network.h"
 
 void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear)
 {
@@ -25,6 +25,9 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         nets[i] = parse_network_cfg(cfgfile);;
     }
     struct network *net = nets[0];
+	if(weightfile && weightfile[0] != 0){
+	    load_weights(net, weightfile);
+	}
     struct list *options = read_data_cfg(datacfg);
     char *backup_directory = option_find_str(options, "backup", "/backup/");
     char *label_list = option_find_str(options, "labels", "data/labels.list");
@@ -106,6 +109,9 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 #endif
 
 	struct network *net = parse_network_cfg(cfgfile);
+	if(weightfile && weightfile[0] != 0){
+	    load_weights(net, weightfile);
+	}
 	net->test = 1;
 	struct list *options = read_data_cfg(datacfg);
 	char *label_list = option_find_str(options, "labels", "data/labels.list");
