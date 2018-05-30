@@ -60,7 +60,7 @@ void resize_cost_layer(cost_layer *l, int inputs)
 
 void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
 {
-    if (net->test) return;
+    if (net->test == 2) return;
     if(l->cost_type == MASKED){
         for(int i = 0; i < l->batch*l->inputs; ++i){
             if(net->truth[i] == SECRET_NUM) input[i] = SECRET_NUM;

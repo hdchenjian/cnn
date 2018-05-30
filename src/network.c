@@ -8,6 +8,7 @@ struct network *make_network(int n)
     net->layers_type = calloc(net->n, sizeof(enum LAYER_TYPE));
     net->batch = 1;
     net->seen = 0;
+    net->test = 0;
     net->batch_train = 0;
     net->correct_num = 0;
     net->correct_num_count = 0;
@@ -167,6 +168,18 @@ void train_network_batch(struct network *net, batch b)
         net->correct_num_count = 0;
         net->correct_num = 0;
     }
+    net->batch_train += 1;
+}
+
+void valid_network(struct network *net, batch b)
+{
+    for(int i = 0; i < b.n; ++i){
+        //show_image(b.images[i], "Input");
+        net->truth = b.truth[i];
+        forward_network(net, b.images[i].data);
+    }
+    net->seen += net->batch;
+    net->correct_num_count += net->batch;
     net->batch_train += 1;
 }
 

@@ -90,7 +90,7 @@ struct network{
     int batch;   // the number of batch processed
     int batch_train;   // the number of batch trained
     int w, h, c;
-    int test;    // 0: train, 1: test
+    int test;    // 0: train, 1: valid, 2: test
     int classes;    // train data classes
     float *truth;  // train data label
     int correct_num;
@@ -116,6 +116,7 @@ void backward_cost_layer(const cost_layer *l, float *delta);
 
 struct network *make_network(int n);
 void train_network_batch(struct network *net, batch b);
+void valid_network(struct network *net, batch b);
 int get_network_output_size_layer(struct network *net, int i);
 image get_network_image_layer(struct network *net, int i);
 float get_current_learning_rate(struct network * net);
