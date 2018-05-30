@@ -83,10 +83,6 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
     if(net->truth[max_i] > 0.99F) net->correct_num += 1;
 
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);
-    /*
-    for(int i = 0; i < l->batch*l->inputs; ++i){
-        printf("forward_cost_layer: %f %f %f %f\n", net->truth[i], input[i], l->delta[i], l->output[i]);
-    }*/
 }
 
 void backward_cost_layer(const cost_layer *l, float *delta)

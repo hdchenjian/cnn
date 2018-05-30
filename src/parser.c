@@ -41,7 +41,7 @@ convolutional_layer *parse_convolutional(struct list *options, struct network *n
         if (h == 0) error("Layer before convolutional layer must output image.");
     }
     convolutional_layer *layer = make_convolutional_layer(
-        h, w, c, n, size, stride, activation, &(net->workspace_size));
+        h, w, c, n, size, stride, net->batch, activation, &(net->workspace_size));
     option_unused(options);
     return layer;
 }
@@ -57,7 +57,7 @@ connected_layer *parse_connected(struct list *options, struct network *net, int 
     }else{
         input = get_network_output_size_layer(net, count-1);
     }
-    connected_layer *layer = make_connected_layer(input, output, activation);
+    connected_layer *layer = make_connected_layer(input, output, net->batch, activation);
     option_unused(options);
     return layer;
 }
@@ -77,7 +77,7 @@ maxpool_layer *parse_maxpool(struct list *options, struct network *net, int coun
         c = m.c;
         if(h == 0) error("Layer before maxpool layer must output image.");
     }
-    maxpool_layer *layer = make_maxpool_layer(h,w,c,stride);
+    maxpool_layer *layer = make_maxpool_layer(h,w,c,stride,net->batch);
     option_unused(options);
     return layer;
 }
@@ -104,7 +104,7 @@ softmax_layer *parse_softmax(struct list *options, struct network *net, int coun
     }else{
         input =  get_network_output_size_layer(net, count-1);
     }
-    softmax_layer *layer = make_softmax_layer(input);
+    softmax_layer *layer = make_softmax_layer(input ,net->batch);
     option_unused(options);
     return layer;
 }
@@ -229,6 +229,7 @@ void parse_net_options(struct list *options, struct network *net)
         exit(-1);
     }
     net->max_batches = option_find_int(options, "max_batches", 0);
+    net->batch = option_find_int(options, "batch", 0);
     char *policy_s = option_find_str(options, "policy", "constant");
     net->policy = get_policy(policy_s);
     if (net->policy == STEPS){

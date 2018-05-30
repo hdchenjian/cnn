@@ -7,12 +7,12 @@
 #include <float.h>
 
 typedef struct {
-    int inputs;
+    int inputs, batch;
     float *delta;
     float *output;
 } softmax_layer;
 
-softmax_layer *make_softmax_layer(int inputs);
+softmax_layer *make_softmax_layer(int inputs, int batch);
 void forward_softmax_layer(const softmax_layer *layer, float *input);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
 

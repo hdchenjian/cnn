@@ -31,18 +31,6 @@ extern int gpu_index;
     #endif
 #endif
 
-#ifndef __cplusplus
-    #ifdef OPENCV
-    #include "opencv2/highgui/highgui_c.h"
-    #include "opencv2/imgproc/imgproc_c.h"
-    #include "opencv2/core/version.hpp"
-    #if CV_MAJOR_VERSION == 3
-    #include "opencv2/videoio/videoio_c.h"
-    #include "opencv2/imgcodecs/imgcodecs_c.h"
-    #endif
-    #endif
-#endif
-
 enum COST_TYPE{
     SSE, MASKED, L1, SEG, SMOOTH
 };
@@ -73,10 +61,8 @@ typedef struct {
 } avgpool_layer;
 
 typedef struct {
+    int batch,inputs, outputs;
     float scale;
-    int batch;
-    int inputs;
-    int outputs;
     float *delta;
     float *output;
     enum COST_TYPE cost_type;

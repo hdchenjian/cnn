@@ -50,8 +50,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 	}
     double time;
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
-    printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d\n\n\n",
-    		net->seen, train_set_size, net->max_batches, net->classes);
+    printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d, net->batch: %d\n\n",
+    		net->seen, train_set_size, net->max_batches, net->classes, net->batch);
 
     float avg_loss = -1;
     while(net->seen < net->max_batches || net->max_batches == 0){

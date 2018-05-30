@@ -6,7 +6,6 @@ struct network *make_network(int n)
     net->n = n;
     net->layers = calloc(net->n, sizeof(void *));
     net->layers_type = calloc(net->n, sizeof(enum LAYER_TYPE));
-    net->batch = 1;
     net->seen = 0;
     net->test = 0;
     net->batch_train = 0;
@@ -193,7 +192,7 @@ int get_network_output_size_layer(struct network *net, int i)
         return layer->outputs;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-        image output = get_maxpool_image(layer);
+        image output = get_maxpool_image(layer, net->batch - 1);
         return output.h*output.w*output.c;
     }else if(net->layers_type[i] == AVGPOOL){
         avgpool_layer *layer = (avgpool_layer *)net->layers[i];
@@ -222,7 +221,7 @@ image get_network_image_layer(struct network *net, int i)
         return im;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-        return get_maxpool_image(layer);
+        return get_maxpool_image(layer, net->batch - 1);
     } else {
         printf("get_network_image_layer layers_type error, layer: %d\n", i);
         exit(-1);

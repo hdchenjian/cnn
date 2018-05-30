@@ -479,26 +479,13 @@ void save_image_png(image im, const char *name)
 
 void save_image(image im, const char *name)
 {
-#ifdef OPENCV
-    save_image_jpg(im, name);
-#else
     save_image_png(im, name);
-#endif
 }
 
 void show_image(image p, const char *name)
 {
-#ifdef OPENCV
-    IplImage *disp = cvCreateImage(cvSize(p.w,p.h), IPL_DEPTH_8U, p.c);
-    image copy = copy_image(p);
-    constrain_image(copy);
-    show_image_cv(copy, name, disp);
-    free_image(copy);
-    cvReleaseImage(&disp);
-#else
     fprintf(stderr, "Not compiled with OpenCV, saving to %s.png instead\n", name);
     save_image(p, name);
-#endif
 }
 
 void show_image_layers(image p, char *name)
@@ -708,11 +695,7 @@ void composite_3d(char *f1, char *f2, char *out, int delta)
     for(i = 0; i < c.w*c.h; ++i){
         c.data[i] = a.data[i];
     }
-#ifdef OPENCV
-    save_image_jpg(c, out);
-#else
     save_image(c, out);
-#endif
 }
 
 void letterbox_image_into(image im, int w, int h, image boxed)
