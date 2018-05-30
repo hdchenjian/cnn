@@ -25,7 +25,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         nets[i] = parse_network_cfg(cfgfile);;
     }
     struct network *net = nets[0];
-	if(weightfile && weightfile[0] != 0){
+    if(weightfile && weightfile[0] != 0){
 	    load_weights(net, weightfile);
 	}
     struct list *options = read_data_cfg(datacfg);
@@ -82,7 +82,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 		}
         avg_loss = avg_loss*.9 + loss*.1;
         net->learning_rate = get_current_learning_rate(net);
-        fprintf(stderr, "batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, seen %lu images\n",
+        printf("batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, seen %lu images\n",
         		net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss,
 				net->learning_rate, what_time_is_it_now()-time, net->seen);
     }
@@ -113,6 +113,8 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 	    load_weights(net, weightfile);
 	}
 	net->test = 1;
+
+
 	struct list *options = read_data_cfg(datacfg);
 	char *label_list = option_find_str(options, "labels", "data/labels.list");
 	char **labels = get_labels(label_list);
@@ -165,7 +167,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 		}
 		avg_loss = avg_loss*.9 + loss*.1;
 		//net->learning_rate = get_current_learning_rate(net);
-		fprintf(stderr, "batch: %d, accuracy: %d / %d = %.4f, loss: %f, avg_loss: %f avg, %lf seconds\n",
+		printf("batch: %d, accuracy: %d / %d = %.4f, loss: %f, avg_loss: %f avg, %lf seconds\n",
 				net->batch_train, net->correct_num, net->correct_num_count,
 				net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss, what_time_is_it_now()-time);
 		valid_set_size -= 1;

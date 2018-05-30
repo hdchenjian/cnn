@@ -212,15 +212,15 @@ int get_network_output_size_layer(struct network *net, int i)
 
 image get_network_image_layer(struct network *net, int i)
 {
-	image im;
-	if(net->layers_type[i] == CONVOLUTIONAL){
-		convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-		im.h = layer->out_h;
-		im.w = layer->out_w;
-		im.c = layer->n;
-		im.data = layer->output;
-		return im;
-	} else if(net->layers_type[i] == MAXPOOL){
+    image im;
+    if(net->layers_type[i] == CONVOLUTIONAL){
+        convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+        im.h = layer->out_h;
+        im.w = layer->out_w;
+        im.c = layer->n;
+        im.data = layer->output;
+        return im;
+    } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         return get_maxpool_image(layer);
     } else {
@@ -323,7 +323,7 @@ void load_weights(struct network *net, char *filename)
     fread(&major, sizeof(int), 1, fp);
     fread(&minor, sizeof(int), 1, fp);
     fread(&revision, sizeof(int), 1, fp);
-    fread(&(net->seen), sizeof(size_t), 1, fp);
+    fread(&net->seen, sizeof(size_t), 1, fp);
     printf("weights version info: major: %d, minor: %d, revision: %d, net->seen: %lu\n", major, minor, revision, net->seen);
 
     for(int i = 0; i < net->n; ++i){

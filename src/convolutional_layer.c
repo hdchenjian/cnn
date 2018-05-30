@@ -1,7 +1,7 @@
 #include "convolutional_layer.h"
 
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride,
-		ACTIVATION activation, size_t *workspace_size)
+        ACTIVATION activation, size_t *workspace_size)
 {
     convolutional_layer *layer = calloc(1, sizeof(convolutional_layer));
     layer->h = h;
@@ -90,7 +90,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace)
 {
     for(int i = 0; i < layer->out_h * layer->out_w * layer->n; ++i){
-    	layer->delta[i] *= gradient(layer->output[i], layer->activation);
+        layer->delta[i] *= gradient(layer->output[i], layer->activation);
     }
     for(int i = 0; i < layer->n; ++i){
         layer->bias_updates[i] += sum_array(layer->delta + layer->out_h * layer->out_w * i, layer->out_h * layer->out_w);
@@ -111,9 +111,9 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
 
     if (delta) {  // not first layer
         memset(delta, 0, layer->h * layer->w * layer->c * sizeof(float));
-    	m = layer->size*layer->size*layer->c;
-    	n = layer->out_w * layer->out_h;
-    	k = layer->n;
+        m = layer->size*layer->size*layer->c;
+        n = layer->out_w * layer->out_h;
+        k = layer->n;
         a = layer->weights;
         b = layer->delta;
         c = workspace;
@@ -135,9 +135,9 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
         layer->biases[i] += layer->bias_momentum[i];
         layer->bias_updates[i] = 0;
         for(int j = 0; j < weight_pixel; ++j){
-        	int index = i * weight_pixel + j;
+            int index = i * weight_pixel + j;
             layer->weight_momentum[index] = learning_rate*(layer->weight_updates[index] - decay*layer->weights[index])
-            		+ momentum*layer->weight_momentum[index];
+                + momentum*layer->weight_momentum[index];
             layer->weights[index] += layer->weight_momentum[index];
         }
     }

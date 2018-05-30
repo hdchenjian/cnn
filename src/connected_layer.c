@@ -26,13 +26,13 @@ connected_layer *make_connected_layer(int inputs, int outputs, ACTIVATION activa
 void forward_connected_layer(connected_layer *layer, float *input)
 {
     memcpy(layer->output, layer->biases, layer->outputs*sizeof(float));
-	float *a = input;
-	float *b = layer->weights;  // layer->inputs is the number of rows
-	float *c = layer->output;
-	int m = 1;
-	int n = layer->outputs;
-	int k = layer->inputs;
-	gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
+    float *a = input;
+    float *b = layer->weights;  // layer->inputs is the number of rows
+    float *c = layer->output;
+    int m = 1;
+    int n = layer->outputs;
+    int k = layer->inputs;
+    gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
     for(int i = 0; i < layer->outputs; ++i){
         layer->output[i] = activate(layer->output[i], layer->activation);
     }
@@ -57,10 +57,10 @@ void update_connected_layer(connected_layer *layer, float step, float momentum, 
 
 void backward_connected_layer(connected_layer *layer, float *input, float *delta)
 {
-	for(int i = 0; i < layer->outputs; ++i){
-	    layer->delta[i] *= gradient(layer->output[i], layer->activation);
-	    layer->bias_updates[i] += layer->delta[i];
-	}
+    for(int i = 0; i < layer->outputs; ++i){
+        layer->delta[i] *= gradient(layer->output[i], layer->activation);
+        layer->bias_updates[i] += layer->delta[i];
+    }
     int m = layer->inputs;
     int n = layer->outputs;
     int k = 1;
@@ -70,13 +70,13 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
     gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
 
     if(delta) {
-		memset(delta, 0, layer->inputs*sizeof(float));
-		m = layer->inputs;
-		n = 1;
-		k = layer->outputs;
-		a = layer->weights;  // layer->inputs is the number of rows
-		b = layer->delta;
-		c = delta;
-		gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
+        memset(delta, 0, layer->inputs*sizeof(float));
+        m = layer->inputs;
+        n = 1;
+        k = layer->outputs;
+        a = layer->weights;  // layer->inputs is the number of rows
+        b = layer->delta;
+        c = delta;
+        gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
 }
