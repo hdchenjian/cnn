@@ -9,12 +9,7 @@ avgpool_layer *make_avgpool_layer(int batch, int w, int h, int c)
     l->h = h;
     l->w = w;
     l->c = c;
-    l->out_w = 1;
-    l->out_h = 1;
-    l->out_c = c;
-    l->outputs = l->out_c;
-    l->inputs = h*w*c;
-    int output_size = l->outputs * batch;
+    int output_size = c * batch;
     l->output =  calloc(output_size, sizeof(float));
     l->delta =   calloc(output_size, sizeof(float));
     #ifdef GPU
@@ -28,14 +23,11 @@ void resize_avgpool_layer(avgpool_layer *l, int w, int h)
 {
     l->w = w;
     l->h = h;
-    l->inputs = h*w*l->c;
 }
 
 void forward_avgpool_layer(const avgpool_layer *l, float *in)
 {
     int b,i,k;
-    //float max = 0.0F;
-    //float min = 0.0F;
     for(b = 0; b < l->batch; ++b){
         for(k = 0; k < l->c; ++k){
             int out_index = k + b*l->c;
@@ -45,12 +37,8 @@ void forward_avgpool_layer(const avgpool_layer *l, float *in)
                 l->output[out_index] += in[in_index];
             }
             l->output[out_index] /= l->h*l->w;
-            //if(l->output[out_index] > max) max = l->output[out_index];
-            //if(l->output[out_index] < min) min = l->output[out_index];
-            //printf("forward_avgpool_layer %f   ", l->output[out_index]);
         }
     }
-    //printf("forward_avgpool_layer %f %f\n", max, min);
 }
 
 void backward_avgpool_layer(const avgpool_layer *l, float *delta)
@@ -70,4 +58,3 @@ void backward_avgpool_layer(const avgpool_layer *l, float *delta)
         }
     }
 }
-

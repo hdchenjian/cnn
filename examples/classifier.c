@@ -42,7 +42,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 	batch *all_train_data;
 	if(0 == train_data_type) {
 		train_set_size = option_find_int(options, "train_num", 0);
-		all_train_data = load_csv_image_to_memory(train_list, 1, labels, net->classes, train_set_size);
+		all_train_data = load_csv_image_to_memory(train_list, net->batch, labels, net->classes, train_set_size);
 	} else {
 		plist = get_paths(train_list);
 		paths = (char **)list_to_array(plist);

@@ -5,7 +5,7 @@
 
 typedef struct{
     int n;  // number of image
-    image *images;
+    image **images;
     float **truth;
 } batch;
 

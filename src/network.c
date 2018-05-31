@@ -157,8 +157,8 @@ void train_network_batch(struct network *net, batch b)
     for(int i = 0; i < b.n; ++i){
         //show_image(b.images[i], "Input");
         net->truth = b.truth[i];
-        forward_network(net, b.images[i].data);
-        backward_network(net, b.images[i].data);
+        forward_network(net, b.images[i]->data);
+        backward_network(net, b.images[i]->data);
         update_network(net, .001);
     }
     net->seen += net->batch;
@@ -175,7 +175,7 @@ void valid_network(struct network *net, batch b)
     for(int i = 0; i < b.n; ++i){
         //show_image(b.images[i], "Input");
         net->truth = b.truth[i];
-        forward_network(net, b.images[i].data);
+        forward_network(net, b.images[i]->data);
     }
     net->seen += net->batch;
     net->correct_num_count += net->batch;
@@ -196,7 +196,7 @@ int get_network_output_size_layer(struct network *net, int i)
         return output.h*output.w*output.c;
     }else if(net->layers_type[i] == AVGPOOL){
         avgpool_layer *layer = (avgpool_layer *)net->layers[i];
-        return layer->outputs;
+        return layer->c;
     }else if(net->layers_type[i] == SOFTMAX){
         softmax_layer *layer = (softmax_layer *)net->layers[i];
         return layer->inputs;

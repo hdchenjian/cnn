@@ -49,12 +49,7 @@ enum LAYER_TYPE{
 };
 
 typedef struct {
-    int h,w,c;
-    int batch;
-    int inputs;
-    int stride;
-    int out_h, out_w, out_c;
-    int outputs;
+    int h,w,c,batch;
     float *delta;
     float *output;
     enum LAYER_TYPE type;

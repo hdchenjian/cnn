@@ -72,17 +72,18 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
         l2_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
     }
 
-    int max_i = 0;
-    double max = input[0];
-    for(int j = 0; j < net->classes; ++j){
-        if(input[j] > max){
-            max = input[j];
-            max_i = j;
-        }
+    for(int b = 0; b < l->batch; ++b){
+		int max_i = 0;
+		double max = input[b * l->inputs];
+		for(int j = 0; j < net->classes; ++j){
+			if(input[j + b * l->inputs] > max){
+				max = input[j + b * l->inputs];
+				max_i = j;
+			}
+		}
+		if(net->truth[max_i + b * l->inputs] > 0.99F) net->correct_num += 1;
     }
-    if(net->truth[max_i] > 0.99F) net->correct_num += 1;
-
-    l->cost[0] = sum_array(l->output, l->batch*l->inputs);
+    l->cost[0] = sum_array(l->output, l->batch*l->inputs) / l->batch;
 }
 
 void backward_cost_layer(const cost_layer *l, float *delta)
