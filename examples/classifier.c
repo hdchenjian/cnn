@@ -36,13 +36,15 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     net->classes = option_find_int(options, "classes", 2);
 
     int train_set_size = 0;
+    int batch_num = 0;
 	int train_data_type = option_find_int(options, "train_data_type", 1);	//  0: csv, load to memory
 	char **paths = NULL;
 	struct list *plist = NULL;
 	batch *all_train_data;
 	if(0 == train_data_type) {
 		train_set_size = option_find_int(options, "train_num", 0);
-		all_train_data = load_csv_image_to_memory(train_list, net->batch, labels, net->classes, train_set_size);
+		all_train_data = load_csv_image_to_memory(train_list, net->batch, labels, net->classes,
+				train_set_size, &batch_num, net->w, net->h, net->c);
 	} else {
 		plist = get_paths(train_list);
 		paths = (char **)list_to_array(plist);
@@ -57,25 +59,32 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     while(net->seen < net->max_batches || net->max_batches == 0){
     	batch train;
     	if(0 == train_data_type) {
-            int index = rand() % train_set_size;
+            int index = rand() % batch_num;
     		train = all_train_data[index];
-    		/*
-        	for(int i = 0; i < net->classes; i++) {
-        		if(train.truth[0][i] > 0.1) printf("input class: %d %f\n", i, train.truth[0][i]);
-        	}*/
         	train_network_batch(net, train);
-    		//save_image_png(train.images[0], "input.jpg");
-        	//sleep(1);
+
+        	/*
+        	for(int i = 0; i < net->classes * net->batch; i++) {
+        		if(train.truth[i] > -9999999) printf("input class: %d %f\n", i, train.truth[i]);
+        	}
+        	image tmp;
+        	tmp.w = train.w;
+        	tmp.h = train.h;
+        	tmp.c = train.c;
+        	tmp.data = train.data;
+    		save_image_png(tmp, "input.jpg");
+        	tmp.data = train.data + tmp.w * tmp.h * tmp.c;
+    		save_image_png(tmp, "input0.jpg");
+        	sleep(3);*/
     	} else {
-        	train = random_batch(paths, 1, labels, net->classes, train_set_size);
+        	train = random_batch(paths, 1, labels, net->classes, train_set_size, net->w, net->h, net->c);
         	train_network_batch(net, train);
         	free_batch(train);
     	}
         time = what_time_is_it_now();
         float loss = 0;
         if(avg_loss == -1) avg_loss = loss;
-    	cost_layer *layer = (cost_layer *)net->layers[net->n - 1];
-        loss = layer->cost[0];
+        loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
 			printf("\n\nloss too large: %f, exit\n", loss);
 			exit(-1);
@@ -122,13 +131,15 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 	net->classes = option_find_int(options, "classes", 2);
 
 	int valid_set_size = 0;
+    int batch_num = 0;
 	int train_data_type = option_find_int(options, "train_data_type", 1);	//  0: csv, load to memory
 	char **paths = NULL;
 	struct list *plist = NULL;
 	batch *all_train_data;
 	if(0 == train_data_type) {
 		valid_set_size = option_find_int(options, "valid_num", 0);
-		all_train_data = load_csv_image_to_memory(valid_list, 1, labels, net->classes, valid_set_size);
+		all_train_data = load_csv_image_to_memory(valid_list, 1, labels, net->classes, valid_set_size, &batch_num,
+				net->w, net->h, net->c);
 	} else {
 		plist = get_paths(valid_list);
 		paths = (char **)list_to_array(plist);
@@ -152,7 +163,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 			//save_image_png(train.images[0], "input.jpg");
 			//sleep(1);
 		} else {
-			valid_image = random_batch(paths, 1, labels, net->classes, valid_set_size);
+			valid_image = random_batch(paths, 1, labels, net->classes, valid_set_size, net->w, net->h, net->c);
 			valid_network(net, valid_image);
 			free_batch(valid_image);
 		}

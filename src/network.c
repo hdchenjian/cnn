@@ -54,7 +54,7 @@ void forward_network(struct network *net, float *input)
             input = layer->output;
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
-            forward_softmax_layer(layer, input);
+            forward_softmax_layer(layer, input, net);
             input = layer->output;
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
@@ -154,13 +154,11 @@ void backward_network(struct network *net, float *input)
 
 void train_network_batch(struct network *net, batch b)
 {
-    for(int i = 0; i < b.n; ++i){
-        //show_image(b.images[i], "Input");
-        net->truth = b.truth[i];
-        forward_network(net, b.images[i]->data);
-        backward_network(net, b.images[i]->data);
-        update_network(net, .001);
-    }
+	//show_image(b.images[i], "Input");
+	net->truth = b.truth;
+	forward_network(net, b.data);
+	backward_network(net, b.data);
+	update_network(net, .001);
     net->seen += net->batch;
     net->correct_num_count += net->batch;
     if(net->correct_num_count > 1000){
@@ -174,8 +172,8 @@ void valid_network(struct network *net, batch b)
 {
     for(int i = 0; i < b.n; ++i){
         //show_image(b.images[i], "Input");
-        net->truth = b.truth[i];
-        forward_network(net, b.images[i]->data);
+        net->truth = b.truth;
+        forward_network(net, b.data);
     }
     net->seen += net->batch;
     net->correct_num_count += net->batch;

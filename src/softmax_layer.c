@@ -8,10 +8,12 @@ softmax_layer *make_softmax_layer(int inputs, int batch)
     layer->batch = batch;
     layer->output = calloc(batch * inputs, sizeof(float));
     layer->delta = calloc(batch * inputs, sizeof(float));
+    layer->loss = calloc(inputs*batch, sizeof(float));
+    layer->cost = calloc(1, sizeof(float));
     return layer;
 }
 
-void forward_softmax_layer(const softmax_layer *layer, float *input)
+void forward_softmax_layer(const softmax_layer *layer, float *input, struct network *net)
 {
     int i;
 	for(int b = 0; b < layer->batch; b++){
@@ -28,8 +30,24 @@ void forward_softmax_layer(const softmax_layer *layer, float *input)
 		}
 		for(i = 0; i < layer->inputs; ++i){
 			layer->output[i + index] /= sum;
+			//printf("%f\n", layer->output[i + index]);
 		}
 	}
+
+    for(int b = 0; b < layer->batch; ++b){
+		int max_i = 0;
+		double max = input[b * layer->inputs];
+		for(int j = 0; j < net->classes; ++j){
+			if(input[j + b * layer->inputs] > max){
+				max = input[j + b * layer->inputs];
+				max_i = j;
+			}
+		}
+		if(net->truth[max_i + b * layer->inputs] > 0.99F) net->correct_num += 1;
+    }
+	softmax_x_ent_cpu(layer->batch*layer->inputs, layer->output, net->truth, layer->delta, layer->loss);
+	layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
+	net->loss = layer->cost[0];
 }
 
 void backward_softmax_layer(const softmax_layer *layer, float *delta)

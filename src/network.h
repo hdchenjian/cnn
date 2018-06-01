@@ -8,7 +8,6 @@
 #include "convolutional_layer.h"
 #include "connected_layer.h"
 #include "maxpool_layer.h"
-#include "softmax_layer.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -56,6 +55,14 @@ typedef struct {
 } avgpool_layer;
 
 typedef struct {
+    int inputs, batch;
+    float *delta;
+    float *output;
+    float * loss;
+    float *cost;
+} softmax_layer;
+
+typedef struct {
     int batch,inputs, outputs;
     float scale;
     float *delta;
@@ -78,6 +85,7 @@ struct network{
     int correct_num_count;
     float *workspace;  // for convolutional_layer image reorder
     size_t workspace_size;
+    float loss;
 
     enum learning_rate_policy policy;
     float learning_rate;
@@ -94,6 +102,8 @@ void forward_avgpool_layer(const avgpool_layer *l, float *in);
 void backward_avgpool_layer(const avgpool_layer *l, float *delta);
 void forward_cost_layer(const cost_layer *l, float *input, struct network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
+void forward_softmax_layer(const softmax_layer *layer, float *input, struct network *net);
+void backward_softmax_layer(const softmax_layer *layer, float *delta);
 
 struct network *make_network(int n);
 void train_network_batch(struct network *net, batch b);

@@ -139,7 +139,9 @@ void l2_cpu(int n, float *pred, float *truth, float *delta, float *error)
         float diff = truth[i] - pred[i];
         error[i] = diff * diff;
         delta[i] = diff;
+        //printf("%d %f %f %f\n", i, truth[i], pred[i], delta[i]);
     }
+    //printf("\n");
 }
 
 float dot_cpu(int N, float *X, int INCX, float *Y, int INCY)
@@ -150,3 +152,13 @@ float dot_cpu(int N, float *X, int INCX, float *Y, int INCY)
     return dot;
 }
 
+void softmax_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *error)
+{
+    int i;
+    for(i = 0; i < n; ++i){
+        float t = truth[i];
+        float p = pred[i];
+        error[i] = (t) ? -log(p) : 0;
+        delta[i] = t-p;
+    }
+}

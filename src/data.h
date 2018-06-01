@@ -5,17 +5,17 @@
 
 typedef struct{
     int n;  // number of image
-    image **images;
-    float **truth;
+    int h;
+    int w;
+    int c;
+    float *data;
+    float *truth;
 } batch;
 
-batch get_all_data(char *filename, char **labels, int k);
-batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size);
-batch get_batch(char *filename, int curr, int total, char **labels, int k);
+batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size, int w, int h, int c);
 void free_batch(batch b);
 char **get_labels(char *filename);
 struct list *get_paths(char *filename);
-batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size);
-
-
+batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size,
+		int *batch_num_return, int w, int h, int c);
 #endif

@@ -6,14 +6,10 @@
 #include <stdio.h>
 #include <float.h>
 
-typedef struct {
-    int inputs, batch;
-    float *delta;
-    float *output;
-} softmax_layer;
+#include "network.h"
 
 softmax_layer *make_softmax_layer(int inputs, int batch);
-void forward_softmax_layer(const softmax_layer *layer, float *input);
+void forward_softmax_layer(const softmax_layer *layer, float *input, struct network *net);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
 
 #endif
