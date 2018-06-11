@@ -1,4 +1,5 @@
 #include "convolutional_layer.h"
+#include <float.h>
 
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
         ACTIVATION activation, size_t *workspace_size)
@@ -14,6 +15,9 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->weights = calloc(c*n*size*size, sizeof(float));
     float scale = sqrt(2.0F/(size*size*c));
     for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_normal();
+    //scale = 1.0F/(size*size*c);
+    //for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_uniform(0, 1);
+
     layer->weight_updates = calloc(c*n*size*size, sizeof(float));
     layer->biases = calloc(n, sizeof(float));
     layer->bias_updates = calloc(n, sizeof(float));
@@ -94,6 +98,13 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
 		}
 	}
     for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
+    float max = -FLT_MAX;
+    float min = FLT_MAX;
+    for(int i = 0; i < layer->batch * m*n; ++i){
+    	if(layer->output[i] > max) max = layer->output[i];
+    	if(layer->output[i] < min) min = layer->output[i];
+    }
+    //printf("forward_convolutional_layer max: %f, min: %f\n", max, min);
 }
 
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace)

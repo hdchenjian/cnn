@@ -12,10 +12,11 @@ typedef struct{
     float *truth;
 } batch;
 
-batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size, int w, int h, int c);
+batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size,
+		int w, int h, int c, float hue, float saturation, float exposure);
 void free_batch(batch b);
 char **get_labels(char *filename);
 struct list *get_paths(char *filename);
 batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size,
-		int *batch_num_return, int w, int h, int c);
+		int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure);
 #endif

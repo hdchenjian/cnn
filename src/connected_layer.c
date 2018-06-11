@@ -13,6 +13,8 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
     layer->weights = calloc(inputs*outputs, sizeof(float));  // layer->inputs is the number of rows
     float scale = sqrt(2.0F/inputs);
     for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = rand_normal() * scale;
+    //scale = 1.0F/(inputs);
+    //for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = scale*rand_uniform(0, 1);
     layer->weight_updates = calloc(inputs*outputs, sizeof(float));
     layer->biases = calloc(outputs, sizeof(float));
     layer->bias_updates = calloc(outputs, sizeof(float));

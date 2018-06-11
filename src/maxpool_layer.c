@@ -41,16 +41,16 @@ void forward_maxpool_layer(const maxpool_layer *layer, float *in)
 		image output = get_maxpool_image(layer, b);
 		int i,j,k;
 		for(i = 0; i < output.h*output.w*output.c; ++i) output.data[i] = -FLT_MAX;
-		//float max = 0.0F;
-		//float min = 0.0F;
+	    float max = -FLT_MAX;
+	    float min = FLT_MAX;
 		for(k = 0; k < input.c; ++k){
 			for(i = 0; i < input.h; ++i){
 				for(j = 0; j < input.w; ++j){
 					float val = get_pixel(input, i, j, k);
 					float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
 					if(val > cur) set_pixel(output, i/layer->stride, j/layer->stride, k, val);
-					//if(val > max) max = val;
-					//if(val < min) min = val;
+					if(val > max) max = val;
+					if(val < min) min = val;
 				}
 			}
 		}

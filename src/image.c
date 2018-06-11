@@ -1135,12 +1135,6 @@ image load_image_stb(char *filename, int channels)
     return im;
 }
 
-image load_image_me(char *filename)
-{
-    image out = load_image_stb(filename, 3);
-    return out;
-}
-
 void zero_image(image m)
 {
     memset(m.data, 0, m.h*m.w*m.c*sizeof(float));

@@ -21,7 +21,7 @@ void free_section(struct section *s)
     free(s);
 }
 
-convolutional_layer *parse_convolutional(struct list *options, struct network *net, int count)
+convolutional_layer *parse_convolutional(struct list *options, network *net, int count)
 {
     int h,w,c;
     int n = option_find_int(options, "filters", 1);
@@ -46,7 +46,7 @@ convolutional_layer *parse_convolutional(struct list *options, struct network *n
     return layer;
 }
 
-connected_layer *parse_connected(struct list *options, struct network *net, int count)
+connected_layer *parse_connected(struct list *options, network *net, int count)
 {
     char *activation_s = option_find_str(options, "activation", "sigmoid");
     ACTIVATION activation = get_activation(activation_s);
@@ -62,7 +62,7 @@ connected_layer *parse_connected(struct list *options, struct network *net, int 
     return layer;
 }
 
-maxpool_layer *parse_maxpool(struct list *options, struct network *net, int count)
+maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
 {
     int h,w,c;
     int stride = option_find_int(options, "stride",1);
@@ -82,7 +82,7 @@ maxpool_layer *parse_maxpool(struct list *options, struct network *net, int coun
     return layer;
 }
 
-avgpool_layer *parse_avgpool(struct list *options, struct network *net, int count)
+avgpool_layer *parse_avgpool(struct list *options, network *net, int count)
 {
     int w,h,c;
     image m =  get_network_image_layer(net, count-1);
@@ -96,7 +96,28 @@ avgpool_layer *parse_avgpool(struct list *options, struct network *net, int coun
     return layer;
 }
 
-softmax_layer *parse_softmax(struct list *options, struct network *net, int count)
+dropout_layer *parse_dropout(struct list *options, network *net, int count)
+{
+    float probability = option_find_float(options, "probability", .5);
+    int w,h,c;
+    image m =  get_network_image_layer(net, count-1);
+    w = m.w;
+    h = m.h;
+    c = m.c;
+    int input;
+    if(count == 0){
+        input = option_find_int(options, "input",1);
+    }else{
+        input = get_network_output_size_layer(net, count-1);
+    }
+    float *pre_output = get_network_layer_data(net, count - 1, 0);
+    float *pre_delta = get_network_layer_data(net, count - 1, 1);
+    dropout_layer *layer = make_dropout_layer(w, h, c, net->batch, input, probability, pre_output, pre_delta);
+    option_unused(options);
+    return layer;
+}
+
+softmax_layer *parse_softmax(struct list *options, network *net, int count)
 {
     int input;
     if(count == 0){
@@ -109,7 +130,7 @@ softmax_layer *parse_softmax(struct list *options, struct network *net, int coun
     return layer;
 }
 
-cost_layer *parse_cost(struct list *options, struct network *net, int count)
+cost_layer *parse_cost(struct list *options, network *net, int count)
 {
     char *type_s = option_find_str(options, "type", "sse");
     enum COST_TYPE type = get_cost_type(type_s);
@@ -216,7 +237,7 @@ enum learning_rate_policy get_policy(char *s)
     return CONSTANT;
 }
 
-void parse_net_options(struct list *options, struct network *net)
+void parse_net_options(struct list *options, network *net)
 {
     net->learning_rate = option_find_float(options, "learning_rate", .001);
     net->momentum = option_find_float(options, "momentum", .9);
@@ -228,6 +249,9 @@ void parse_net_options(struct list *options, struct network *net)
         fprintf(stderr, "Input image size error!\n");
         exit(-1);
     }
+    net->saturation = option_find_float(options, "saturation", 1);
+    net->exposure = option_find_float(options, "exposure", 1);
+    net->hue = option_find_float(options, "hue", 0);
     net->max_batches = option_find_int(options, "max_batches", 0);
     net->batch = option_find_int(options, "batch", 0);
     char *policy_s = option_find_str(options, "policy", "constant");
@@ -259,10 +283,10 @@ void parse_net_options(struct list *options, struct network *net)
     }
 }
 
-struct network *parse_network_cfg(char *filename)
+network *parse_network_cfg(char *filename)
 {
     struct list *sections = read_cfg(filename);
-    struct network *net = make_network(sections->size - 1);
+    network *net = make_network(sections->size - 1);
     struct node *n = sections->front;
     struct section *s = (struct section *)n->val;
     if(!(strcmp(s->type, "[network]")==0)) error("First section must be [network]");
@@ -290,6 +314,10 @@ struct network *parse_network_cfg(char *filename)
         }else if(strcmp(s->type, "[maxpool]")==0){
             maxpool_layer *layer = parse_maxpool(options, net, count);
             net->layers_type[count] = MAXPOOL;
+            net->layers[count] = layer;
+        }else if(strcmp(s->type, "[dropout]")==0){
+            dropout_layer *layer = parse_dropout(options, net, count);
+            net->layers_type[count] = DROPOUT;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[cost]")==0){
             cost_layer *layer = parse_cost(options, net, count);

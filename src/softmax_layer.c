@@ -13,7 +13,7 @@ softmax_layer *make_softmax_layer(int inputs, int batch)
     return layer;
 }
 
-void forward_softmax_layer(const softmax_layer *layer, float *input, struct network *net)
+void forward_softmax_layer(const softmax_layer *layer, float *input, network *net)
 {
     int i;
 	for(int b = 0; b < layer->batch; b++){
@@ -43,11 +43,11 @@ void forward_softmax_layer(const softmax_layer *layer, float *input, struct netw
 				max_i = j;
 			}
 		}
-		if(net->truth[max_i + b * layer->inputs] > 0.99F) net->correct_num += 1;
+		//if(net->truth[max_i + b * layer->inputs] > 0.99F) net->correct_num += 1;
     }
-	softmax_x_ent_cpu(layer->batch*layer->inputs, layer->output, net->truth, layer->delta, layer->loss);
-	layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
-	net->loss = layer->cost[0];
+	//softmax_x_ent_cpu(layer->batch*layer->inputs, layer->output, net->truth, layer->delta, layer->loss);
+	//layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
+	//net->loss = layer->cost[0];
 }
 
 void backward_softmax_layer(const softmax_layer *layer, float *delta)

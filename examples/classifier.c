@@ -13,7 +13,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     char *base = basecfg(cfgfile);   // get projetc name by cfgfile, cifar.cfg -> cifar
     printf("train data base name: %s\n", base);
     printf("the number of GPU: %d\n", ngpus);
-    struct network **nets = calloc(ngpus, sizeof(struct network*));  // todo: free
+    network **nets = calloc(ngpus, sizeof(struct network*));  // todo: free
 
     srand(time(0));
     int seed = rand();
@@ -24,7 +24,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 #endif
         nets[i] = parse_network_cfg(cfgfile);;
     }
-    struct network *net = nets[0];
+    network *net = nets[0];
     if(weightfile && weightfile[0] != 0){
 	    load_weights(net, weightfile);
 	}
@@ -37,14 +37,14 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 
     int train_set_size = 0;
     int batch_num = 0;
-	int train_data_type = option_find_int(options, "train_data_type", 1);	//  0: csv, load to memory
 	char **paths = NULL;
 	struct list *plist = NULL;
+	int train_data_type = option_find_int(options, "train_data_type", 1);	//  0: csv, load to memory
 	batch *all_train_data;
 	if(0 == train_data_type) {
 		train_set_size = option_find_int(options, "train_num", 0);
 		all_train_data = load_csv_image_to_memory(train_list, net->batch, labels, net->classes,
-				train_set_size, &batch_num, net->w, net->h, net->c);
+				train_set_size, &batch_num, net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
 	} else {
 		plist = get_paths(train_list);
 		paths = (char **)list_to_array(plist);
@@ -61,32 +61,49 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     	if(0 == train_data_type) {
             int index = rand() % batch_num;
     		train = all_train_data[index];
+    		for(int i = 0; i < net->classes * net->batch; i++) {
+    			//if(train.truth[i] > 0.1) printf("input class: %d %d %f\n", batch_num, i, train.truth[i]);
+    		}
+			image tmp;
+			tmp.w = train.w;
+			tmp.h = train.h;
+			tmp.c = train.c;
+			tmp.data = train.data;
+			save_image_png(tmp, "input.jpg");
+		    float max = -FLT_MAX;
+		    float min = FLT_MAX;
+		    for(int i = 0; i < tmp.w * tmp.h * tmp.c; ++i){
+		    	if(tmp.data[i] > max) max = tmp.data[i];
+		    	if(tmp.data[i] < min) min = tmp.data[i];
+		    }
+		    //printf("input max: %f, min: %f\n", max, min);
         	train_network_batch(net, train);
-
-        	/*
-        	for(int i = 0; i < net->classes * net->batch; i++) {
-        		if(train.truth[i] > -9999999) printf("input class: %d %f\n", i, train.truth[i]);
-        	}
-        	image tmp;
-        	tmp.w = train.w;
-        	tmp.h = train.h;
-        	tmp.c = train.c;
-        	tmp.data = train.data;
-    		save_image_png(tmp, "input.jpg");
-        	tmp.data = train.data + tmp.w * tmp.h * tmp.c;
-    		save_image_png(tmp, "input0.jpg");
-        	sleep(3);*/
     	} else {
-        	train = random_batch(paths, 1, labels, net->classes, train_set_size, net->w, net->h, net->c);
-        	train_network_batch(net, train);
-        	free_batch(train);
+			train = random_batch(paths, 1, labels, net->classes, train_set_size,
+					net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+			for(int i = 0; i < net->classes * net->batch; i++) {
+				if(train.truth[i] > 0.1) printf("input class: %d %f\n", i, train.truth[i]);
+			}
+			image tmp;
+			tmp.w = train.w;
+			tmp.h = train.h;
+			tmp.c = train.c;
+			tmp.data = train.data;
+			save_image_png(tmp, "input.jpg");
+			//tmp.data = train.data + tmp.w * tmp.h * tmp.c;
+			//save_image_png(tmp, "input0.jpg");
+
+			train_network_batch(net, train);
+			free_batch(train);
     	}
+
         time = what_time_is_it_now();
         float loss = 0;
         if(avg_loss == -1) avg_loss = loss;
         loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
 			printf("\n\nloss too large: %f, exit\n", loss);
+			//continue;
 			exit(-1);
 		}
         avg_loss = avg_loss*.9 + loss*.1;
@@ -94,6 +111,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         printf("batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, seen %lu images\n",
         		net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss,
 				net->learning_rate, what_time_is_it_now()-time, net->seen);
+		//sleep(7);
     }
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
@@ -117,12 +135,11 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 	cuda_set_device(gpus[i]);
 #endif
 
-	struct network *net = parse_network_cfg(cfgfile);
+	network *net = parse_network_cfg(cfgfile);
 	if(weightfile && weightfile[0] != 0){
 	    load_weights(net, weightfile);
 	}
 	net->test = 1;
-
 
 	struct list *options = read_data_cfg(datacfg);
 	char *label_list = option_find_str(options, "labels", "data/labels.list");
@@ -131,20 +148,12 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 	net->classes = option_find_int(options, "classes", 2);
 
 	int valid_set_size = 0;
-    int batch_num = 0;
-	int train_data_type = option_find_int(options, "train_data_type", 1);	//  0: csv, load to memory
 	char **paths = NULL;
 	struct list *plist = NULL;
-	batch *all_train_data;
-	if(0 == train_data_type) {
-		valid_set_size = option_find_int(options, "valid_num", 0);
-		all_train_data = load_csv_image_to_memory(valid_list, 1, labels, net->classes, valid_set_size, &batch_num,
-				net->w, net->h, net->c);
-	} else {
-		plist = get_paths(valid_list);
-		paths = (char **)list_to_array(plist);
-		valid_set_size = plist->size;
-	}
+	plist = get_paths(valid_list);
+	paths = (char **)list_to_array(plist);
+	valid_set_size = plist->size;
+
 	double time;
 	printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
 	printf("image net has seen: %lu, valid_set_size: %d, max_batches of net: %d, net->classes: %d\n\n\n",
@@ -153,20 +162,10 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 	float avg_loss = -1;
 	while(valid_set_size > 0){
 		batch valid_image;
-		if(0 == train_data_type) {
-			valid_image = all_train_data[valid_set_size - 1];
-			/*
-			for(int i = 0; i < net->classes; i++) {
-				if(train.truth[0][i] > 0.1) printf("input class: %d %f\n", i, train.truth[0][i]);
-			}*/
-			valid_network(net, valid_image);
-			//save_image_png(train.images[0], "input.jpg");
-			//sleep(1);
-		} else {
-			valid_image = random_batch(paths, 1, labels, net->classes, valid_set_size, net->w, net->h, net->c);
-			valid_network(net, valid_image);
-			free_batch(valid_image);
-		}
+		valid_image = random_batch(paths, 1, labels, net->classes, valid_set_size,
+				net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+		valid_network(net, valid_image);
+		free_batch(valid_image);
 		time = what_time_is_it_now();
 		float loss = 0;
 		if(avg_loss == -1) avg_loss = loss;

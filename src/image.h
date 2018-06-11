@@ -58,7 +58,6 @@ image resize_image(image im, int w, int h);
 image load_image(char *filename, int w, int h, int c);
 
 void save_image_png(image im, const char *name);
-image load_image_me(char *filename);
 image float_to_image(int h, int w, int c, float *data);
 image make_random_kernel(int size, int c, float scale);
 void show_image(image p, const char *name);
@@ -71,7 +70,7 @@ float get_pixel(image m, int x, int y, int c);
 void set_pixel(image m, int x, int y, int c, float val);
 float avg_image_layer(image m, int l);
 void normalize_image(image p);
-
+void random_distort_image(image im, float hue, float saturation, float exposure);
 
 
 image make_empty_image(int w, int h, int c);

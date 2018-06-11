@@ -43,6 +43,7 @@ enum LAYER_TYPE{
     CONNECTED,
     MAXPOOL,
     AVGPOOL,
+	DROPOUT,
     SOFTMAX,
     COST,
 };
@@ -53,6 +54,13 @@ typedef struct {
     float *output;
     enum LAYER_TYPE type;
 } avgpool_layer;
+
+typedef struct {
+    int batch, inputs, outputs, out_h, out_w, c;
+    float probability, scale;
+    float *rand;
+    float *output, *delta;
+} dropout_layer;
 
 typedef struct {
     int inputs, batch;
@@ -71,7 +79,7 @@ typedef struct {
     float *cost;
 } cost_layer;
 
-struct network{
+typedef struct {
     int n;                  // the size of network
     int max_batches; // max iteration times of batch
     size_t seen;    // the number of image processed
@@ -86,6 +94,7 @@ struct network{
     float *workspace;  // for convolutional_layer image reorder
     size_t workspace_size;
     float loss;
+    float hue, saturation, exposure;  // random_distort_image
 
     enum learning_rate_policy policy;
     float learning_rate;
@@ -97,21 +106,26 @@ struct network{
 
     void **layers;
     enum LAYER_TYPE *layers_type;
-};
+}network;
 void forward_avgpool_layer(const avgpool_layer *l, float *in);
 void backward_avgpool_layer(const avgpool_layer *l, float *delta);
-void forward_cost_layer(const cost_layer *l, float *input, struct network *net);
+void forward_cost_layer(const cost_layer *l, float *input, network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
-void forward_softmax_layer(const softmax_layer *layer, float *input, struct network *net);
+void forward_softmax_layer(const softmax_layer *layer, float *input, network *net);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
+void forward_dropout_layer(dropout_layer *l, float *input, network *net);
+void backward_dropout_layer(dropout_layer *l, float *delta);
+image get_dropout_image(const dropout_layer *layer, int batch);
 
-struct network *make_network(int n);
-void train_network_batch(struct network *net, batch b);
-void valid_network(struct network *net, batch b);
-int get_network_output_size_layer(struct network *net, int i);
-image get_network_image_layer(struct network *net, int i);
-float get_current_learning_rate(struct network * net);
-void save_weights(struct network *net, char *filename);
-void load_weights(struct network *net, char *filename);
+float *get_network_layer_data(network *net, int i, int data_type);
+
+network *make_network(int n);
+void train_network_batch(network *net, batch b);
+void valid_network(network *net, batch b);
+int get_network_output_size_layer(network *net, int i);
+image get_network_image_layer(network *net, int i);
+float get_current_learning_rate(network * net);
+void save_weights(network *net, char *filename);
+void load_weights(network *net, char *filename);
 #endif
 

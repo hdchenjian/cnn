@@ -58,9 +58,9 @@ void resize_cost_layer(cost_layer *l, int inputs)
 #endif
 }
 
-void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
+void forward_cost_layer(const cost_layer *l, float *input, network *net)
 {
-    if (net->test == 2) return;
+    if (net->test == 2) return;  // 0: train, 1: valid, 2: test
     if(l->cost_type == MASKED){
         for(int i = 0; i < l->batch*l->inputs; ++i){
             if(net->truth[i] == SECRET_NUM) input[i] = SECRET_NUM;
@@ -84,6 +84,7 @@ void forward_cost_layer(const cost_layer *l, float *input, struct network *net)
 		if(net->truth[max_i + b * l->inputs] > 0.99F) net->correct_num += 1;
     }
     l->cost[0] = sum_array(l->output, l->batch*l->inputs) / l->batch;
+	net->loss = l->cost[0];
 }
 
 void backward_cost_layer(const cost_layer *l, float *delta)

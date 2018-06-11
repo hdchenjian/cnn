@@ -1,6 +1,7 @@
 #include "blas.h"
 #include "math.h"
 #include <assert.h>
+#include <stdio.h>
 
 void shortcut_cpu(int batch, int w1, int h1, int c1, float *add, int w2, int h2, int c2, float *out)
 {
@@ -160,5 +161,6 @@ void softmax_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *er
         float p = pred[i];
         error[i] = (t) ? -log(p) : 0;
         delta[i] = t-p;
+		//printf("truth: %d %f %f %f\n", i, truth[i], pred[i], error[i]);
     }
 }

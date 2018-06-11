@@ -1,6 +1,6 @@
-classes=2
-train  = .data/cifar/train.list
-valid  = .data/cifar/test.list
-labels = .data/cifar/labels.txt
+classes=10
+train  = /home/luyao/database/cifar/train.list
+valid  = /home/luyao/database/cifar/test.list
+labels = /home/luyao/database/cifar/labels.txt
 backup = backup
 top=1

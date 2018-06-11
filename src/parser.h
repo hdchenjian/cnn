@@ -9,6 +9,7 @@
 #include "convolutional_layer.h"
 #include "maxpool_layer.h"
 #include "avgpool_layer.h"
+#include "dropout_layer.h"
 #include "softmax_layer.h"
 #include "cost_layer.h"
 #include "list.h"
@@ -16,7 +17,7 @@
 #include "utils.h"
 
 struct list *read_data_cfg(char *filename);
-struct network *parse_network_cfg(char *filename);
+network *parse_network_cfg(char *filename);
 struct list *read_data_cfg(char *filename);
 
 #endif
