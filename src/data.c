@@ -37,7 +37,7 @@ void fill_truth(char *path, char **labels, int classes, float *truth)
 }
 
 void load_csv_images(char *filename, char **labels, int classes, int train_set_size,
-		int image_size, float *image_all, float *truth_all, float hue, float saturation, float exposure)
+        int image_size, float *image_all, float *truth_all, float hue, float saturation, float exposure)
 {
     FILE *fp = fopen(filename, "r");
     if(!fp) file_error(filename);
@@ -60,7 +60,7 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
         crop.c = 1;
         crop.data = image_all + n * image_size;
         if(crop.c == 3){
-        	random_distort_image(crop, hue, saturation, exposure);
+            random_distort_image(crop, hue, saturation, exposure);
         }
         normalize_array(image_all + n * image_size, image_size);
         char name[16] = {0};
@@ -74,9 +74,9 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
 }
 
 batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size,
-		int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
+        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
 {
-	int image_size = h * w * c;
+    int image_size = h * w * c;
     float *image_all = calloc(train_set_size * image_size, sizeof(float));
     float *truth_all = calloc(train_set_size * classes, sizeof(float));
     load_csv_images(filename, labels, classes, train_set_size, image_size, image_all, truth_all, hue, saturation, exposure);
@@ -125,9 +125,9 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
 }
 
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size,
-		int w, int h, int c, float hue, float saturation, float exposure)
+        int w, int h, int c, float hue, float saturation, float exposure)
 {
-	int image_size = h * w * c;
+    int image_size = h * w * c;
     batch b;
     b.w = w;
     b.h = h;

@@ -49,7 +49,7 @@ int option_find_int(struct list *l, char *key, int def)
 {
     char *v = option_find(l, key);
     if(v) return atoi(v);
-    fprintf(stderr, "%s: Using default '%d'\n", key, def);
+    //fprintf(stderr, "%s: Using default '%d'\n", key, def);
     return def;
 }
 

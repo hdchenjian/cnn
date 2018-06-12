@@ -35,52 +35,64 @@ maxpool_layer *make_maxpool_layer(int h, int w, int c, int stride, int batch)
 
 void forward_maxpool_layer(const maxpool_layer *layer, float *in)
 {
-	int input_size = layer->h * layer->w * layer->c;
-	for(int b = 0; b < layer->batch; b++){
-		image input = float_to_image(layer->h, layer->w, layer->c, in + input_size * b);
-		image output = get_maxpool_image(layer, b);
-		int i,j,k;
-		for(i = 0; i < output.h*output.w*output.c; ++i) output.data[i] = -FLT_MAX;
-	    float max = -FLT_MAX;
-	    float min = FLT_MAX;
-		for(k = 0; k < input.c; ++k){
-			for(i = 0; i < input.h; ++i){
-				for(j = 0; j < input.w; ++j){
-					float val = get_pixel(input, i, j, k);
-					float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
-					if(val > cur) set_pixel(output, i/layer->stride, j/layer->stride, k, val);
-					if(val > max) max = val;
-					if(val < min) min = val;
-				}
-			}
-		}
-		//printf("forward_maxpool_layer %f %f\n", max, min);
-	}
+    int input_size = layer->h * layer->w * layer->c;
+    for(int b = 0; b < layer->batch; b++){
+        image input = float_to_image(layer->h, layer->w, layer->c, in + input_size * b);
+        image output = get_maxpool_image(layer, b);
+        int i,j,k;
+        for(i = 0; i < output.h*output.w*output.c; ++i) output.data[i] = -FLT_MAX;
+        float max = -FLT_MAX;
+        float min = FLT_MAX;
+        for(k = 0; k < input.c; ++k){
+            for(i = 0; i < input.h; ++i){
+                for(j = 0; j < input.w; ++j){
+                    float val = get_pixel(input, i, j, k);
+                    float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
+                    if(val > cur) set_pixel(output, i/layer->stride, j/layer->stride, k, val);
+                    if(val > max) max = val;
+                    if(val < min) min = val;
+                }
+            }
+        }
+        //printf("forward_maxpool_layer %f %f\n", max, min);
+    }
 }
 
 void backward_maxpool_layer(const maxpool_layer *layer, float *in, float *delta)
 {
-	int input_size = layer->h * layer->w * layer->c;
-	for(int b = 0; b < layer->batch; b++){
-		image input = float_to_image(layer->h, layer->w, layer->c, in + input_size * b);
-		image input_delta = float_to_image(layer->h, layer->w, layer->c, delta + input_size * b);
-		image output_delta = get_maxpool_delta(layer, b);
-		image output = get_maxpool_image(layer, b);
-		int i,j,k;
-		for(k = 0; k < input.c; ++k){
-			for(i = 0; i < input.h; ++i){
-				for(j = 0; j < input.w; ++j){
-					float val = get_pixel(input, i, j, k);
-					float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
-					float d = get_pixel(output_delta, i/layer->stride, j/layer->stride, k);
-					if(val == cur) {
-						set_pixel(input_delta, i, j, k, d);
-					} else {
-						set_pixel(input_delta, i, j, k, 0);
-					}
-				}
-			}
-		}
-	}
+    int input_size = layer->h * layer->w * layer->c;
+    for(int b = 0; b < layer->batch; b++){
+        image input = float_to_image(layer->h, layer->w, layer->c, in + input_size * b);
+        image input_delta = float_to_image(layer->h, layer->w, layer->c, delta + input_size * b);
+        image output_delta = get_maxpool_delta(layer, b);
+        image output = get_maxpool_image(layer, b);
+
+        /*
+        float max = -FLT_MAX;
+        float min = FLT_MAX;
+        int output_size = layer->out_h * layer->out_w * layer->c;
+        for(int kk = 0; kk < output_size; ++kk){
+            //printf("backward_connected_layer  %f, \n", layer->delta[layer->outputs * i +j]);
+            if(layer->delta[b * output_size +kk] > max) max = layer->delta[b * output_size +kk];
+            if(layer->delta[b * output_size +kk] < min) min = layer->delta[b * output_size +kk];
+        }
+        printf("backward_maxpool_layer max: %f, min: %f\n", max, min);*/
+
+        int i,j,k;
+        for(k = 0; k < input.c; ++k){
+            for(i = 0; i < input.h; ++i){
+                for(j = 0; j < input.w; ++j){
+                    float val = get_pixel(input, i, j, k);
+                    float cur = get_pixel(output, i/layer->stride, j/layer->stride, k);
+                    float d = get_pixel(output_delta, i/layer->stride, j/layer->stride, k);
+                    if(val == cur) {
+                        set_pixel(input_delta, i, j, k, d);
+                    } else {
+                        set_pixel(input_delta, i, j, k, 0);
+                    }
+                }
+            }
+        }
+    }
 }
 

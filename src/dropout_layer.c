@@ -9,7 +9,7 @@ image get_dropout_image(const dropout_layer *layer, int batch)
 }
 
 dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, float probability,
-		float *previous_layer_output, float *previous_layer_delta)
+        float *previous_layer_output, float *previous_layer_delta)
 {
     fprintf(stderr, "Dropout:            p = %.2f, %4d  ->  %4d\n", probability, inputs, inputs);
     dropout_layer *l = calloc(1, sizeof(dropout_layer));

@@ -40,8 +40,9 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
         c = m.c;
         if (h == 0) error("Layer before convolutional layer must output image.");
     }
+    int batch_normalize = option_find_int(options, "batch_normalize", 0);
     convolutional_layer *layer = make_convolutional_layer(
-        h, w, c, n, size, stride, net->batch, activation, &(net->workspace_size));
+        h, w, c, n, size, stride, net->batch, activation, &(net->workspace_size), batch_normalize);
     option_unused(options);
     return layer;
 }

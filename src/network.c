@@ -9,6 +9,7 @@ network *make_network(int n)
     net->seen = 0;
     net->test = 0;
     net->batch_train = 0;
+    net->epoch = 0;
     net->correct_num = 0;
     net->correct_num_count = 0;
     net->workspace_size = 0;
@@ -16,7 +17,7 @@ network *make_network(int n)
     return net;
 }
 
-float get_current_learning_rate(network * net)
+float update_current_learning_rate(network * net)
 {
     switch (net->policy) {
         case STEPS:
@@ -37,7 +38,7 @@ void forward_network(network *net, float *input)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            forward_convolutional_layer(layer, input, net->workspace);
+            forward_convolutional_layer(layer, input, net->workspace, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
@@ -52,7 +53,7 @@ void forward_network(network *net, float *input)
             forward_avgpool_layer(layer, input);
             input = layer->output;
         } else if(net->layers_type[i] == DROPOUT){
-        	dropout_layer *layer = (dropout_layer *)net->layers[i];
+            dropout_layer *layer = (dropout_layer *)net->layers[i];
             forward_dropout_layer(layer, input, net);
             input = layer->output;
         } else if(net->layers_type[i] == SOFTMAX){
@@ -104,7 +105,7 @@ float *get_network_layer_data(network *net, int i, int data_type)
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == DROPOUT){
-    	dropout_layer *layer = (dropout_layer *)net->layers[i];
+        dropout_layer *layer = (dropout_layer *)net->layers[i];
         return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == AVGPOOL){
         avgpool_layer *layer = (avgpool_layer *)net->layers[i];
@@ -135,7 +136,7 @@ void backward_network(network *net, float *input)
         }
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            backward_convolutional_layer(layer, prev_input, prev_delta, net->workspace);
+            backward_convolutional_layer(layer, prev_input, prev_delta, net->workspace, net->test);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer(layer, prev_input, prev_delta);
@@ -146,7 +147,7 @@ void backward_network(network *net, float *input)
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             if(i != 0) backward_avgpool_layer(layer, prev_delta);
         } else if(net->layers_type[i] == DROPOUT){
-        	dropout_layer *layer = (dropout_layer *)net->layers[i];
+            dropout_layer *layer = (dropout_layer *)net->layers[i];
             if(i != 0) backward_dropout_layer(layer, prev_delta);
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
@@ -164,11 +165,11 @@ void backward_network(network *net, float *input)
 
 void train_network_batch(network *net, batch b)
 {
-	//show_image(b.images[i], "Input");
-	net->truth = b.truth;
-	forward_network(net, b.data);
-	backward_network(net, b.data);
-	update_network(net, .001);
+    //show_image(b.images[i], "Input");
+    net->truth = b.truth;
+    forward_network(net, b.data);
+    backward_network(net, b.data);
+    update_network(net, .001);
     net->seen += net->batch;
     net->correct_num_count += net->batch;
     if(net->correct_num_count > 1000){
@@ -206,7 +207,7 @@ int get_network_output_size_layer(network *net, int i)
         avgpool_layer *layer = (avgpool_layer *)net->layers[i];
         return layer->c;
     }else if(net->layers_type[i] == DROPOUT){
-    	dropout_layer *layer = (dropout_layer *)net->layers[i];
+        dropout_layer *layer = (dropout_layer *)net->layers[i];
         return layer->outputs;
     }else if(net->layers_type[i] == SOFTMAX){
         softmax_layer *layer = (softmax_layer *)net->layers[i];
@@ -234,7 +235,7 @@ image get_network_image_layer(network *net, int i)
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         return get_maxpool_image(layer, net->batch - 1);
     } else if(net->layers_type[i] == DROPOUT){
-    	dropout_layer *layer = (dropout_layer *)net->layers[i];
+        dropout_layer *layer = (dropout_layer *)net->layers[i];
         return get_dropout_image(layer, net->batch - 1);
     } else {
         printf("get_network_image_layer layers_type error, layer: %d\n", i);

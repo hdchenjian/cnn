@@ -1,4 +1,5 @@
 #include "connected_layer.h"
+#include <float.h>
 
 connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation)
 {
@@ -44,28 +45,28 @@ void forward_connected_layer(connected_layer *layer, float *input)
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
     for(int i = 0; i < layer->outputs; i ++){
-    	layer->biases[i] += learning_rate / layer->batch * layer->bias_updates[i];
-    	layer->bias_updates[i] *= momentum;
+        layer->biases[i] += learning_rate / layer->batch * layer->bias_updates[i];
+        layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->inputs*layer->outputs;
     for(int i = 0; i < size; i ++){
-    	layer->weight_updates[i] += -decay*layer->batch*layer->weights[i];
-    	layer->weights[i] += learning_rate / layer->batch * layer->weight_updates[i];
-    	layer->weight_updates[i] *= momentum;
+        layer->weight_updates[i] += -decay*layer->batch*layer->weights[i];
+        layer->weights[i] += learning_rate / layer->batch * layer->weight_updates[i];
+        layer->weight_updates[i] *= momentum;
     }
 }
 
 void backward_connected_layer(connected_layer *layer, float *input, float *delta)
 {
-	int all_outputs = layer->outputs * layer->batch;
+    int all_outputs = layer->outputs * layer->batch;
     for(int i = 0; i < all_outputs; ++i){
         layer->delta[i] *= gradient(layer->output[i], layer->activation);
     }
     for(int i = 0; i < layer->batch; ++i){
-		for(int j = 0; j < layer->outputs; ++j){
-			layer->bias_updates[j] += (layer->delta + i * layer->outputs)[j];
-		}
+        for(int j = 0; j < layer->outputs; ++j){
+            layer->bias_updates[j] += (layer->delta + i * layer->outputs)[j];
+        }
     }
     int m = layer->inputs;
     int n = layer->outputs;
@@ -73,16 +74,28 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
     float *a = input;
     float *b = layer->delta;
     float *c = layer->weight_updates;  // layer->inputs is the number of rows
-    gemm(1,0,m,n,k,1,a,m,b,n,0,c,n);
+    gemm(1,0,m,n,k,1,a,m,b,n,1,c,n);
 
     if(delta) {
         memset(delta, 0, layer->batch * layer->inputs*sizeof(float));
         m = layer->batch;
         n = layer->inputs;
         k = layer->outputs;
-        a = layer->delta;  // layer->inputs is the number of rows
+        a = layer->delta;
         b = layer->weights;
         c = delta;
         gemm(0,1,m,n,k,1,a,k,b,k,0,c,n);
+
+        /*
+        for(int i = 0; i < layer->batch; ++i){
+            float max = -FLT_MAX;
+            float min = FLT_MAX;
+            for(int j = 0; j < layer->outputs; ++j){
+                //printf("backward_connected_layer  %f, \n", layer->delta[layer->outputs * i +j]);
+                if(layer->delta[layer->outputs * i +j] > max) max = layer->delta[layer->outputs * i +j];
+                if(layer->delta[layer->outputs * i +j] < min) min = layer->delta[layer->outputs * i +j];
+            }
+            printf("backward_connected_layer max: %f, min: %f\n", max, min);
+        }*/
     }
 }

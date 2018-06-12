@@ -73,18 +73,18 @@ void forward_cost_layer(const cost_layer *l, float *input, network *net)
     }
 
     for(int b = 0; b < l->batch; ++b){
-		int max_i = 0;
-		double max = input[b * l->inputs];
-		for(int j = 0; j < net->classes; ++j){
-			if(input[j + b * l->inputs] > max){
-				max = input[j + b * l->inputs];
-				max_i = j;
-			}
-		}
-		if(net->truth[max_i + b * l->inputs] > 0.99F) net->correct_num += 1;
+        int max_i = 0;
+        double max = input[b * l->inputs];
+        for(int j = 0; j < net->classes; ++j){
+            if(input[j + b * l->inputs] > max){
+                max = input[j + b * l->inputs];
+                max_i = j;
+            }
+        }
+        if(net->truth[max_i + b * l->inputs] > 0.99F) net->correct_num += 1;
     }
     l->cost[0] = sum_array(l->output, l->batch*l->inputs) / l->batch;
-	net->loss = l->cost[0];
+    net->loss = l->cost[0];
 }
 
 void backward_cost_layer(const cost_layer *l, float *delta)

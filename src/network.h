@@ -43,7 +43,7 @@ enum LAYER_TYPE{
     CONNECTED,
     MAXPOOL,
     AVGPOOL,
-	DROPOUT,
+    DROPOUT,
     SOFTMAX,
     COST,
 };
@@ -84,6 +84,7 @@ typedef struct {
     int max_batches; // max iteration times of batch
     size_t seen;    // the number of image processed
     int batch;   // the number of batch processed
+    int epoch;
     int batch_train;   // the number of batch trained
     int w, h, c;
     int test;    // 0: train, 1: valid, 2: test
@@ -124,7 +125,7 @@ void train_network_batch(network *net, batch b);
 void valid_network(network *net, batch b);
 int get_network_output_size_layer(network *net, int i);
 image get_network_image_layer(network *net, int i);
-float get_current_learning_rate(network * net);
+float update_current_learning_rate(network * net);
 void save_weights(network *net, char *filename);
 void load_weights(network *net, char *filename);
 #endif
