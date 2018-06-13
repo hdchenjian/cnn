@@ -5,7 +5,6 @@
 #include "image.h"
 #include "gemm.h"
 
-
 #ifdef GPU
 void time_gpu_random_matrix(int TA, int TB, int m, int k, int n)
 {
@@ -171,35 +170,28 @@ void load_csv_image(char *filename, char *save_dir)
 }
 
 
-float *random_matrix(int rows, int cols)
+float *make_matrix(int rows, int cols)
 {
     int i;
     float *m = calloc(rows*cols, sizeof(float));
     for(i = 0; i < rows*cols; ++i){
-        m[i] = (float)rand()/RAND_MAX;
+        m[i] = (float)0.8;
     }
     return m;
 }
 
-void time_random_matrix(int TA, int TB, int m, int k, int n)
+void time_gemm()
 {
-    float *a;
-    if(!TA) a = random_matrix(m,k);
-    else a = random_matrix(k,m);
-    int lda = (!TA)?k:m;
-    float *b;
-    if(!TB) b = random_matrix(k,n);
-    else b = random_matrix(n,k);
-    int ldb = (!TB)?n:k;
-
-    float *c = random_matrix(m,n);
-    int i;
-    clock_t start = clock(), end;
-    for(i = 0; i<10; ++i){
-        gemm(TA,TB,m,n,k,1,a,lda,b,ldb,1,c,n);
-    }
-    end = clock();
-    printf("Matrix Multiplication %dx%d * %dx%d, TA=%d, TB=%d: %lf ms\n",m,k,k,n, TA, TB, (float)(end-start)/CLOCKS_PER_SEC);
+    int w = 2000, h = 2000;
+    float *a = make_matrix(h, w);
+    float *b = make_matrix(h, w);
+    float *c = make_matrix(h, w);
+    double start = what_time_is_it_now(), end;
+    gemm(0,0,h,w,w,1,a,w,b,w,0,c,w);
+    end = what_time_is_it_now();
+    float sum = 0;
+    for(int i = 0; i < w * h; i++) sum += c[i];
+    printf("Matrix Multiplication %dx%d * %dx%d, sum: %f, %lf s\n", h, w, h, w, sum, end-start);
     free(a);
     free(b);
     free(c);
@@ -210,6 +202,7 @@ int main(int argc, char **argv)
     // https://pjreddie.com/projects/mnist-in-csv/
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_train.csv", "/home/luyao/git/cnn/.data/mnist/train");
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
-	//test_convolutional_layer();
+    //test_convolutional_layer();
+    time_gemm();
     return 0;
 }

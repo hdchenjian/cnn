@@ -118,7 +118,7 @@ dropout_layer *parse_dropout(struct list *options, network *net, int count)
     return layer;
 }
 
-softmax_layer *parse_softmax(struct list *options, network *net, int count)
+softmax_layer *parse_softmax(struct list *options, network *net, int count, int is_last_layer)
 {
     int input;
     if(count == 0){
@@ -126,7 +126,7 @@ softmax_layer *parse_softmax(struct list *options, network *net, int count)
     }else{
         input =  get_network_output_size_layer(net, count-1);
     }
-    softmax_layer *layer = make_softmax_layer(input ,net->batch);
+    softmax_layer *layer = make_softmax_layer(input ,net->batch, is_last_layer);
     option_unused(options);
     return layer;
 }
@@ -309,7 +309,7 @@ network *parse_network_cfg(char *filename)
             net->layers_type[count] = CONNECTED;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[softmax]")==0){
-            softmax_layer *layer = parse_softmax(options, net, count);
+            softmax_layer *layer = parse_softmax(options, net, count, sections->size - 1 - 1 == count);
             net->layers_type[count] = SOFTMAX;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[maxpool]")==0){

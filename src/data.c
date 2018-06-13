@@ -88,21 +88,6 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
     } else {
         train_set_size_real = (train_set_size / batch_size + 1) * batch_size;
     }
-    /*
-    int *index = calloc(train_set_size_real, sizeof(int));
-    for(int i = 0; i < train_set_size_real; i++) {
-        if(i < train_set_size) {
-            index[i] = i;
-        } else {
-            index[i] = rand() % train_set_size;
-        }
-    }
-    for(int i = 0; i < train_set_size_real; i++) {
-        int index_random = rand() % train_set_size_real;
-        int temp = index[i];
-        index[i] = index[index_random];
-        index[index_random] = temp;
-    }*/
 
     int batch_num = train_set_size_real / batch_size;
     int less_image = batch_num * batch_size - train_set_size;
@@ -124,6 +109,56 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
     return train_data;
 }
 
+batch *load_image_to_memory(char **paths, int batch_size, char **labels, int classes, int train_set_size,
+        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
+{
+    /* random the train image index */
+    int train_set_size_real = 0;
+    if(train_set_size % batch_size == 0) {
+        train_set_size_real = train_set_size;
+    } else {
+        train_set_size_real = (train_set_size / batch_size + 1) * batch_size;
+    }
+    int *index = calloc(train_set_size_real, sizeof(int));
+    for(int i = 0; i < train_set_size_real; i++) {
+        if(i < train_set_size) {
+            index[i] = i;
+        } else {
+            index[i] = rand() % train_set_size;
+        }
+    }
+    for(int i = 0; i < train_set_size_real; i++) {
+        int index_random = rand() % train_set_size_real;
+        int temp = index[i];
+        index[i] = index[index_random];
+        index[index_random] = temp;
+    }
+
+    int image_size = h * w * c;
+    int batch_num = train_set_size_real / batch_size;
+    *batch_num_return = batch_num;
+    batch *train_data = calloc(batch_num, sizeof(batch));
+    for(int i = 0; i < batch_num; i++){
+        train_data[i].n = batch_size;
+        train_data[i].w = w;
+        train_data[i].h = h;
+        train_data[i].c = c;
+        train_data[i].data = calloc(batch_size * image_size, sizeof(float));
+        train_data[i].truth = calloc(batch_size * classes, sizeof(float));
+        for(int j = 0; j < batch_size; ++j){
+        	printf("%d ", index[i * batch_size + j]);
+			image img = load_image(paths[index[i * batch_size + j]], w, h, c);
+			random_distort_image(img, hue, saturation, exposure);
+			memcpy(train_data[i].data + j * image_size, img.data, image_size * sizeof(float));
+			free_image(img);
+			//normalize_array(b.data + i * image_size, image_size);
+			fill_truth(paths[index[i * batch_size + j]], labels, classes, train_data[i].truth + j * classes);
+        }
+    }
+    free(index);
+    return train_data;
+}
+
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size,
         int w, int h, int c, float hue, float saturation, float exposure)
 {
@@ -138,7 +173,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
 
     for(int i = 0; i < batch_size; ++i){
         int index = rand() % train_set_size;
-        printf("paths[index]: %s\n", paths[index]);
+        //printf("paths[index]: %s\n", paths[index]);
         image img = load_image(paths[index], w, h, c);
         random_distort_image(img, hue, saturation, exposure);
         memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));

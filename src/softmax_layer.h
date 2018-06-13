@@ -8,7 +8,7 @@
 
 #include "network.h"
 
-softmax_layer *make_softmax_layer(int inputs, int batch);
+softmax_layer *make_softmax_layer(int inputs, int batch, int is_last_layer);
 void forward_softmax_layer(const softmax_layer *layer, float *input, network *net);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
 

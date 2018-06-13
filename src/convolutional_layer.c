@@ -103,12 +103,10 @@ void forward_batchnorm_layer(const convolutional_layer *layer, int test)
         axpy_cpu(layer->n, .01, layer->variance, 1, layer->rolling_variance, 1);
 
         normalize_cpu(layer->output, layer->mean, layer->variance, layer->batch, layer->n, layer->out_h*layer->out_w);
-        //memcpy(layer->x_norm, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
     } else {
         normalize_cpu(layer->output, layer->rolling_mean, layer->rolling_variance,
                 layer->batch, layer->n, layer->out_h*layer->out_w);
     }
-    //scale_bias(layer->output, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
 }
 
 void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test)

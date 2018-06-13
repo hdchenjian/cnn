@@ -63,6 +63,7 @@ typedef struct {
 } dropout_layer;
 
 typedef struct {
+	int is_last_layer;   // 1: is last layer, 0: not
     int inputs, batch;
     float *delta;
     float *output;
@@ -86,12 +87,12 @@ typedef struct {
     int batch;   // the number of batch processed
     int epoch;
     int batch_train;   // the number of batch trained
-    int w, h, c;
+    int w, h, c;  // net input data dimension
     int test;    // 0: train, 1: valid, 2: test
     int classes;    // train data classes
     float *truth;  // train data label
-    int correct_num;
-    int correct_num_count;
+    int correct_num;  // train correct number
+    int correct_num_count;  // all trained data size, train accuracy = correct_num / correct_num_count
     float *workspace;  // for convolutional_layer image reorder
     size_t workspace_size;
     float loss;
@@ -108,6 +109,7 @@ typedef struct {
     void **layers;
     enum LAYER_TYPE *layers_type;
 }network;
+
 void forward_avgpool_layer(const avgpool_layer *l, float *in);
 void backward_avgpool_layer(const avgpool_layer *l, float *delta);
 void forward_cost_layer(const cost_layer *l, float *input, network *net);
