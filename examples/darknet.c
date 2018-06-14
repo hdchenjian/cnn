@@ -3,8 +3,6 @@
 
 #include "utils.h"
 
-int gpu_index = 0;
-
 void run_classifier(int argc, char **argv);
 
 int main(int argc, char **argv)
@@ -13,7 +11,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: %s <function>\n", argv[0]);
         return 0;
     }
-    gpu_index = find_int_arg(argc, argv, "-i", 0);
+    int gpu_index = find_int_arg(argc, argv, "-i", 0);
     if(find_arg(argc, argv, "-nogpu")) {
         gpu_index = -1;
     }

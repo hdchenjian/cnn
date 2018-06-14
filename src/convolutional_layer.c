@@ -1,6 +1,6 @@
 #include "convolutional_layer.h"
 #include <float.h>
-
+#define GPU
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
         ACTIVATION activation, size_t *workspace_size, int batch_normalize)
 {
@@ -44,6 +44,27 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     }
     size_t workspace_size_local = (size_t)(layer->out_h*layer->out_w*size*size*c*sizeof(float));
     if (workspace_size_local > *workspace_size) *workspace_size = workspace_size_local;
+
+#ifdef GPU
+    layer->weights_gpu = cuda_make_array(layer->weights, c*n*size*size);
+    layer->weight_updates_gpu = cuda_make_array(layer->weight_updates, c*n*size*size);
+
+    layer->biases_gpu = cuda_make_array(layer->biases, n);
+    layer->bias_updates_gpu = cuda_make_array(layer->bias_updates, n);
+
+    layer->delta_gpu = cuda_make_array(layer->delta, batch * layer->out_h * layer->out_w * n);
+    layer->output_gpu = cuda_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
+
+    if(batch_normalize){
+        layer->mean_gpu = cuda_make_array(layer->mean, n);
+        layer->mean_delta_gpu = cuda_make_array(layer->mean, n);
+        layer->variance_delta_gpu = cuda_make_array(layer->variance, n);
+        layer->variance_gpu = cuda_make_array(layer->variance, n);
+        layer->rolling_mean_gpu = cuda_make_array(layer->mean, n);
+        layer->rolling_variance_gpu = cuda_make_array(layer->variance, n);
+        layer->x_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+    }
+#endif
     return layer;
 }
 

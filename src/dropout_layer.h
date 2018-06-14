@@ -3,8 +3,7 @@
 
 #include "network.h"
 
-dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, float probability,
-        float *previous_layer_output, float *previous_layer_delta);
+dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, float probability);
 
 void forward_dropout_layer(dropout_layer *l, float *input, network *net);
 void backward_dropout_layer(dropout_layer *l, float *delta);

@@ -8,8 +8,7 @@ image get_dropout_image(const dropout_layer *layer, int batch)
     return float_to_image(h,w,c,layer->output + batch * h * w * c);
 }
 
-dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, float probability,
-        float *previous_layer_output, float *previous_layer_delta)
+dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, float probability)
 {
     fprintf(stderr, "Dropout:            p = %.2f, %4d  ->  %4d\n", probability, inputs, inputs);
     dropout_layer *l = calloc(1, sizeof(dropout_layer));
@@ -22,8 +21,6 @@ dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, fl
     l->batch = batch;
     l->rand = calloc(inputs*batch, sizeof(float));
     l->scale = 1./(1.-probability);
-    l->output = previous_layer_output;  // reuse previous layer output and delta
-    l->delta = previous_layer_delta;
     return l;
 } 
 

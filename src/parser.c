@@ -111,9 +111,7 @@ dropout_layer *parse_dropout(struct list *options, network *net, int count)
     }else{
         input = get_network_output_size_layer(net, count-1);
     }
-    float *pre_output = get_network_layer_data(net, count - 1, 0);
-    float *pre_delta = get_network_layer_data(net, count - 1, 1);
-    dropout_layer *layer = make_dropout_layer(w, h, c, net->batch, input, probability, pre_output, pre_delta);
+    dropout_layer *layer = make_dropout_layer(w, h, c, net->batch, input, probability);
     option_unused(options);
     return layer;
 }
@@ -318,6 +316,14 @@ network *parse_network_cfg(char *filename)
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[dropout]")==0){
             dropout_layer *layer = parse_dropout(options, net, count);
+            float *previous_layer_output = get_network_layer_data(net, count - 1, 0);
+            float *previous_layer_delta = get_network_layer_data(net, count - 1, 1);
+            layer->output = previous_layer_output;  // reuse previous layer output and delta
+            layer->delta = previous_layer_delta;
+#ifdef GPU
+            layer->output_gpu = net->layers[count-1]->output_gpu;
+            layer->delta_gpu = net->layers[count-1]->delta_gpu;
+#endif
             net->layers_type[count] = DROPOUT;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[cost]")==0){
@@ -336,7 +342,21 @@ network *parse_network_cfg(char *filename)
         ++count;
         n = n->next;
     }
-    net->workspace = calloc(1, net->workspace_size);
+#ifdef GPU
+    net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
+    net->truth_gpu = cuda_make_array(0, net->classes * net->batch);
+#endif
+    if(net->workspace_size){
+#ifdef GPU
+        if(gpu_index >= 0){
+            net->workspace = cuda_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
+        }else {
+            net->workspace = calloc(1, net->workspace_size);
+        }
+#else
+        net->workspace = calloc(1, net->workspace_size);
+#endif
+    }
     free_list(sections);
     return net;
 }

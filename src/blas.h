@@ -58,5 +58,7 @@ void scale_bias_gpu(float *output, float *biases, int batch, int n, int size);
 
 void smooth_l1_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void l2_gpu(int n, float *pred, float *truth, float *delta, float *error);
+
+void fill_gpu(int N, float ALPHA, float * X, int INCX);
 #endif
 #endif

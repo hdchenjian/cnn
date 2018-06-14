@@ -1,7 +1,7 @@
-GPU=0
+GPU=1
 DEBUG=1
 CUDNN=0
-OPENMP=1
+OPENMP=0
 ARCH= -gencode arch=compute_30,code=sm_30 \
       -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_50,code=[sm_50,compute_50] \
@@ -45,11 +45,11 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -lcudnn
 endif
 
-OBJ=utils.o gemm.o image.o box.o blas.o data.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o
+OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
-OBJ+=convolutional_kernels.o
+OBJ+=blas_kernels.o convolutional_kernels.o
 endif
 
 EXECOBJA=classifier.o darknet.o

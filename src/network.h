@@ -15,6 +15,7 @@
 #include <pthread.h>
 #include <time.h>
 
+#define GPU
 #define SECRET_NUM -1234
 extern int gpu_index;
 
@@ -91,6 +92,7 @@ typedef struct {
     int test;    // 0: train, 1: valid, 2: test
     int classes;    // train data classes
     float *truth;  // train data label
+
     int correct_num;  // train correct number
     int correct_num_count;  // all trained data size, train accuracy = correct_num / correct_num_count
     float *workspace;  // for convolutional_layer image reorder
@@ -108,6 +110,12 @@ typedef struct {
 
     void **layers;
     enum LAYER_TYPE *layers_type;
+
+#ifdef GPU
+    float *input_gpu;  // train data
+    float *truth_gpu;  // train data truth
+#endif
+
 }network;
 
 void forward_avgpool_layer(const avgpool_layer *l, float *in);
@@ -123,6 +131,7 @@ image get_dropout_image(const dropout_layer *layer, int batch);
 float *get_network_layer_data(network *net, int i, int data_type);
 
 network *make_network(int n);
+void free_network(network *net);
 void train_network_batch(network *net, batch b);
 void valid_network(network *net, batch b);
 int get_network_output_size_layer(network *net, int i);
