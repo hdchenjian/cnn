@@ -316,13 +316,13 @@ network *parse_network_cfg(char *filename)
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[dropout]")==0){
             dropout_layer *layer = parse_dropout(options, net, count);
-            float *previous_layer_output = get_network_layer_data(net, count - 1, 0);
-            float *previous_layer_delta = get_network_layer_data(net, count - 1, 1);
+            float *previous_layer_output = get_network_layer_data(net, count - 1, 0, 0);
+            float *previous_layer_delta = get_network_layer_data(net, count - 1, 1, 0);
             layer->output = previous_layer_output;  // reuse previous layer output and delta
             layer->delta = previous_layer_delta;
 #ifdef GPU
-            layer->output_gpu = net->layers[count-1]->output_gpu;
-            layer->delta_gpu = net->layers[count-1]->delta_gpu;
+            layer->output_gpu = get_network_layer_data(net, count - 1, 0, 1);
+            layer->delta_gpu = get_network_layer_data(net, count - 1, 1, 1);
 #endif
             net->layers_type[count] = DROPOUT;
             net->layers[count] = layer;
@@ -343,12 +343,14 @@ network *parse_network_cfg(char *filename)
         n = n->next;
     }
 #ifdef GPU
+    net->classes = get_network_output_size_layer(net, net->n - 1);
     net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
     net->truth_gpu = cuda_make_array(0, net->classes * net->batch);
+    net->gpu_index = 0;
 #endif
     if(net->workspace_size){
 #ifdef GPU
-        if(gpu_index >= 0){
+        if(net->gpu_index >= 0){
             net->workspace = cuda_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
         }else {
             net->workspace = calloc(1, net->workspace_size);

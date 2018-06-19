@@ -15,7 +15,7 @@ SLIB = $(addprefix $(OBJDIR), libdarknet.so)
 ALIB = $(addprefix $(OBJDIR), libdarknet.a)
 
 CC=gcc
-NVCC=nvcc 
+NVCC=/usr/local/cuda/bin/nvcc 
 AR=ar
 ARFLAGS=rcs
 OPTS=-Ofast
@@ -45,11 +45,11 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -lcudnn
 endif
 
-OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o
+OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
-OBJ+=blas_kernels.o convolutional_kernels.o
+OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o
 endif
 
 EXECOBJA=classifier.o darknet.o
@@ -79,7 +79,7 @@ $(OBJDIR)%.o: %.c $(DEPS)
 	$(CC) $(COMMON) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)%.o: %.cu $(DEPS)
-	$(NVCC) $(ARCH) $(COMMON) --compiler-options "$(CFLAGS)" -c $< -o $@
+	$(NVCC) $(ARCH) $(COMMON) --compiler-options "-Wall -fPIC" -c $< -o $@
 
 obj:
 	mkdir -p obj

@@ -104,26 +104,23 @@ void push_cost_layer(cost_layer *l)
     cuda_push_array(l->delta_gpu, l->delta, l->batch*l->inputs);
 }
 
-void forward_cost_layer_gpu(cost_layer *l, network_state state)
+void forward_cost_layer_gpu(cost_layer *l, float *input, network *net)
 {
-    if (!state.truth) return;
-    if (l->cost_type == MASKED) {
-        mask_ongpu(l->batch*l->inputs, state.input, SECRET_NUM, state.truth);
-    }
+    if (net->test == 2) return;  // 0: train, 1: valid, 2: test
 
     if(l->cost_type == SMOOTH){
-        smooth_l1_gpu(l->batch*l->inputs, state.input, state.truth, l->delta_gpu, l->output_gpu);
+        smooth_l1_gpu(l->batch*l->inputs, input, net->truth, l->delta_gpu, l->output_gpu);
     } else {
-        l2_gpu(l->batch*l->inputs, state.input, state.truth, l->delta_gpu, l->output_gpu);
+        l2_gpu(l->batch*l->inputs, input, net->truth, l->delta_gpu, l->output_gpu);
     }
 
     cuda_pull_array(l->output_gpu, l->output, l->batch*l->inputs);
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);
 }
 
-void backward_cost_layer_gpu(const cost_layer *l, network_state state)
+void backward_cost_layer_gpu(const cost_layer *l, float *delta)
 {
-    axpy_ongpu(l->batch*l->inputs, l->scale, l->delta_gpu, 1, state.delta, 1);
+    axpy_gpu(l->batch*l->inputs, l->scale, l->delta_gpu, 1, delta, 1);
 }
 #endif
 

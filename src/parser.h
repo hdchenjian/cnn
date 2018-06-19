@@ -16,6 +16,14 @@
 #include "option_list.h"
 #include "utils.h"
 
+#ifdef GPU
+    #include "cuda.h"
+
+    #ifdef CUDNN
+    #include "cudnn.h"
+    #endif
+#endif
+
 struct list *read_data_cfg(char *filename);
 network *parse_network_cfg(char *filename);
 struct list *read_data_cfg(char *filename);

@@ -167,7 +167,5 @@ float cuda_mag_array(float *x_gpu, size_t n)
     free(temp);
     return m;
 }
-#else
-void cuda_set_device(int n){}
 
 #endif

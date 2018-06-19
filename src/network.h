@@ -15,16 +15,10 @@
 #include <pthread.h>
 #include <time.h>
 
-#define GPU
 #define SECRET_NUM -1234
-extern int gpu_index;
 
 #ifdef GPU
-    #define BLOCK 512
-
-    #include "cuda_runtime.h"
-    #include "curand.h"
-    #include "cublas_v2.h"
+    #include "cuda.h"
 
     #ifdef CUDNN
     #include "cudnn.h"
@@ -51,16 +45,16 @@ enum LAYER_TYPE{
 
 typedef struct {
     int h,w,c,batch;
-    float *delta;
-    float *output;
+    float *delta, *output;
+    float *output_gpu, *delta_gpu;
     enum LAYER_TYPE type;
 } avgpool_layer;
 
 typedef struct {
     int batch, inputs, outputs, out_h, out_w, c;
     float probability, scale;
-    float *rand;
-    float *output, *delta;
+    float *rand, *output, *delta;
+    float *rand_gpu, *output_gpu, *delta_gpu;
 } dropout_layer;
 
 typedef struct {
@@ -75,13 +69,14 @@ typedef struct {
 typedef struct {
     int batch,inputs, outputs;
     float scale;
-    float *delta;
-    float *output;
+    float *delta, *output;
+    float *output_gpu, *delta_gpu;
     enum COST_TYPE cost_type;
     float *cost;
 } cost_layer;
 
 typedef struct {
+	int gpu_index;
     int n;                  // the size of network
     int max_batches; // max iteration times of batch
     size_t seen;    // the number of image processed
@@ -128,7 +123,7 @@ void forward_dropout_layer(dropout_layer *l, float *input, network *net);
 void backward_dropout_layer(dropout_layer *l, float *delta);
 image get_dropout_image(const dropout_layer *layer, int batch);
 
-float *get_network_layer_data(network *net, int i, int data_type);
+float *get_network_layer_data(network *net, int i, int data_type, int is_gpu);
 
 network *make_network(int n);
 void free_network(network *net);

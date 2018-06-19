@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "utils.h"
+#include "cuda.h"
 
 void run_classifier(int argc, char **argv);
 

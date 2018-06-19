@@ -5,8 +5,8 @@
 
 typedef struct {
     int h,w,c,stride,batch, out_h, out_w;
-    float *delta;
-    float *output;
+    float *delta, *output;
+    float *output_gpu, *delta_gpu;
 } maxpool_layer;
 
 image get_maxpool_image(const maxpool_layer *layer, int batch);

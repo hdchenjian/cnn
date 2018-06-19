@@ -127,7 +127,6 @@ void forward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
 
         normalize_gpu(layer->output_gpu, layer->mean_gpu, layer->variance_gpu, layer->batch, layer->n,
                       layer->out_h*layer->out_w);
-        copy_gpu(layer->outputs*layer->batch, layer->output_gpu, 1, layer->x_norm_gpu, 1);
     } else {
         normalize_gpu(layer->output_gpu, layer->rolling_mean_gpu, layer->rolling_variance_gpu,
                       layer->batch, layer->n, layer->out_h*layer->out_w);
@@ -148,21 +147,21 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
             b = in + i * layer->w * layer->h * layer->c;
         } else {
             im2col_gpu(in + i * layer->w * layer->h * layer->c, layer->c, layer->h, layer->w, layer->size,
-                       layer->stride, layer->pad, b);
+                       layer->stride, 0, b);
         }
         gemm_gpu(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
 
     if (layer->batch_normalize) {
-        forward_batchnorm_layer_gpu(l, test);
+        forward_batchnorm_layer_gpu(layer, test);
     }
     add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
-    activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
+    activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
 }
 
-void backward_batchnorm_layer_gpu(layer l, network net)
+void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
 {
-    if(!net.train){
+    if(0 != test){    // 0: train, 1: valid, 2: test
         fprintf(stderr, "backward_batchnorm_layer: use no used!\n");
         exit(-1);
     }
@@ -174,27 +173,26 @@ void backward_batchnorm_layer_gpu(layer l, network net)
                         layer->variance_delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h, layer->delta_gpu);
 }
 
-void backward_convolutional_layer_gpu(convolutional_layer l, float *input, float *delta,
-        float *workspace, int test))
+void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *input, float *delta,
+        float *workspace, int test)
 {
-    gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
+    gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     
     if(layer->batch_normalize){
-        backward_batchnorm_layer_gpu(l, test);
+        backward_batchnorm_layer_gpu(layer, test);
     }
-    float *original_input = net.input_gpu;
 
     int m = layer->n;
     int n = layer->size*layer->size*layer->c;
     int k = layer->out_w*layer->out_h;
     for(int i = 0; i < layer->batch; ++i){
-        float *a = layer->delta_gpu + (i + j)*m*k;
+        float *a = layer->delta_gpu + i*m*k;
         float *b = workspace;
         float *c = layer->weight_updates_gpu;
 
         float *im  = input + i*layer->c*layer->h*layer->w;
-        im2col_gpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, layer->pad, b);
+        im2col_gpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, 0, b);
         gemm_gpu(0,1,m,n,k,1,a,k,b,k,1,c,n);
 
         if (delta) {
@@ -203,34 +201,33 @@ void backward_convolutional_layer_gpu(convolutional_layer l, float *input, float
             n = layer->out_w * layer->out_h;
             k = layer->n;
             a = layer->weights;
-            b = layer->delta + j * n * k;
+            b = layer->delta + i * n * k;
             c = workspace;
             if (layer->size == 1) {
-                c = delta + j * layer->h * layer->w * layer->c;
+                c = delta + i * layer->h * layer->w * layer->c;
             }
             gemm_gpu(1,0,n,k,m,1,a,n,b,k,0,c,k);
             if (layer->size != 1) {
                 col2im_gpu(workspace, layer->c, layer->h, layer->w, layer->size, layer->stride,
-                           layer->pad, delta + j * layer->h * layer->w * layer->c);
+                           0, delta + i * layer->h * layer->w * layer->c);
             }
         }
     }
 }
 
-void pull_convolutional_layer(layer l)
+void pull_convolutional_layer(const convolutional_layer *layer)
 {
-    cuda_pull_array(layer->weights_gpu, layer->weights, layer->nweights);
+    cuda_pull_array(layer->weights_gpu, layer->weights, layer->size*layer->size*layer->c*layer->n);
     cuda_pull_array(layer->biases_gpu, layer->biases, layer->n);
-    cuda_pull_array(layer->weight_updates_gpu, layer->weight_updates, layer->nweights);
+    cuda_pull_array(layer->weight_updates_gpu, layer->weight_updates, layer->size*layer->size*layer->c*layer->n);
     cuda_pull_array(layer->bias_updates_gpu, layer->bias_updates, layer->n);
     if (layer->batch_normalize){
-        cuda_pull_array(layer->scales_gpu, layer->scales, layer->n);
         cuda_pull_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
         cuda_pull_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->n);
     }
 }
 
-void push_convolutional_layer(layer l)
+void push_convolutional_layer(const convolutional_layer *layer)
 {
     int size = layer->size*layer->size*layer->c*layer->n;
     cuda_push_array(layer->weights_gpu, layer->weights, size);
@@ -238,16 +235,15 @@ void push_convolutional_layer(layer l)
     cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, size);
     cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->n);
     if (layer->batch_normalize){
-        cuda_push_array(layer->scales_gpu, layer->scales, layer->n);
         cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
         cuda_push_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->n);
     }
 }
 
-void update_convolutional_layer_gpu(layer l, float learning_rate, float momentum, float decay)
+void update_convolutional_layer_gpu(const convolutional_layer *layer, float learning_rate, float momentum, float decay)
 {
     int size = layer->size*layer->size*layer->c*layer->n;
-    axpy_gpu(size, -decay*batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
+    axpy_gpu(size, -decay*layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
     axpy_gpu(size, learning_rate/layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
     scal_gpu(size, momentum, layer->weight_updates_gpu, 1);
 

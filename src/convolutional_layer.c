@@ -1,6 +1,6 @@
 #include "convolutional_layer.h"
 #include <float.h>
-#define GPU
+
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
         ACTIVATION activation, size_t *workspace_size, int batch_normalize)
 {

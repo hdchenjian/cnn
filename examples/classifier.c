@@ -172,15 +172,15 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     srand(time(0));
     int seed = rand();
     srand(seed);
-#ifdef GPU
-    cuda_set_device(gpus[i]);
-#endif
 
     network *net = parse_network_cfg(cfgfile);
     if(weightfile && weightfile[0] != 0){
         load_weights(net, weightfile);
     }
     net->test = 1;
+#ifdef GPU
+    cuda_set_device(net->gpu_index);
+#endif
 
     struct list *options = read_data_cfg(datacfg);
     char *label_list = option_find_str(options, "labels", "data/labels.list");
@@ -241,7 +241,7 @@ void run_classifier(int argc, char **argv)
     }
     char *gpu_list = find_char_arg(argc, argv, "-gpus", 0);
     int ngpus;
-    int *gpus = read_intlist(gpu_list, &ngpus, gpu_index);
+    int *gpus = read_intlist(gpu_list, &ngpus, 0);
     int clear = find_arg(argc, argv, "-clear");
     char *data = argv[3];
     char *cfg = argv[4];

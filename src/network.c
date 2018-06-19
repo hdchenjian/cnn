@@ -14,13 +14,14 @@ network *make_network(int n)
     net->correct_num_count = 0;
     net->workspace_size = 0;
     net->workspace = NULL;
+    net->gpu_index = -1;
     return net;
 }
 
 void free_network(network *net)
 {
     for(int i = 0; i < net->n; ++i){
-        free_layer(net->layers[i]);
+        //free_layer(net->layers[i]);
     }
     free(net->layers);
     free(net->layers_type);
@@ -107,17 +108,23 @@ void update_network(network *net)
 }
 
 /* data_type: 0: output, 1: delta */
-float *get_network_layer_data(network *net, int i, int data_type)
+float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
 {
     if(net->layers_type[i] == CONVOLUTIONAL){
         convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-        return data_type == 0 ? layer->output : layer->delta;
+        if(is_gpu)
+        	return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+        	return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
         return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-        return data_type == 0 ? layer->output : layer->delta;
+        if(is_gpu)
+        	return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+        	return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == DROPOUT){
         dropout_layer *layer = (dropout_layer *)net->layers[i];
         return data_type == 0 ? layer->output : layer->delta;
@@ -145,8 +152,8 @@ void backward_network(network *net, float *input)
             prev_input = input;
             prev_delta = 0;
         }else{
-            prev_input = get_network_layer_data(net, i-1, 0);
-            prev_delta = get_network_layer_data(net, i-1, 1);
+            prev_input = get_network_layer_data(net, i-1, 0, 0);
+            prev_delta = get_network_layer_data(net, i-1, 1, 0);
         }
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
@@ -173,24 +180,22 @@ void backward_network(network *net, float *input)
             printf("backward_network layers_type error, layer: %d\n", i);
             exit(-1);
         }
-
     }
 }
 
 
 #ifdef GPU
 
-void forward_network_gpu(network *netp, float *input)
+void forward_network_gpu(network *net, float *input)
 {
-    network net = *netp;
-    cuda_push_array(net.input_gpu, input, net->h * net->w * net->c * net->batch);
-    if(net.truth){
-        cuda_push_array(net.truth_gpu, net.truth, net.classes*net.batch);
+    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    if(net->truth){
+        cuda_push_array(net->truth_gpu, net->truth, net->classes*net->batch);
     }
     for(int i = 0; i < net->n; ++i){
 		if(net->layers_type[i] == CONVOLUTIONAL){
 			convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-			forward_convolutional_layer(layer, input, net->workspace, net->test);
+			forward_convolutional_layer_gpu(layer, input, net->workspace, net->test);
 			input = layer->output;
 		}else if(net->layers_type[i] == CONNECTED){
 			connected_layer *layer = (connected_layer *)net->layers[i];
@@ -221,14 +226,10 @@ void forward_network_gpu(network *netp, float *input)
 			exit(-1);
 		}
 	}
-    pull_network_output(netp);
-    calc_network_cost(netp);
 }
 
-void backward_network_gpu(network *netp, float *input)
+void backward_network_gpu(network *net, float *input)
 {
-    int i;
-    network net = *netp;
     float *prev_input;
     float *prev_delta;
     for(int i = net->n-1; i >= 0; --i){
@@ -236,8 +237,8 @@ void backward_network_gpu(network *netp, float *input)
             prev_input = input;
             prev_delta = 0;
         }else{
-            prev_input = get_network_layer_data(net, i-1, 0);
-            prev_delta = get_network_layer_data(net, i-1, 1);
+            prev_input = get_network_layer_data(net, i-1, 0, 0);
+            prev_delta = get_network_layer_data(net, i-1, 1, 0);
         }
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
@@ -267,9 +268,8 @@ void backward_network_gpu(network *netp, float *input)
     }
 }
 
-void update_network_gpu(network *netp)
+void update_network_gpu(network *net)
 {
-    network net = *netp;
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
@@ -376,7 +376,7 @@ image get_network_image_layer(network *net, int i)
     }
 }
 
-void save_convolutional_weights(const convolutional_layer *l, FILE *fp)
+void save_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_index)
 {
 #ifdef GPU
     if(gpu_index >= 0){
@@ -385,18 +385,18 @@ void save_convolutional_weights(const convolutional_layer *l, FILE *fp)
 #endif
     fwrite(l->biases, sizeof(float), l->n, fp);
     if (l->batch_normalize){
-        fwrite(l.rolling_mean, sizeof(float), l.n, fp);
-        fwrite(l.rolling_variance, sizeof(float), l.n, fp);
+        fwrite(l->rolling_mean, sizeof(float), l->n, fp);
+        fwrite(l->rolling_variance, sizeof(float), l->n, fp);
     }
     fwrite(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
 }
 
-void load_convolutional_weights(const convolutional_layer *l, FILE *fp)
+void load_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_index)
 {
     fread(l->biases, sizeof(float), l->n, fp);
-    if (l.batch_normalize){
-		fread(l.rolling_mean, sizeof(float), l.n, fp);
-		fread(l.rolling_variance, sizeof(float), l.n, fp);
+    if (l->batch_normalize){
+		fread(l->rolling_mean, sizeof(float), l->n, fp);
+		fread(l->rolling_variance, sizeof(float), l->n, fp);
 	}
     fread(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
 #ifdef GPU
@@ -406,7 +406,7 @@ void load_convolutional_weights(const convolutional_layer *l, FILE *fp)
 #endif
 }
 
-void save_connected_weights(const connected_layer *l, FILE *fp)
+void save_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
 {
 #ifdef GPU
     if(gpu_index >= 0){
@@ -417,7 +417,7 @@ void save_connected_weights(const connected_layer *l, FILE *fp)
     fwrite(l->weights, sizeof(float), l->outputs*l->inputs, fp);
 }
 
-void load_connected_weights(const connected_layer *l, FILE *fp)
+void load_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
 {
     fread(l->biases, sizeof(float), l->outputs, fp);
     fread(l->weights, sizeof(float), l->outputs*l->inputs, fp);
@@ -451,9 +451,9 @@ void save_weights(network *net, char *filename)
 
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
-            save_convolutional_weights((convolutional_layer *)net->layers[i], fp);
+            save_convolutional_weights((convolutional_layer *)net->layers[i], fp, net->gpu_index);
         } if(net->layers_type[i] == CONNECTED){
-            save_connected_weights((connected_layer *)net->layers[i], fp);
+            save_connected_weights((connected_layer *)net->layers[i], fp, net->gpu_index);
         }
     }
     fprintf(stderr, "Saving weights Done!\n\n");
@@ -483,9 +483,9 @@ void load_weights(network *net, char *filename)
 
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
-            load_convolutional_weights((convolutional_layer *)net->layers[i], fp);
+            load_convolutional_weights((convolutional_layer *)net->layers[i], fp, net->gpu_index);
         } if(net->layers_type[i] == CONNECTED){
-            load_connected_weights((connected_layer *)net->layers[i], fp);
+            load_connected_weights((connected_layer *)net->layers[i], fp, net->gpu_index);
         }
     }
     fprintf(stderr, "Loading weights Done!\n");

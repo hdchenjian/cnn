@@ -9,6 +9,14 @@
 #include "utils.h"
 #include "blas.h"
 
+#ifdef GPU
+    #include "cuda.h"
+
+    #ifdef CUDNN
+    #include "cudnn.h"
+    #endif
+#endif
+
 typedef struct {
     int h, w, c, n, size, stride, batch, out_h, out_w;
     int batch_normalize;
@@ -26,12 +34,13 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay);
 
 #ifdef GPU
-void forward_convolutional_layer_gpu(convolutional_layer layer, network net);
-void backward_convolutional_layer_gpu(convolutional_layer layer, network net);
-void update_convolutional_layer_gpu(convolutional_layer layer, update_args a);
+void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test);
+void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *input, float *delta,
+        float *workspace, int test);
+void update_convolutional_layer_gpu(const convolutional_layer *layer, float learning_rate, float momentum, float decay);
 
-void push_convolutional_layer(convolutional_layer layer);
-void pull_convolutional_layer(convolutional_layer layer);
+void push_convolutional_layer(const convolutional_layer *layer);
+void pull_convolutional_layer(const convolutional_layer *layer);
 
 void add_bias_gpu(float *output, float *biases, int batch, int n, int size);
 void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int size);
