@@ -61,7 +61,7 @@ int test_gemm_gpu(int w, int h)
     cuda_pull_array(c_gpu, c, w * h);
     sum = 0;
     for(int i = 0; i < w * h; i++) sum += c[i];
-    printf("Matrix Multiplication gpu %dx%d * %dx%d, sum: %f, %lf s speedup: \n",
+    printf("Matrix Multiplication gpu %dx%d * %dx%d, sum: %f, %lf s speedup: %f\n",
     		h, w, h, w, sum, end-start, cpu_time/ gpu_time);
     cuda_free(a_gpu);
     cuda_free(b_gpu);
@@ -108,6 +108,6 @@ int main(int argc, char **argv)
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
-    test_gemm_gpu(2000, 2000);
+    //test_gemm_gpu(2000, 2000);
     return 0;
 }

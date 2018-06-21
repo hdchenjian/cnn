@@ -1,11 +1,10 @@
-GPU=1
+GPU=0
 DEBUG=1
 CUDNN=0
 OPENMP=0
-ARCH= -gencode arch=compute_30,code=sm_30 \
-      -gencode arch=compute_35,code=sm_35 \
-      -gencode arch=compute_50,code=[sm_50,compute_50] \
-      -gencode arch=compute_52,code=[sm_52,compute_52]
+ARCH= -gencode arch=compute_35,code=sm_35 \
+      -gencode arch=compute_52,code=[sm_52,compute_52] \
+      -gencode arch=compute_61,code=[sm_61,compute_61]
 
 VPATH=./src/:./examples:./test
 EXEC=darknet
@@ -40,16 +39,16 @@ LDFLAGS+= -L/usr/local/cuda/lib64 -lcuda -lcudart -lcublas -lcurand
 endif
 
 ifeq ($(CUDNN), 1) 
-COMMON+= -DCUDNN 
+COMMON+= -DCUDNN -I/opt/ego/cudnn-v7/
 CFLAGS+= -DCUDNN
-LDFLAGS+= -lcudnn
+LDFLAGS+= -L/opt/ego/cudnn-v7 -lcudnn
 endif
 
 OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
-OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o
+OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o maxpool_layer_kernels.o
 endif
 
 EXECOBJA=classifier.o darknet.o

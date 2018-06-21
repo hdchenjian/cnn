@@ -956,6 +956,33 @@ extern "C" void softmax_gpu(float *input, int n, int batch, int batch_offset, in
     check_error(cudaPeekAtLastError());
 }
 
+__global__ void softmax_device_me(float *input, int n, int batch, float temp, int stride, float *output)
+{
+    int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    input = input + id * batch;
+    output = output + id * batch;
+    int i;
+    float sum = 0;
+    float largest = -INFINITY;
+    for(i = 0; i < n; ++i){
+        int val = input[i*stride];
+        largest = (val>largest) ? val : largest;
+    }
+    for(i = 0; i < n; ++i){
+        float e = expf(input[i*stride]/temp - largest/temp);
+        sum += e;
+        output[i*stride] = e;
+    }
+    for(i = 0; i < n; ++i){
+        output[i*stride] /= sum;
+    }
+}
+
+extern "C" void softmax_gpu_me(float *input, int n, int batch, float *output)
+{
+    softmax_device_me<<<1, batch>>>(input, n, batch, 1, 1, output);
+    check_error(cudaPeekAtLastError());
+}
 
 __global__ void upsample_kernel(size_t N, float *x, int w, int h, int c, int batch, int stride, int forward, float scale, float *out)
 {

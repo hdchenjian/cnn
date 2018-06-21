@@ -60,9 +60,9 @@ typedef struct {
 typedef struct {
 	int is_last_layer;   // 1: is last layer, 0: not
     int inputs, batch;
-    float *delta;
-    float *output;
-    float * loss;
+    float *delta, *output;
+    float *delta_gpu, *output_gpu;
+    float *loss, *loss_gpu;
     float *cost;
 } softmax_layer;
 
@@ -91,6 +91,7 @@ typedef struct {
     int correct_num;  // train correct number
     int correct_num_count;  // all trained data size, train accuracy = correct_num / correct_num_count
     float *workspace;  // for convolutional_layer image reorder
+    float *workspace_gpu;  // for convolutional_layer image reorder
     size_t workspace_size;
     float loss;
     float hue, saturation, exposure;  // random_distort_image
@@ -119,6 +120,12 @@ void forward_cost_layer(const cost_layer *l, float *input, network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
 void forward_softmax_layer(const softmax_layer *layer, float *input, network *net);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
+#ifdef GPU
+void forward_cost_layer_gpu(cost_layer *l, float *input, network *net);
+void backward_cost_layer_gpu(const cost_layer *l, float *delta);
+void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, network *net);
+void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu);
+#endif
 void forward_dropout_layer(dropout_layer *l, float *input, network *net);
 void backward_dropout_layer(dropout_layer *l, float *delta);
 image get_dropout_image(const dropout_layer *layer, int batch);

@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     if (0 == strcmp(argv[1], "classifier")){
         run_classifier(argc, argv);
     } else {
-        fprintf(stderr, "Not an option: %s\n", argv[1]);
+        fprintf(stderr, "Not an option: %s gpu_index: %d\n", argv[1], gpu_index);
     }
     return 0;
 }

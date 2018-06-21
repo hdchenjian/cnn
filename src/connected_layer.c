@@ -50,6 +50,13 @@ void forward_connected_layer(connected_layer *layer, float *input)
     for(int i = 0; i < all_outputs; ++i){
         layer->output[i] = activate(layer->output[i], layer->activation);
     }
+
+    float max = -FLT_MAX, min = FLT_MAX;
+    for(int i = 0; i < layer->batch * layer->outputs; ++i){
+    	if(layer->output[i] > max) max = layer->output[i];
+    	if(layer->output[i] < min) min = layer->output[i];
+    }
+    printf("forward_connected_layer max: %f, min: %f\n", max, min);
 }
 
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)
@@ -69,6 +76,12 @@ void update_connected_layer(connected_layer *layer, float learning_rate, float m
 
 void backward_connected_layer(connected_layer *layer, float *input, float *delta)
 {
+    /*
+    for(int i = 0; i < layer->outputs*layer->batch; i++){
+        printf("backward_connected_layer layer->delta: %f \n", layer->delta[i]);
+    }
+    printf("\n");*/
+
     int all_outputs = layer->outputs * layer->batch;
     for(int i = 0; i < all_outputs; ++i){
         layer->delta[i] *= gradient(layer->output[i], layer->activation);
@@ -149,13 +162,30 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input)
     float * a = input;
     float * b = layer->weights_gpu;
     float * c = layer->output_gpu;
-    gemm(0, 0, m, n, k, 1, a, k, b, n, 0, c, n);
+    gemm_gpu(0, 0, m, n, k, 1, a, k, b, n, 0, c, n);
     add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
     activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
+
+    float *output_temp = (float *)calloc(layer->batch * layer->outputs, sizeof(float));
+    cuda_pull_array(layer->output_gpu, output_temp, layer->outputs*layer->batch);
+    float max = -FLT_MAX, min = FLT_MAX;
+    for(int i = 0; i < layer->batch * layer->outputs; ++i){
+    	if(output_temp[i] > max) max = output_temp[i];
+    	if(output_temp[i] < min) min = output_temp[i];
+    }
+    printf("forward_connected_layer_gpu max: %f, min: %f\n", max, min);
 }
 
 void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta)
 {
+    /*
+    float *delta_temp = calloc(layer->outputs*layer->batch, sizeof(float));
+    cuda_pull_array(layer->delta_gpu, delta_temp, layer->outputs*layer->batch);
+    for(int i = 0; i < layer->outputs*layer->batch; i++){
+        printf("backward_connected_layer_gpu layer->delta_gpu: %f \n", delta_temp[i]);
+    }
+    printf("\n"); */
+
     gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->outputs, 1);
 
@@ -176,7 +206,7 @@ void backward_connected_layer_gpu(connected_layer *layer, float *input, float *d
     c = delta;
 
     if(c) {
-        gemm(0,1,m,n,k,1,a,k,b,k,0,c,n);
+        gemm_gpu(0,1,m,n,k,1,a,k,b,k,0,c,n);
     }
 }
 #endif

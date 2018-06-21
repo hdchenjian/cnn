@@ -113,18 +113,21 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
     if(net->layers_type[i] == CONVOLUTIONAL){
         convolutional_layer *layer = (convolutional_layer *)net->layers[i];
         if(is_gpu)
-        	return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
-        	return data_type == 0 ? layer->output : layer->delta;
+            return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
-        return data_type == 0 ? layer->output : layer->delta;
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         if(is_gpu)
-        	return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
-        	return data_type == 0 ? layer->output : layer->delta;
+            return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == DROPOUT){
         dropout_layer *layer = (dropout_layer *)net->layers[i];
         return data_type == 0 ? layer->output : layer->delta;
@@ -133,10 +136,16 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
         return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == SOFTMAX){
         softmax_layer *layer = (softmax_layer *)net->layers[i];
-        return data_type == 0 ? layer->output : layer->delta;
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == COST){
         cost_layer *layer = (cost_layer *)net->layers[i];
-        return data_type == 0 ? layer->output : layer->delta;
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
     } else {
         printf("get_network_layer_data layers_type error, layer: %d %d\n", i, net->layers_type[i]);
         exit(-1);
@@ -193,39 +202,44 @@ void forward_network_gpu(network *net, float *input)
         cuda_push_array(net->truth_gpu, net->truth, net->classes*net->batch);
     }
     for(int i = 0; i < net->n; ++i){
-		if(net->layers_type[i] == CONVOLUTIONAL){
-			convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-			forward_convolutional_layer_gpu(layer, input, net->workspace, net->test);
-			input = layer->output;
-		}else if(net->layers_type[i] == CONNECTED){
-			connected_layer *layer = (connected_layer *)net->layers[i];
-			forward_connected_layer(layer, input);
-			input = layer->output;
-		} else if(net->layers_type[i] == MAXPOOL){
-			maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-			forward_maxpool_layer(layer, input);
-			input = layer->output;
-		} else if(net->layers_type[i] == AVGPOOL){
-			avgpool_layer *layer = (avgpool_layer *)net->layers[i];
-			forward_avgpool_layer(layer, input);
-			input = layer->output;
-		} else if(net->layers_type[i] == DROPOUT){
-			dropout_layer *layer = (dropout_layer *)net->layers[i];
-			forward_dropout_layer(layer, input, net);
-			input = layer->output;
-		} else if(net->layers_type[i] == SOFTMAX){
-			softmax_layer *layer = (softmax_layer *)net->layers[i];
-			forward_softmax_layer(layer, input, net);
-			input = layer->output;
-		} else if(net->layers_type[i] == COST){
-			cost_layer *layer = (cost_layer *)net->layers[i];
-			forward_cost_layer(layer, input, net);
-			input = layer->output;
-		} else {
-			printf("forward_network layers_type error, layer: %d\n", i);
-			exit(-1);
-		}
-	}
+        if(net->layers_type[i] == CONVOLUTIONAL){
+            convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            forward_convolutional_layer_gpu(layer, net->input_gpu, net->workspace_gpu, net->test);
+            input = layer->output_gpu;
+        }else if(net->layers_type[i] == CONNECTED){
+            connected_layer *layer = (connected_layer *)net->layers[i];
+            if(i == -6){
+                maxpool_layer *max_layer = (maxpool_layer *)net->layers[i - 1];
+                float *input_cpu_temp = max_layer->output;
+                cuda_push_array(input, input_cpu_temp, layer->inputs * layer->batch);
+            }
+            forward_connected_layer_gpu(layer, input);
+            input = layer->output_gpu;
+        } else if(net->layers_type[i] == MAXPOOL){
+            maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            forward_maxpool_layer_gpu(layer, input);
+            input = layer->output_gpu;
+        } else if(net->layers_type[i] == AVGPOOL){
+            avgpool_layer *layer = (avgpool_layer *)net->layers[i];
+            forward_avgpool_layer(layer, input);
+            input = layer->output;
+        } else if(net->layers_type[i] == DROPOUT){
+            dropout_layer *layer = (dropout_layer *)net->layers[i];
+            forward_dropout_layer(layer, input, net);
+            input = layer->output;
+        } else if(net->layers_type[i] == SOFTMAX){
+            softmax_layer *layer = (softmax_layer *)net->layers[i];
+            forward_softmax_layer_gpu(layer, input, net);
+            input = layer->output_gpu;
+        } else if(net->layers_type[i] == COST){
+            cost_layer *layer = (cost_layer *)net->layers[i];
+            forward_cost_layer_gpu(layer, input, net);
+            input = layer->output_gpu;
+        } else {
+            printf("forward_network layers_type error, layer: %d\n", i);
+            exit(-1);
+        }
+    }
 }
 
 void backward_network_gpu(network *net, float *input)
@@ -237,18 +251,18 @@ void backward_network_gpu(network *net, float *input)
             prev_input = input;
             prev_delta = 0;
         }else{
-            prev_input = get_network_layer_data(net, i-1, 0, 0);
-            prev_delta = get_network_layer_data(net, i-1, 1, 0);
+            prev_input = get_network_layer_data(net, i-1, 0, 1);
+            prev_delta = get_network_layer_data(net, i-1, 1, 1);
         }
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            backward_convolutional_layer(layer, prev_input, prev_delta, net->workspace, net->test);
+            backward_convolutional_layer_gpu(layer, prev_input, prev_delta, net->workspace_gpu, net->test);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            backward_connected_layer(layer, prev_input, prev_delta);
+            backward_connected_layer_gpu(layer, prev_input, prev_delta);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-            if(i != 0) backward_maxpool_layer(layer, prev_input, prev_delta);
+            if(i != 0) backward_maxpool_layer_gpu(layer, prev_delta);
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             if(i != 0) backward_avgpool_layer(layer, prev_delta);
@@ -257,10 +271,10 @@ void backward_network_gpu(network *net, float *input)
             if(i != 0) backward_dropout_layer(layer, prev_delta);
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
-            if(i != 0) backward_softmax_layer(layer, prev_delta);
+            if(i != 0) backward_softmax_layer_gpu(layer, prev_delta);
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
-            backward_cost_layer(layer, prev_delta);
+            backward_cost_layer_gpu(layer, prev_delta);
         } else {
             printf("backward_network layers_type error, layer: %d\n", i);
             exit(-1);
@@ -273,10 +287,10 @@ void update_network_gpu(network *net)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            update_convolutional_layer(layer, net->learning_rate, net->momentum, net->decay);
+            update_convolutional_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            update_connected_layer(layer, net->learning_rate, net->momentum, net->decay);
+            update_connected_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == MAXPOOL){
         } else if(net->layers_type[i] == DROPOUT){
         } else if(net->layers_type[i] == AVGPOOL){
@@ -295,9 +309,12 @@ void train_network_batch(network *net, batch b)
 {
     net->truth = b.truth;
 #ifdef GPU
-	forward_network_gpu(net, b.data);
-	backward_network_gpu(net, b.data);
-	update_network_gpu(net);
+    //forward_network(net, b.data);
+    forward_network_gpu(net, b.data);
+    //backward_network(net, b.data);
+    backward_network_gpu(net, net->input_gpu);
+    update_network_gpu(net);
+    //update_network(net);
 #else
     forward_network(net, b.data);
     backward_network(net, b.data);
@@ -432,7 +449,6 @@ void save_weights(network *net, char *filename)
 {
 #ifdef GPU
     if(net->gpu_index >= 0){
-        cuda_set_device(net->gpu_index);
     }
 #endif
     fprintf(stderr, "Saving weights to %s\n", filename);
@@ -464,7 +480,6 @@ void load_weights(network *net, char *filename)
 {
 #ifdef GPU
     if(net->gpu_index >= 0){
-        cuda_set_device(net->gpu_index);
     }
 #endif
     fprintf(stderr, "Loading weights from %s\n", filename);

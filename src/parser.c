@@ -78,7 +78,9 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
         c = m.c;
         if(h == 0) error("Layer before maxpool layer must output image.");
     }
-    maxpool_layer *layer = make_maxpool_layer(h,w,c,stride,net->batch);
+    int size = option_find_int(options, "size",stride);
+    int padding = option_find_int(options, "padding", (size-1)/2);
+    maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding);
     option_unused(options);
     return layer;
 }
@@ -346,18 +348,22 @@ network *parse_network_cfg(char *filename)
     net->classes = get_network_output_size_layer(net, net->n - 1);
     net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
     net->truth_gpu = cuda_make_array(0, net->classes * net->batch);
-    net->gpu_index = 0;
+    net->gpu_index = cuda_get_device();
 #endif
     if(net->workspace_size){
 #ifdef GPU
         if(net->gpu_index >= 0){
-            net->workspace = cuda_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
+            net->workspace_gpu = cuda_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
         }else {
             net->workspace = calloc(1, net->workspace_size);
         }
 #else
         net->workspace = calloc(1, net->workspace_size);
 #endif
+    }
+    if(net->workspace_gpu){
+        printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n\n\n\n\n\n");
+        net->workspace = calloc(1, net->workspace_size);
     }
     free_list(sections);
     return net;

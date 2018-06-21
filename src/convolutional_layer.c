@@ -157,7 +157,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     }
 
     for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
-    /*
+
     for(int b = 0; b < layer->batch; ++b){
         float max = -FLT_MAX;
         float min = FLT_MAX;
@@ -166,7 +166,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
             if(layer->output[i +b*m*n] < min) min = layer->output[i +b*m*n];
         }
         printf("forward_convolutional_layer max: %f, min: %f\n", max, min);
-    }*/
+    }
 }
 
 void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int spatial, float *mean_delta)
@@ -274,15 +274,26 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
                 col2im_cpu(workspace, layer->c, layer->h, layer->w, layer->size, layer->stride,
                         delta + j * layer->h * layer->w * layer->c);
             }
-            /*
-            float max = -FLT_MAX;
-            float min = FLT_MAX;
-            for(int kk = 0; kk < n * k; ++kk){
-                //printf("backward_connected_layer  %f, \n", layer->delta[layer->outputs * i +j]);
-                if(layer->delta[j * n * k +kk] > max) max = layer->delta[j * n * k +kk];
-                if(layer->delta[j * n * k +kk] < min) min = layer->delta[j * n * k +kk];
+        }
+    }
+    for(int j = 0; j < layer->batch; ++j){
+        int n = layer->out_w * layer->out_h;
+        int k = layer->n;
+        float max = -FLT_MAX, min = FLT_MAX;
+        for(int kk = 0; kk < n * k; ++kk){
+            if(layer->delta[j * n * k +kk] > max) max = layer->delta[j * n * k +kk];
+            if(layer->delta[j * n * k +kk] < min) min = layer->delta[j * n * k +kk];
+        }
+        printf("backward_convolutional_layer layer->delta max: %f, min: %f\n", max, min);
+
+        if(delta){
+            max = -FLT_MAX, min = FLT_MAX;
+            n = layer->h * layer->w * layer->c;
+            for(int kk = 0; kk < n; ++kk){
+                if(delta[j * n +kk] > max) max = delta[j * n +kk];
+                if(delta[j * n +kk] < min) min = delta[j * n +kk];
             }
-            printf("backward_convolutional_layer max: %f, min: %f\n", max, min);*/
+            printf("backward_convolutional_layer delta max: %f, min: %f\n", max, min);
         }
     }
 }

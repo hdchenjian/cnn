@@ -1,6 +1,7 @@
 #include "cuda_runtime.h"
 #include "curand.h"
 #include "cublas_v2.h"
+#include <float.h>
 
 extern "C" {
 #include "convolutional_layer.h"
@@ -151,12 +152,23 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         }
         gemm_gpu(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
-
     if (layer->batch_normalize) {
         forward_batchnorm_layer_gpu(layer, test);
     }
     add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
+
+    float *output_temp = (float *)calloc(n*m*layer->batch, sizeof(float));
+    cuda_pull_array(layer->output_gpu, output_temp, layer->batch * layer->out_h * layer->out_w * layer->n);
+    for(int b = 0; b < layer->batch; ++b){
+        float max = -FLT_MAX;
+        float min = FLT_MAX;
+        for(int i = 0; i <  m*n; ++i){
+            if(output_temp[i +b*m*n] > max) max = output_temp[i +b*m*n];
+            if(output_temp[i +b*m*n] < min) min = output_temp[i +b*m*n];
+        }
+        printf("forward_convolutional_layer_gpu max: %f, min: %f\n", max, min);
+    }
 }
 
 void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
@@ -178,39 +190,66 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
 {
     gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
-    
     if(layer->batch_normalize){
         backward_batchnorm_layer_gpu(layer, test);
     }
 
-    int m = layer->n;
-    int n = layer->size*layer->size*layer->c;
-    int k = layer->out_w*layer->out_h;
     for(int i = 0; i < layer->batch; ++i){
+        int m = layer->n;
+        int n = layer->size*layer->size*layer->c;
+        int k = layer->out_w*layer->out_h;
         float *a = layer->delta_gpu + i*m*k;
         float *b = workspace;
         float *c = layer->weight_updates_gpu;
 
         float *im  = input + i*layer->c*layer->h*layer->w;
-        im2col_gpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, 0, b);
+        if(layer->size == 1){
+            b = im;
+        } else {
+            im2col_gpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, 0, b);
+        }
         gemm_gpu(0,1,m,n,k,1,a,k,b,k,1,c,n);
 
         if (delta) {
-            memset(delta + i * layer->h * layer->w * layer->c, 0, layer->h * layer->w * layer->c * sizeof(float));
+            fill_gpu(layer->h * layer->w * layer->c, 0, delta + i * layer->h * layer->w * layer->c, 1);
             m = layer->size*layer->size*layer->c;
             n = layer->out_w * layer->out_h;
             k = layer->n;
-            a = layer->weights;
-            b = layer->delta + i * n * k;
+            a = layer->weights_gpu;
+            b = layer->delta_gpu + i * n * k;
             c = workspace;
             if (layer->size == 1) {
                 c = delta + i * layer->h * layer->w * layer->c;
             }
-            gemm_gpu(1,0,n,k,m,1,a,n,b,k,0,c,k);
+            gemm_gpu(1,0,m,n,k,1,a,m,b,n,0,c,n);
             if (layer->size != 1) {
                 col2im_gpu(workspace, layer->c, layer->h, layer->w, layer->size, layer->stride,
                            0, delta + i * layer->h * layer->w * layer->c);
             }
+        }
+    }
+    for(int i = 0; i < layer->batch; ++i){
+        int n = layer->out_w * layer->out_h;
+        int k = layer->n;
+        cuda_pull_array(layer->delta_gpu + i * n * k, layer->delta + i * n * k, n * k);
+        float max = -FLT_MAX;
+        float min = FLT_MAX;
+        for(int kk = 0; kk < n * k; ++kk){
+            if(layer->delta[i * n * k +kk] > max) max = layer->delta[i * n * k +kk];
+            if(layer->delta[i * n * k +kk] < min) min = layer->delta[i * n * k +kk];
+        }
+        printf("backward_convolutional_layer_gpu layer->delta max: %f, min: %f %d\n", max, min, layer->batch_normalize);
+
+        if(delta){
+            int delta_size = layer->h * layer->w * layer->c;
+            float *delta_temp = (float *)calloc(delta_size, sizeof(float));
+            cuda_pull_array(delta + i * delta_size, delta_temp, delta_size);
+            max = -FLT_MAX, min = FLT_MAX;
+            for(int kk = 0; kk < delta_size; ++kk){
+                if(delta_temp[i * delta_size +kk] > max) max = delta_temp[i * delta_size +kk];
+                if(delta_temp[i * delta_size +kk] < min) min = delta_temp[i * delta_size +kk];
+            }
+            printf("backward_convolutional_layer_gpu delta max: %f, min: %f\n", max, min);
         }
     }
 }

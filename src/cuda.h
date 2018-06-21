@@ -3,6 +3,12 @@
 
 #define BLOCK 512
 
+#ifdef GPU
+
+#ifdef CUDNN
+#include "cudnn.h"
+#endif
+
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
 #include <curand.h>
@@ -14,6 +20,7 @@
 #include "utils.h"
 #include "blas.h"
 
+int cuda_get_device();
 void cuda_set_device(int n);
 void check_error(cudaError_t status);
 cublasHandle_t blas_handle();
@@ -30,4 +37,5 @@ void cuda_free(float *x_gpu);
 cudnnHandle_t cudnn_handle();
 #endif
 
+#endif
 #endif

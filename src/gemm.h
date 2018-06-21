@@ -9,6 +9,9 @@ void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
         float *C, int ldc);
 
 #ifdef GPU
+
+#include "cuda.h"
+
 void gemm_gpu(int TA, int TB, int M, int N, int K, float ALPHA, 
         float *A_gpu, int lda, 
         float *B_gpu, int ldb,
