@@ -325,14 +325,14 @@ void train_network_batch(network *net, batch b)
 
 void valid_network(network *net, batch b)
 {
-    for(int i = 0; i < b.n; ++i){
-        //show_image(b.images[i], "Input");
-        net->truth = b.truth;
-        forward_network(net, b.data);
-    }
-    net->seen += net->batch;
+    net->truth = b.truth;
+#ifdef GPU
+    cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
+    forward_network_gpu(net, net->input_gpu);
+#else
+    forward_network(net, b.data);
+#endif
     net->correct_num_count += net->batch;
-    net->batch_train += 1;
 }
 
 int get_network_output_size_layer(network *net, int i)

@@ -46,12 +46,12 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         all_train_data = load_csv_image_to_memory(train_list, net->batch, labels, net->classes,
             train_set_size, &batch_num, net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
     } else if(1 == train_data_type){
-		plist = get_paths(train_list);
-		paths = (char **)list_to_array(plist);
-		train_set_size = plist->size;
+        plist = get_paths(train_list);
+        paths = (char **)list_to_array(plist);
+        train_set_size = plist->size;
         train_set_size = option_find_int(options, "train_num", train_set_size);
-		all_train_data = load_image_to_memory(paths, net->batch, labels, net->classes,
-		            train_set_size, &batch_num, net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+        all_train_data = load_image_to_memory(paths, net->batch, labels, net->classes, train_set_size, &batch_num,
+                                              net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
     } else {
         plist = get_paths(train_list);
         paths = (char **)list_to_array(plist);
@@ -189,39 +189,60 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     net->classes = option_find_int(options, "classes", 2);
 
     int valid_set_size = 0;
+    int batch_num = 0;
     char **paths = NULL;
     struct list *plist = NULL;
-    plist = get_paths(valid_list);
-    paths = (char **)list_to_array(plist);
-    valid_set_size = plist->size;
+    int train_data_type = option_find_int(options, "train_data_type", 1);    //  0: csv, 1: load to memory
+    batch *all_valid_data;
+    if(0 == train_data_type) {
+        valid_set_size = option_find_int(options, "valid_num", 0);
+        all_valid_data = load_csv_image_to_memory(valid_list, net->batch, labels, net->classes, valid_set_size,
+                                                  &batch_num, net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+    } else if(1 == train_data_type){
+        plist = get_paths(valid_list);
+        paths = (char **)list_to_array(plist);
+        valid_set_size = plist->size;
+        valid_set_size = option_find_int(options, "valid_num", valid_set_size);
+        all_valid_data = load_image_to_memory(paths, net->batch, labels, net->classes, valid_set_size, &batch_num,
+                                              net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+    } else {
+        plist = get_paths(valid_list);
+        paths = (char **)list_to_array(plist);
+        valid_set_size = plist->size;
+    }
 
-    double time;
-    printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
-    printf("image net has seen: %lu, valid_set_size: %d, max_batches of net: %d, net->classes: %d\n\n\n",
-            net->seen, valid_set_size, net->max_batches, net->classes);
+    printf("valid_set_size: %d, net->classes: %d\n", valid_set_size, net->classes);
 
     float avg_loss = -1;
-    while(valid_set_size > 0){
-        batch valid_image;
-        valid_image = random_batch(paths, 1, labels, net->classes, valid_set_size,
-                net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
-        valid_network(net, valid_image);
-        free_batch(valid_image);
-        time = what_time_is_it_now();
+    int count = 0;
+    while(count < valid_set_size){
+        batch train;
+        if(0 == train_data_type) {
+            int index = rand() % batch_num;
+            train = all_valid_data[index];
+            valid_network(net, train);
+        } else if(1 == train_data_type) {
+            int index = rand() % batch_num;
+            train = all_valid_data[index];
+            valid_network(net, train);
+        } else {
+            train = random_batch(paths, net->batch, labels, net->classes, valid_set_size,
+                    net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+            valid_network(net, train);
+            free_batch(train);
+        }
         float loss = 0;
         if(avg_loss == -1) avg_loss = loss;
-        cost_layer *layer = (cost_layer *)net->layers[net->n - 1];
-        loss = layer->cost[0];
+        loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
             printf("\n\nloss too large: %f, exit\n", loss);
             exit(-1);
         }
         avg_loss = avg_loss*.9 + loss*.1;
-        //net->learning_rate = get_current_learning_rate(net);
-        printf("batch: %d, accuracy: %d / %d = %.4f, loss: %f, avg_loss: %f avg, %lf seconds\n",
-                net->batch_train, net->correct_num, net->correct_num_count,
-                net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss, what_time_is_it_now()-time);
-        valid_set_size -= 1;
+        printf("count: %d, accuracy: %.3f, loss: %f, avg_loss: %f\n",
+               count, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss);
+        //sleep(3);
+        count += 1;
     }
     //free_network(net);
     free_ptrs((void**)labels, net->classes);

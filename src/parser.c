@@ -362,8 +362,8 @@ network *parse_network_cfg(char *filename)
 #endif
     }
     if(net->workspace_gpu){
-        printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n\n\n\n\n\n");
-        net->workspace = calloc(1, net->workspace_size);
+        //printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n\n\n\n\n\n");
+        //net->workspace = calloc(1, net->workspace_size);
     }
     free_list(sections);
     return net;

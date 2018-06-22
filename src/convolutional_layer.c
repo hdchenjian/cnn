@@ -23,7 +23,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->bias_updates = calloc(n, sizeof(float));
     layer->out_h = (layer->h-1)/layer->stride + 1;
     layer->out_w = (layer->w-1)/layer->stride + 1;
-    fprintf(stderr, "Convolutional:      %d x %d x %d inputs, %d weights size: %d -> %d x %d x %d outputs\n",
+    fprintf(stderr, "Convolutional:      %d x %d x %d inputs, %d weights, size: %d -> %d x %d x %d outputs\n",
             h,w,c, n,size, layer->out_h, layer->out_w, n);
     layer->output = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     layer->delta  = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));

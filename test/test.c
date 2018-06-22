@@ -108,6 +108,8 @@ int main(int argc, char **argv)
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
+    #ifdef GPU
     test_gemm_gpu(1000, 1000);
+    #endif
     return 0;
 }
