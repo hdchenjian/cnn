@@ -400,12 +400,6 @@ __global__ void reorg_kernel(int N, float *x, int w, int h, int c, int batch, in
     //else out[0] = x[0];
 }
 
-__global__ void axpy_kernel(int N, float ALPHA, float *X, int OFFX, int INCX,  float *Y, int OFFY, int INCY)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) Y[OFFY+i*INCY] += ALPHA*X[OFFX+i*INCX];
-}
-
 __global__ void pow_kernel(int N, float ALPHA, float *X, int INCX, float *Y, int INCY)
 {
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
@@ -598,6 +592,12 @@ extern "C" void pow_gpu(int N, float ALPHA, float * X, int INCX, float * Y, int 
 {
     pow_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX, Y, INCY);
     check_error(cudaPeekAtLastError());
+}
+
+__global__ void axpy_kernel(int N, float ALPHA, float *X, int OFFX, int INCX,  float *Y, int OFFY, int INCY)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i < N) Y[OFFY+i*INCY] += ALPHA*X[OFFX+i*INCX];
 }
 
 extern "C" void axpy_gpu_offset(int N, float ALPHA, float * X, int OFFX, int INCX, float * Y, int OFFY, int INCY)
@@ -959,8 +959,9 @@ extern "C" void softmax_gpu(float *input, int n, int batch, int batch_offset, in
 __global__ void softmax_device_me(float *input, int n, int batch, float temp, int stride, float *output)
 {
     int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    input = input + id * batch;
-    output = output + id * batch;
+    if(id >= batch) return;
+    input = input + id * n;
+    output = output + id * n;
     int i;
     float sum = 0;
     float largest = -INFINITY;
@@ -980,7 +981,7 @@ __global__ void softmax_device_me(float *input, int n, int batch, float temp, in
 
 extern "C" void softmax_gpu_me(float *input, int n, int batch, float *output)
 {
-    softmax_device_me<<<1, batch>>>(input, n, batch, 1, 1, output);
+    softmax_device_me<<<cuda_gridsize(batch), BLOCK>>>(input, n, batch, 1, 1, output);
     check_error(cudaPeekAtLastError());
 }
 

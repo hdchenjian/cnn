@@ -36,7 +36,7 @@ void forward_softmax_layer(const softmax_layer *layer, float *input, network *ne
         }
         for(i = 0; i < layer->inputs; ++i){
             layer->output[i + index] /= sum;
-            printf("%f %f\n", input[i + index], layer->output[i + index]);
+            //printf("%f %f\n", input[i + index], layer->output[i + index]);
         }
     }
 
@@ -68,23 +68,22 @@ void backward_softmax_layer(const softmax_layer *layer, float *delta)
 
 #ifdef GPU
 
-void pull_softmax_layer_output(const softmax_layer *layer)
-{
-    cuda_pull_array(layer->output_gpu, layer->output, layer->inputs*layer->batch);
-}
-
 void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, network *net)
 {
     softmax_gpu_me(input_gpu, layer->inputs, layer->batch, layer->output_gpu);
 
-    float *output_temp = (float *)calloc(layer->inputs*layer->batch, sizeof(float));
-    cuda_pull_array(layer->output_gpu, output_temp, layer->inputs*layer->batch);
+    /*
     float *input_temp = calloc(layer->inputs*layer->batch, sizeof(float));
     cuda_pull_array(input_gpu, input_temp, layer->inputs*layer->batch);
+    float *output_temp = (float *)calloc(layer->inputs*layer->batch, sizeof(float));
+    cuda_pull_array(layer->output_gpu, output_temp, layer->inputs*layer->batch);
     for(int i = 0; i < layer->inputs*layer->batch; i++){
-        printf("%f %f\n", input_temp[i], output_temp[i]);
+        printf("%f %f %f\n", net->truth[i], input_temp[i], output_temp[i]);
+        if(i % net->classes == 0) printf("\n");
     }
-    printf("\n");
+    free(output_temp);
+    free(input_temp);
+    printf("\n");*/
     /*
     if(net->truth){
         softmax_x_ent_gpu(layer->batch*layer->inputs, layer->output_gpu, net.truth_gpu,
@@ -96,6 +95,7 @@ void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, net
 
 void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu)
 {
+    fill_gpu(layer->batch*layer->inputs, 0, delta_gpu, 1);
     axpy_gpu(layer->batch*layer->inputs, 1, layer->delta_gpu, 1, delta_gpu, 1);
 }
 

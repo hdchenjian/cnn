@@ -158,6 +158,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
 
     for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
 
+    /*
     for(int b = 0; b < layer->batch; ++b){
         float max = -FLT_MAX;
         float min = FLT_MAX;
@@ -166,7 +167,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
             if(layer->output[i +b*m*n] < min) min = layer->output[i +b*m*n];
         }
         printf("forward_convolutional_layer max: %f, min: %f\n", max, min);
-    }
+    }*/
 }
 
 void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int spatial, float *mean_delta)
@@ -276,6 +277,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             }
         }
     }
+    /*
     for(int j = 0; j < layer->batch; ++j){
         int n = layer->out_w * layer->out_h;
         int k = layer->n;
@@ -285,7 +287,6 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             if(layer->delta[j * n * k +kk] < min) min = layer->delta[j * n * k +kk];
         }
         printf("backward_convolutional_layer layer->delta max: %f, min: %f\n", max, min);
-
         if(delta){
             max = -FLT_MAX, min = FLT_MAX;
             n = layer->h * layer->w * layer->c;
@@ -295,7 +296,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             }
             printf("backward_convolutional_layer delta max: %f, min: %f\n", max, min);
         }
-    }
+    }*/
 }
 
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay)

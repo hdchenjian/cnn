@@ -158,17 +158,9 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
     add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
 
-    float *output_temp = (float *)calloc(n*m*layer->batch, sizeof(float));
-    cuda_pull_array(layer->output_gpu, output_temp, layer->batch * layer->out_h * layer->out_w * layer->n);
-    for(int b = 0; b < layer->batch; ++b){
-        float max = -FLT_MAX;
-        float min = FLT_MAX;
-        for(int i = 0; i <  m*n; ++i){
-            if(output_temp[i +b*m*n] > max) max = output_temp[i +b*m*n];
-            if(output_temp[i +b*m*n] < min) min = output_temp[i +b*m*n];
-        }
-        printf("forward_convolutional_layer_gpu max: %f, min: %f\n", max, min);
-    }
+    /*char cuda_compare_error_string[128] = {0};
+    sprintf(cuda_compare_error_string, "\n%s", "forward_convolutional_layer output");
+    cuda_compare(layer->output_gpu, layer->output, n*m*layer->batch, cuda_compare_error_string);*/
 }
 
 void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
@@ -228,30 +220,17 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
             }
         }
     }
-    for(int i = 0; i < layer->batch; ++i){
-        int n = layer->out_w * layer->out_h;
-        int k = layer->n;
-        cuda_pull_array(layer->delta_gpu + i * n * k, layer->delta + i * n * k, n * k);
-        float max = -FLT_MAX;
-        float min = FLT_MAX;
-        for(int kk = 0; kk < n * k; ++kk){
-            if(layer->delta[i * n * k +kk] > max) max = layer->delta[i * n * k +kk];
-            if(layer->delta[i * n * k +kk] < min) min = layer->delta[i * n * k +kk];
-        }
-        printf("backward_convolutional_layer_gpu layer->delta max: %f, min: %f %d\n", max, min, layer->batch_normalize);
+}
 
-        if(delta){
-            int delta_size = layer->h * layer->w * layer->c;
-            float *delta_temp = (float *)calloc(delta_size, sizeof(float));
-            cuda_pull_array(delta + i * delta_size, delta_temp, delta_size);
-            max = -FLT_MAX, min = FLT_MAX;
-            for(int kk = 0; kk < delta_size; ++kk){
-                if(delta_temp[i * delta_size +kk] > max) max = delta_temp[i * delta_size +kk];
-                if(delta_temp[i * delta_size +kk] < min) min = delta_temp[i * delta_size +kk];
-            }
-            printf("backward_convolutional_layer_gpu delta max: %f, min: %f\n", max, min);
-        }
-    }
+void update_convolutional_layer_gpu(const convolutional_layer *layer, float learning_rate, float momentum, float decay)
+{
+    int size = layer->size*layer->size*layer->c*layer->n;
+    axpy_gpu(size, -decay*layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
+    axpy_gpu(size, learning_rate/layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
+    scal_gpu(size, momentum, layer->weight_updates_gpu, 1);
+
+    axpy_gpu(layer->n, learning_rate/layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
+    scal_gpu(layer->n, momentum, layer->bias_updates_gpu, 1);
 }
 
 void pull_convolutional_layer(const convolutional_layer *layer)
@@ -277,15 +256,4 @@ void push_convolutional_layer(const convolutional_layer *layer)
         cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
         cuda_push_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->n);
     }
-}
-
-void update_convolutional_layer_gpu(const convolutional_layer *layer, float learning_rate, float momentum, float decay)
-{
-    int size = layer->size*layer->size*layer->c*layer->n;
-    axpy_gpu(size, -decay*layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
-    axpy_gpu(size, learning_rate/layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
-    scal_gpu(size, momentum, layer->weight_updates_gpu, 1);
-
-    axpy_gpu(layer->n, learning_rate/layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
-    scal_gpu(layer->n, momentum, layer->bias_updates_gpu, 1);
 }

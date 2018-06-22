@@ -63,7 +63,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             net->seen, train_set_size, net->max_batches, net->classes, net->batch);
 
     float avg_loss = -1;
-    while(net->seen < net->max_batches || net->max_batches == 0){
+    while(net->batch_train < net->max_batches || net->max_batches == 0){
         time = what_time_is_it_now();
         batch train;
         if(0 == train_data_type) {
@@ -152,7 +152,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         printf("epoch: %d, batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, "
                 "seen %lu images\n", net->epoch, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
                 loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen);
-        //sleep(700);
+        //sleep(3);
     }
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);

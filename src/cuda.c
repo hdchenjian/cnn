@@ -116,11 +116,14 @@ float cuda_compare(float *x_gpu, float *x, size_t n, char *s)
 {
     float *tmp = calloc(n, sizeof(float));
     cuda_pull_array(x_gpu, tmp, n);
-    //int i;
-    //for(i = 0; i < n; ++i) printf("%f %f\n", tmp[i], x[i]);
     axpy_cpu(n, -1, x, 1, tmp, 1);
     float err = dot_cpu(n, tmp, 1, tmp, 1);
-    printf("Error %s: %f\n", s, sqrt(err/n));
+    printf("%s sqrt(error): %f %d\n", s, sqrt(err/n), n);
+    if(n < 30 && sqrt(err/n) > 0.1){
+        for(int i = 0; i < n; ++i)
+            printf("sqrt(error) large %f %f\n", x[i], tmp[i]);
+    }
+
     free(tmp);
     return err;
 }

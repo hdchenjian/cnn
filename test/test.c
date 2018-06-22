@@ -14,7 +14,7 @@ float *make_matrix(int rows, int cols)
     int i;
     float *m = calloc(rows*cols, sizeof(float));
     for(i = 0; i < rows*cols; ++i){
-        m[i] = (float)0.8;
+        m[i] = rand_uniform(0, 1);
     }
     return m;
 }
@@ -44,7 +44,7 @@ int test_gemm_gpu(int w, int h)
     float *b = make_matrix(h, w);
     float *c = make_matrix(h, w);
     double start = what_time_is_it_now(), end;
-    //gemm(0,0,h,w,w,1,a,w,b,w,0,c,w);
+    gemm(0,0,h,w,w,1,a,w,b,w,0,c,w);
     end = what_time_is_it_now();
     float sum = 0;
     for(int i = 0; i < w * h; i++) sum += c[i];
@@ -108,6 +108,6 @@ int main(int argc, char **argv)
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
-    //test_gemm_gpu(2000, 2000);
+    test_gemm_gpu(1000, 1000);
     return 0;
 }

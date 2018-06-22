@@ -92,15 +92,6 @@ extern "C" void forward_maxpool_layer_gpu(const maxpool_layer *l, float *in_gpu)
     forward_maxpool_layer_kernel<<<cuda_gridsize(n), BLOCK>>>(n, l->h, l->w, l->c, l->stride, l->size,
                                                               l->pad, in_gpu, l->output_gpu, l->indexes_gpu);
     check_error(cudaPeekAtLastError());
-
-    float *output_temp = (float *)calloc(l->batch * l->out_h * l->out_w * l->c, sizeof(float));
-    cuda_pull_array(l->output_gpu, output_temp, l->batch * l->out_h * l->out_w * l->c);
-    float max = -FLT_MAX, min = FLT_MAX;
-    for(int i = 0; i < l->batch * l->out_h * l->out_w * l->c; ++i){
-        if(output_temp[i] > max) max =output_temp[i];
-        if(output_temp[i] < min) min =output_temp[i];
-    }
-    printf("forward_maxpool_layer_gpu max: %f, min: %f\n", max, min);
 }
 
 extern "C" void backward_maxpool_layer_gpu(const maxpool_layer *l, float *delta_gpu)

@@ -51,12 +51,12 @@ void forward_connected_layer(connected_layer *layer, float *input)
         layer->output[i] = activate(layer->output[i], layer->activation);
     }
 
-    float max = -FLT_MAX, min = FLT_MAX;
+    /*float max = -FLT_MAX, min = FLT_MAX;
     for(int i = 0; i < layer->batch * layer->outputs; ++i){
     	if(layer->output[i] > max) max = layer->output[i];
     	if(layer->output[i] < min) min = layer->output[i];
     }
-    printf("forward_connected_layer max: %f, min: %f\n", max, min);
+    printf("forward_connected_layer max: %f, min: %f\n", max, min);*/
 }
 
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)
@@ -76,12 +76,6 @@ void update_connected_layer(connected_layer *layer, float learning_rate, float m
 
 void backward_connected_layer(connected_layer *layer, float *input, float *delta)
 {
-    /*
-    for(int i = 0; i < layer->outputs*layer->batch; i++){
-        printf("backward_connected_layer layer->delta: %f \n", layer->delta[i]);
-    }
-    printf("\n");*/
-
     int all_outputs = layer->outputs * layer->batch;
     for(int i = 0; i < all_outputs; ++i){
         layer->delta[i] *= gradient(layer->output[i], layer->activation);
@@ -100,7 +94,6 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
     gemm(1,0,m,n,k,1,a,m,b,n,1,c,n);
 
     if(delta) {
-        //memset(delta, 0, layer->batch * layer->inputs*sizeof(float));
         m = layer->batch;
         n = layer->inputs;
         k = layer->outputs;
@@ -108,40 +101,10 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
         b = layer->weights;
         c = delta;
         gemm(0,1,m,n,k,1,a,k,b,k,0,c,n);
-
-        /*
-        for(int i = 0; i < layer->batch; ++i){
-            float max = -FLT_MAX;
-            float min = FLT_MAX;
-            for(int j = 0; j < layer->outputs; ++j){
-                //printf("backward_connected_layer  %f, \n", layer->delta[layer->outputs * i +j]);
-                if(layer->delta[layer->outputs * i +j] > max) max = layer->delta[layer->outputs * i +j];
-                if(layer->delta[layer->outputs * i +j] < min) min = layer->delta[layer->outputs * i +j];
-            }
-            printf("backward_connected_layer max: %f, min: %f\n", max, min);
-        }*/
     }
 }
 
 #ifdef GPU
-
-void pull_connected_layer(const connected_layer *layer)
-{
-    cuda_pull_array(layer->weights_gpu, layer->weights, layer->inputs*layer->outputs);
-    cuda_pull_array(layer->biases_gpu, layer->biases, layer->outputs);
-    cuda_pull_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
-    cuda_pull_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
-
-}
-
-void push_connected_layer(const connected_layer *layer)
-{
-    cuda_push_array(layer->weights_gpu, layer->weights, layer->inputs*layer->outputs);
-    cuda_push_array(layer->biases_gpu, layer->biases, layer->outputs);
-    cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
-    cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
-
-}
 
 void update_connected_layer_gpu(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
@@ -166,26 +129,14 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input)
     add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
     activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
 
-    float *output_temp = (float *)calloc(layer->batch * layer->outputs, sizeof(float));
-    cuda_pull_array(layer->output_gpu, output_temp, layer->outputs*layer->batch);
-    float max = -FLT_MAX, min = FLT_MAX;
-    for(int i = 0; i < layer->batch * layer->outputs; ++i){
-    	if(output_temp[i] > max) max = output_temp[i];
-    	if(output_temp[i] < min) min = output_temp[i];
-    }
-    printf("forward_connected_layer_gpu max: %f, min: %f\n", max, min);
+    /*
+    char cuda_compare_error_string[128] = {0};
+    sprintf(cuda_compare_error_string, "\n%s", "forward_connected_layer_gpu output");
+    cuda_compare(layer->output_gpu, layer->output, layer->batch * layer->outputs, cuda_compare_error_string); */
 }
 
 void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta)
 {
-    /*
-    float *delta_temp = calloc(layer->outputs*layer->batch, sizeof(float));
-    cuda_pull_array(layer->delta_gpu, delta_temp, layer->outputs*layer->batch);
-    for(int i = 0; i < layer->outputs*layer->batch; i++){
-        printf("backward_connected_layer_gpu layer->delta_gpu: %f \n", delta_temp[i]);
-    }
-    printf("\n"); */
-
     gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->outputs, 1);
 
@@ -200,13 +151,34 @@ void backward_connected_layer_gpu(connected_layer *layer, float *input, float *d
     m = layer->batch;
     n = layer->inputs;
     k = layer->outputs;
-
     a = layer->delta_gpu;
     b = layer->weights_gpu;
     c = delta;
-
     if(c) {
         gemm_gpu(0,1,m,n,k,1,a,k,b,k,0,c,n);
     }
+
+    /*char cuda_compare_error_string[128] = {0};
+    sprintf(cuda_compare_error_string, "\n%s", "backward_connected_layer_gpu delta");
+    cuda_compare(layer->delta_gpu, layer->delta, layer->batch * layer->outputs, cuda_compare_error_string);*/
 }
+
+void pull_connected_layer(const connected_layer *layer)
+{
+    cuda_pull_array(layer->weights_gpu, layer->weights, layer->inputs*layer->outputs);
+    cuda_pull_array(layer->biases_gpu, layer->biases, layer->outputs);
+    cuda_pull_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
+    cuda_pull_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
+
+}
+
+void push_connected_layer(const connected_layer *layer)
+{
+    cuda_push_array(layer->weights_gpu, layer->weights, layer->inputs*layer->outputs);
+    cuda_push_array(layer->biases_gpu, layer->biases, layer->outputs);
+    cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
+    cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
+
+}
+
 #endif

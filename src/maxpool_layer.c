@@ -76,12 +76,6 @@ void forward_maxpool_layer(const maxpool_layer *layer, float *in)
             }
         }
     }
-    float max = -FLT_MAX, min = FLT_MAX;
-    for(i = 0; i < layer->batch * layer->out_h * layer->out_w * layer->c; ++i){
-    	if(layer->output[i] > max) max =layer->output[i];
-    	if(layer->output[i] < min) min =layer->output[i];
-    }
-    printf("forward_maxpool_layer max: %f, min: %f\n", max, min);
 }
 
 void backward_maxpool_layer(const maxpool_layer *layer, float *in, float *delta)

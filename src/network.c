@@ -197,24 +197,17 @@ void backward_network(network *net, float *input)
 
 void forward_network_gpu(network *net, float *input)
 {
-    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
-    if(net->truth){
-        cuda_push_array(net->truth_gpu, net->truth, net->classes*net->batch);
-    }
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            forward_convolutional_layer_gpu(layer, net->input_gpu, net->workspace_gpu, net->test);
+            forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
             input = layer->output_gpu;
+            //push_convolutional_layer(layer);
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            if(i == -6){
-                maxpool_layer *max_layer = (maxpool_layer *)net->layers[i - 1];
-                float *input_cpu_temp = max_layer->output;
-                cuda_push_array(input, input_cpu_temp, layer->inputs * layer->batch);
-            }
             forward_connected_layer_gpu(layer, input);
             input = layer->output_gpu;
+            //push_connected_layer(layer);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             forward_maxpool_layer_gpu(layer, input);
@@ -309,12 +302,13 @@ void train_network_batch(network *net, batch b)
 {
     net->truth = b.truth;
 #ifdef GPU
-    //forward_network(net, b.data);
-    forward_network_gpu(net, b.data);
-    //backward_network(net, b.data);
+    cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
+    if(net->truth){
+        cuda_push_array(net->truth_gpu, net->truth, net->classes*net->batch);
+    }
+    forward_network_gpu(net, net->input_gpu);
     backward_network_gpu(net, net->input_gpu);
     update_network_gpu(net);
-    //update_network(net);
 #else
     forward_network(net, b.data);
     backward_network(net, b.data);
@@ -322,7 +316,7 @@ void train_network_batch(network *net, batch b)
 #endif
     net->seen += net->batch;
     net->correct_num_count += net->batch;
-    if(net->correct_num_count > 1000){
+    if(net->correct_num_count > 1000 * net->batch){
         net->correct_num_count = 0;
         net->correct_num = 0;
     }
