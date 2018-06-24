@@ -4,32 +4,138 @@ network *make_network(int n)
 {
     network *net = calloc(1, sizeof(network));
     net->n = n;
-    net->layers = calloc(net->n, sizeof(void *));
-    net->layers_type = calloc(net->n, sizeof(enum LAYER_TYPE));
     net->seen = 0;
     net->test = 0;
     net->batch_train = 0;
     net->epoch = 0;
     net->correct_num = 0;
     net->correct_num_count = 0;
+    net->gpu_index = -1;
+
+    net->layers = calloc(net->n, sizeof(void *));
+    net->layers_type = calloc(net->n, sizeof(enum LAYER_TYPE));
     net->workspace_size = 0;
     net->workspace = NULL;
-    net->gpu_index = -1;
+    net->workspace_gpu = NULL;
+    net->input_gpu = NULL;
+    net->truth_gpu = NULL;
     return net;
 }
 
 void free_network(network *net)
 {
     for(int i = 0; i < net->n; ++i){
-        //free_layer(net->layers[i]);
+        if(net->layers_type[i] == CONVOLUTIONAL){
+            convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            if(layer->weights) free_ptr(layer->weights);
+            if(layer->weight_updates) free_ptr(layer->weight_updates);
+            if(layer->biases) free_ptr(layer->biases);
+            if(layer->bias_updates) free_ptr(layer->bias_updates);
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->mean) free_ptr(layer->mean);
+            if(layer->mean_delta) free_ptr(layer->mean_delta);
+            if(layer->variance) free_ptr(layer->variance);
+            if(layer->variance_delta) free_ptr(layer->variance_delta);
+            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
+            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+            if(layer->x) free_ptr(layer->x);
+
+            if(layer->weights_gpu) cuda_free(layer->weights_gpu);
+            if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
+            if(layer->biases_gpu) cuda_free(layer->biases_gpu);
+            if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            if(layer->mean_gpu) cuda_free(layer->mean_gpu);
+            if(layer->mean_delta_gpu) cuda_free(layer->mean_delta_gpu);
+            if(layer->variance_gpu) cuda_free(layer->variance_gpu);
+            if(layer->variance_delta_gpu) cuda_free(layer->variance_delta_gpu);
+            if(layer->rolling_mean_gpu) cuda_free(layer->rolling_mean_gpu);
+            if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
+            if(layer->x_gpu) cuda_free(layer->x_gpu);
+            free_ptr(layer);
+        }else if(net->layers_type[i] == CONNECTED){
+            connected_layer *layer = (connected_layer *)net->layers[i];
+            if(layer->weights) free_ptr(layer->weights);
+            if(layer->weight_updates) free_ptr(layer->weight_updates);
+            if(layer->biases) free_ptr(layer->biases);
+            if(layer->bias_updates) free_ptr(layer->bias_updates);
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+
+            if(layer->weights_gpu) cuda_free(layer->weights_gpu);
+            if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
+            if(layer->biases_gpu) cuda_free(layer->biases_gpu);
+            if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            free_ptr(layer);
+        } else if(net->layers_type[i] == ROUTE){
+            route_layer *layer = (route_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            free_ptr(layer);
+        } else if(net->layers_type[i] == MAXPOOL){
+            maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->indexes) free_ptr(layer->indexes);
+
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            if(layer->indexes_gpu) cuda_free_int(layer->indexes_gpu);
+            free_ptr(layer);
+        } else if(net->layers_type[i] == AVGPOOL){
+            avgpool_layer *layer = (avgpool_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            free_ptr(layer);
+        } else if(net->layers_type[i] == DROPOUT){
+            dropout_layer *layer = (dropout_layer *)net->layers[i];
+            if(layer->rand) free_ptr(layer->rand);
+            if(layer->rand_gpu) cuda_free(layer->rand_gpu);
+            free_ptr(layer);
+        } else if(net->layers_type[i] == SOFTMAX){
+            softmax_layer *layer = (softmax_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->loss) free_ptr(layer->loss);
+            if(layer->cost) free_ptr(layer->cost);
+
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            if(layer->loss_gpu) cuda_free(layer->loss_gpu);
+            free_ptr(layer);
+        } else if(net->layers_type[i] == COST){
+            cost_layer *layer = (cost_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->cost) free_ptr(layer->cost);
+
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            free_ptr(layer);
+        } else {
+            printf("forward_network layers_type error, layer: %d\n", i);
+            exit(-1);
+        }
     }
-    free(net->layers);
-    free(net->layers_type);
-#ifdef GPU
+    free_ptr(net->layers);
+    free_ptr(net->layers_type);
+    if(net->workspace) free_ptr(net->workspace);
+
     if(net->input_gpu) cuda_free(net->input_gpu);
     if(net->truth_gpu) cuda_free(net->truth_gpu);
-#endif
-    free(net);
+    if(net->workspace_gpu) cuda_free(net->workspace_gpu);
+
+    free_ptr(net);
 }
 
 float update_current_learning_rate(network * net)
@@ -58,6 +164,10 @@ void forward_network(network *net, float *input)
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer(layer, input);
+            input = layer->output;
+        }else if(net->layers_type[i] == ROUTE){
+            route_layer *layer = (route_layer *)net->layers[i];
+            forward_route_layer(layer, net);
             input = layer->output;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
@@ -95,6 +205,7 @@ void update_network(network *net)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == MAXPOOL){
         } else if(net->layers_type[i] == DROPOUT){
         } else if(net->layers_type[i] == AVGPOOL){
@@ -122,6 +233,12 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
             return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
             return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == ROUTE){
+        route_layer *layer = (route_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         if(is_gpu)
@@ -130,10 +247,16 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
             return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == DROPOUT){
         dropout_layer *layer = (dropout_layer *)net->layers[i];
-        return data_type == 0 ? layer->output : layer->delta;
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == AVGPOOL){
         avgpool_layer *layer = (avgpool_layer *)net->layers[i];
-        return data_type == 0 ? layer->output : layer->delta;
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == SOFTMAX){
         softmax_layer *layer = (softmax_layer *)net->layers[i];
         if(is_gpu)
@@ -170,6 +293,9 @@ void backward_network(network *net, float *input)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer(layer, prev_input, prev_delta);
+        } else if(net->layers_type[i] == ROUTE){
+            route_layer *layer = (route_layer *)net->layers[i];
+            backward_route_layer(layer, net);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(i != 0) backward_maxpool_layer(layer, prev_input, prev_delta);
@@ -202,24 +328,26 @@ void forward_network_gpu(network *net, float *input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
             input = layer->output_gpu;
-            //push_convolutional_layer(layer);
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer_gpu(layer, input);
             input = layer->output_gpu;
-            //push_connected_layer(layer);
+        }else if(net->layers_type[i] == ROUTE){
+            route_layer *layer = (route_layer *)net->layers[i];
+            forward_route_layer_gpu(layer, net);
+            input = layer->output_gpu;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             forward_maxpool_layer_gpu(layer, input);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
-            forward_avgpool_layer(layer, input);
-            input = layer->output;
+            forward_avgpool_layer_gpu(layer, input);
+            input = layer->output_gpu;
         } else if(net->layers_type[i] == DROPOUT){
             dropout_layer *layer = (dropout_layer *)net->layers[i];
-            forward_dropout_layer(layer, input, net);
-            input = layer->output;
+            forward_dropout_layer_gpu(layer, input, net);
+            input = layer->output_gpu;
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
             forward_softmax_layer_gpu(layer, input, net);
@@ -253,15 +381,18 @@ void backward_network_gpu(network *net, float *input)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer_gpu(layer, prev_input, prev_delta);
+        } else if(net->layers_type[i] == ROUTE){
+            route_layer *layer = (route_layer *)net->layers[i];
+            backward_route_layer_gpu(layer, net);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(i != 0) backward_maxpool_layer_gpu(layer, prev_delta);
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
-            if(i != 0) backward_avgpool_layer(layer, prev_delta);
+            if(i != 0) backward_avgpool_layer_gpu(layer, prev_delta);
         } else if(net->layers_type[i] == DROPOUT){
             dropout_layer *layer = (dropout_layer *)net->layers[i];
-            if(i != 0) backward_dropout_layer(layer, prev_delta);
+            if(i != 0) backward_dropout_layer_gpu(layer, prev_delta);
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
             if(i != 0) backward_softmax_layer_gpu(layer, prev_delta);
@@ -284,6 +415,7 @@ void update_network_gpu(network *net)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == MAXPOOL){
         } else if(net->layers_type[i] == DROPOUT){
         } else if(net->layers_type[i] == AVGPOOL){
@@ -342,6 +474,9 @@ int get_network_output_size_layer(network *net, int i)
         return layer->out_w * layer->out_h * layer->n;
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
+        return layer->outputs;
+    } else if(net->layers_type[i] == ROUTE){
+        route_layer *layer = (route_layer *)net->layers[i];
         return layer->outputs;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];

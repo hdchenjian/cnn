@@ -18,8 +18,8 @@
 #endif
 
 typedef struct {
-    int h, w, c, n, size, stride, batch, out_h, out_w;
-    int batch_normalize;
+    int h, w, c, n, size, stride, batch, out_h, out_w, batch_normalize;
+    float bflop;
     float *weights, *weight_updates, *biases, *bias_updates, *delta, *output;
     float *mean, *mean_delta, *variance, *variance_delta, *rolling_mean, *rolling_variance, *x;
     float *mean_gpu, *mean_delta_gpu, *variance_gpu, *variance_delta_gpu, *rolling_mean_gpu, *rolling_variance_gpu, *x_gpu;

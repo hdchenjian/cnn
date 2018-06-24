@@ -20,10 +20,12 @@ struct list *get_paths(char *filename)
     return lines;
 }
 
-void free_batch(batch b)
+void free_batch(batch *b)
 {
-    free(b.data);
-    free(b.truth);
+    free(b->data);
+    b->data = NULL;
+    free(b->truth);
+    b->truth = NULL;
 }
 
 
@@ -112,6 +114,7 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
 batch *load_image_to_memory(char **paths, int batch_size, char **labels, int classes, int train_set_size,
         int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
 {
+    double time = what_time_is_it_now();
     /* random the train image index */
     int train_set_size_real = 0;
     if(train_set_size % batch_size == 0) {
@@ -156,6 +159,9 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
         }
     }
     free(index);
+    printf("load_image_to_memory done: use memory: %f MB, spend %f s\n",
+           batch_num * batch_size * (image_size + classes ) * sizeof(float) / 1024.0 / 1024.0,
+           what_time_is_it_now() - time);
     return train_data;
 }
 

@@ -1,8 +1,8 @@
 classes=10
 train_data_type = 1
-train  = /home/luyao/database/cifar/train.list
-#train_num = 50
-valid  = /home/luyao/database/cifar/test.list
-labels = /home/luyao/database/cifar/labels.txt
+train  = /home/ubuntu/database/cifar/train.list
+train_num = 50
+valid  = /home/ubuntu/database/cifar/test.list
+labels = /home/ubuntu/database/cifar/labels.txt
 backup = backup
 top=1

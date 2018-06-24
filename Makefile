@@ -1,10 +1,12 @@
-GPU=0
+GPU=1
 DEBUG=1
 CUDNN=0
 OPENMP=0
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
       -gencode arch=compute_61,code=[sm_61,compute_61]
+
+ARCH= -gencode arch=compute_53,code=[sm_53,compute_53]
 
 VPATH=./src/:./examples:./test
 EXEC=darknet
@@ -17,19 +19,18 @@ CC=gcc
 NVCC=/usr/local/cuda/bin/nvcc 
 AR=ar
 ARFLAGS=rcs
-OPTS=-Ofast
 LDFLAGS= -lm -pthread
 COMMON= -Iinclude/ -Isrc/
-CFLAGS=-Wall -Wno-unknown-pragmas -Wfatal-errors -fPIC --std=gnu11 -Wunused-but-set-variable
+CFLAGS=-Wall -Wno-unknown-pragmas -Wfatal-errors -fPIC --std=gnu11 -Wunused-but-set-variable -Wno-unused-result
 
 ifeq ($(OPENMP), 1) 
 CFLAGS+= -fopenmp
 endif
 
+OPTS=-Ofast
 ifeq ($(DEBUG), 1) 
 OPTS=-O0 -g
 endif
-
 CFLAGS+=$(OPTS)
 
 ifeq ($(GPU), 1) 
@@ -44,11 +45,11 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -L/opt/ego/cudnn-v7 -lcudnn
 endif
 
-OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o
+OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
-OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o maxpool_layer_kernels.o
+OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o maxpool_layer_kernels.o dropout_layer_kernals.o avgpool_layer_kernals.o
 endif
 
 EXECOBJA=classifier.o darknet.o

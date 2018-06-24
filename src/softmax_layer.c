@@ -14,7 +14,7 @@ softmax_layer *make_softmax_layer(int inputs, int batch, int is_last_layer)
 #ifdef GPU
     layer->output_gpu = cuda_make_array(layer->output, inputs*batch);
     layer->delta_gpu = cuda_make_array(layer->delta, inputs*batch);
-    layer->loss_gpu = cuda_make_array(layer->loss, 1);
+    layer->loss_gpu = cuda_make_array(layer->loss, inputs*batch);
 #endif
     return layer;
 }
@@ -71,9 +71,28 @@ void backward_softmax_layer(const softmax_layer *layer, float *delta)
 void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, network *net)
 {
     softmax_gpu_me(input_gpu, layer->inputs, layer->batch, layer->output_gpu);
+    if(layer->is_last_layer){
+        float *input_temp = calloc(layer->inputs*layer->batch, sizeof(float));
+        cuda_pull_array(input_gpu, input_temp, layer->batch*layer->inputs);
+        for(int b = 0; b < layer->batch; ++b){
+            int max_i = 0;
+            double max = input_temp[b * layer->inputs];
+            for(int j = 0; j < net->classes; ++j){
+                //printf("%d %f %f %f\n", j, net->truth[j], layer->output[j], layer->delta[j]);
+                if(input_temp[j + b * layer->inputs] > max){
+                    max = input_temp[j + b * layer->inputs];
+                    max_i = j;
+                }
+            }
+            if(net->truth[max_i + b * layer->inputs] > 0.99F) net->correct_num += 1;
+        }
+        softmax_x_ent_gpu(layer->batch*layer->inputs, layer->output_gpu, net->truth_gpu, layer->delta_gpu, layer->loss_gpu);
+        cuda_pull_array(layer->loss_gpu, layer->loss, layer->batch*layer->inputs);
+        layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
+        net->loss = layer->cost[0];
+    }
 
-    /*
-    float *input_temp = calloc(layer->inputs*layer->batch, sizeof(float));
+    /* float *input_temp = calloc(layer->inputs*layer->batch, sizeof(float));
     cuda_pull_array(input_gpu, input_temp, layer->inputs*layer->batch);
     float *output_temp = (float *)calloc(layer->inputs*layer->batch, sizeof(float));
     cuda_pull_array(layer->output_gpu, output_temp, layer->inputs*layer->batch);
@@ -84,13 +103,6 @@ void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, net
     free(output_temp);
     free(input_temp);
     printf("\n");*/
-    /*
-    if(net->truth){
-        softmax_x_ent_gpu(layer->batch*layer->inputs, layer->output_gpu, net.truth_gpu,
-        		layer->delta_gpu, layer->loss_gpu);
-        cuda_pull_array(layer->loss_gpu, layer->loss, layer->batch*layer->inputs);
-        layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
-    }*/
 }
 
 void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu)

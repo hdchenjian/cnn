@@ -36,12 +36,20 @@ enum learning_rate_policy{
 enum LAYER_TYPE{
     CONVOLUTIONAL,
     CONNECTED,
+    ROUTE,
     MAXPOOL,
     AVGPOOL,
     DROPOUT,
     SOFTMAX,
     COST,
 };
+
+typedef struct {
+    int batch, n, inputs, outputs;
+    int *input_layers, *input_sizes;
+    float *delta, *output;
+    float *output_gpu, *delta_gpu;
+} route_layer;
 
 typedef struct {
     int h,w,c,batch;
@@ -120,15 +128,24 @@ void forward_cost_layer(const cost_layer *l, float *input, network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
 void forward_softmax_layer(const softmax_layer *layer, float *input, network *net);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
+void forward_dropout_layer(const dropout_layer *l, float *input, network *net);
+void backward_dropout_layer(const dropout_layer *l, float *delta);
+image get_dropout_image(const dropout_layer *layer, int batch);
+void forward_route_layer(const route_layer *l, network *net);
+void backward_route_layer(const route_layer *l, network *net);
+
 #ifdef GPU
-void forward_cost_layer_gpu(cost_layer *l, float *input, network *net);
+void forward_avgpool_layer_gpu(const avgpool_layer *l, float *in);
+void backward_avgpool_layer_gpu(const avgpool_layer *l, float *delta);
+void forward_cost_layer_gpu(const cost_layer *l, float *input, network *net);
 void backward_cost_layer_gpu(const cost_layer *l, float *delta);
 void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, network *net);
 void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu);
+void forward_dropout_layer_gpu(const dropout_layer *l, float *input, network *net);
+void backward_dropout_layer_gpu(const dropout_layer *l, float *delta);
+void forward_route_layer_gpu(const route_layer *l, network *net);
+void backward_route_layer_gpu(const route_layer *l, network *net);
 #endif
-void forward_dropout_layer(dropout_layer *l, float *input, network *net);
-void backward_dropout_layer(dropout_layer *l, float *delta);
-image get_dropout_image(const dropout_layer *layer, int batch);
 
 float *get_network_layer_data(network *net, int i, int data_type, int is_gpu);
 

@@ -59,5 +59,6 @@ void l2_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void add_bias_gpu(float *output, float *biases, int batch, int n, int size);
 void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int size);
 void softmax_gpu_me(float *input, int n, int batch, float *output);
+void softmax_x_ent_gpu(int n, float *pred, float *truth, float *delta, float *error);
 #endif
 #endif

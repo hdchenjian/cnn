@@ -20,7 +20,11 @@ dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, fl
     l->outputs = inputs;
     l->batch = batch;
     l->rand = calloc(inputs*batch, sizeof(float));
-    l->scale = 1./(1.-probability);
+    l->scale = 1.0F / (1.0F - probability);
+
+#ifdef GPU
+    l->rand_gpu = cuda_make_array(l->rand, inputs*l->batch);
+#endif
     return l;
 } 
 
@@ -34,7 +38,7 @@ void resize_dropout_layer(dropout_layer *l, int inputs)
     #endif
 }
 
-void forward_dropout_layer(dropout_layer *l, float *input, network *net)
+void forward_dropout_layer(const dropout_layer *l, float *input, network *net)
 {
     if (0 != net->test) return;  // 0: train, 1: valid, 2: test
     for(int i = 0; i < l->batch * l->inputs; ++i){
@@ -45,7 +49,7 @@ void forward_dropout_layer(dropout_layer *l, float *input, network *net)
     }
 }
 
-void backward_dropout_layer(dropout_layer *l, float *delta)
+void backward_dropout_layer(const dropout_layer *l, float *delta)
 {
     if(!delta) return;
     for(int i = 0; i < l->batch * l->inputs; ++i){

@@ -312,8 +312,17 @@ void strip_char(char *s, char bad)
 void free_ptrs(void **ptrs, int n)
 {
     int i;
-    for(i = 0; i < n; ++i) free(ptrs[i]);
+    for(i = 0; i < n; ++i){
+        free(ptrs[i]);
+        ptrs[i] = NULL;
+    }
     free(ptrs);
+}
+
+void free_ptr(void *ptr)
+{
+    free(ptr);
+    ptr = NULL;
 }
 
 char *fgetl(FILE *fp)

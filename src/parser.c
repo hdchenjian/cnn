@@ -43,7 +43,6 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
     convolutional_layer *layer = make_convolutional_layer(
         h, w, c, n, size, stride, net->batch, activation, &(net->workspace_size), batch_normalize);
-    option_unused(options);
     return layer;
 }
 
@@ -59,7 +58,28 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
         input = get_network_output_size_layer(net, count-1);
     }
     connected_layer *layer = make_connected_layer(input, output, net->batch, activation);
-    option_unused(options);
+    return layer;
+}
+
+route_layer *parse_route(struct list *options, network *net, int count)
+{
+    char *l = option_find(options, "layers");
+    int len = strlen(l);
+    if(!l) error("Route Layer must specify input layers");
+    int n = 1;
+    for(int i = 0; i < len; ++i){
+        if (l[i] == ',') ++n;
+    }
+    int *layers = calloc(n, sizeof(int));
+    int *sizes = calloc(n, sizeof(int));
+    for(int i = 0; i < n; ++i){
+        int index = atoi(l);
+        l = strchr(l, ',')+1;
+        layers[i] = index;
+        sizes[i] = get_network_output_size_layer(net, index);
+    }
+
+    route_layer *layer = make_route_layer(net->batch, n, layers, sizes);
     return layer;
 }
 
@@ -81,7 +101,6 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
     int size = option_find_int(options, "size",stride);
     int padding = option_find_int(options, "padding", (size-1)/2);
     maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding);
-    option_unused(options);
     return layer;
 }
 
@@ -95,7 +114,6 @@ avgpool_layer *parse_avgpool(struct list *options, network *net, int count)
     if(!(h && w && c)) error("Layer before avgpool layer must output image.");
 
     avgpool_layer *layer = make_avgpool_layer(net->batch,w,h,c);
-    option_unused(options);
     return layer;
 }
 
@@ -114,7 +132,6 @@ dropout_layer *parse_dropout(struct list *options, network *net, int count)
         input = get_network_output_size_layer(net, count-1);
     }
     dropout_layer *layer = make_dropout_layer(w, h, c, net->batch, input, probability);
-    option_unused(options);
     return layer;
 }
 
@@ -127,7 +144,6 @@ softmax_layer *parse_softmax(struct list *options, network *net, int count, int 
         input =  get_network_output_size_layer(net, count-1);
     }
     softmax_layer *layer = make_softmax_layer(input ,net->batch, is_last_layer);
-    option_unused(options);
     return layer;
 }
 
@@ -138,7 +154,6 @@ cost_layer *parse_cost(struct list *options, network *net, int count)
     float scale = option_find_float(options, "scale", 1);
     int inputs =  get_network_output_size_layer(net, count-1);
     cost_layer *layer = make_cost_layer(net->batch, inputs, type, scale);
-    option_unused(options);
     return layer;
 }
 
@@ -294,6 +309,7 @@ network *parse_network_cfg(char *filename)
     struct list *options = s->options;
     parse_net_options(options, net);
 
+    float total_bflop = 0;
     n = n->next;
     int count = 0;
     while(n){
@@ -302,11 +318,16 @@ network *parse_network_cfg(char *filename)
         fprintf(stderr, "%3d: ", count);
         if(strcmp(s->type, "[convolutional]")==0){
             convolutional_layer *layer = parse_convolutional(options, net, count);
+            total_bflop += layer->bflop;
             net->layers_type[count] = CONVOLUTIONAL;
             net->layers[count] = layer;
         } else if(strcmp(s->type, "[connected]")==0){
             connected_layer *layer = parse_connected(options, net, count);
             net->layers_type[count] = CONNECTED;
+            net->layers[count] = layer;
+        } else if(strcmp(s->type, "[route]")==0){
+            route_layer *layer = parse_route(options, net, count);
+            net->layers_type[count] = ROUTE;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[softmax]")==0){
             softmax_layer *layer = parse_softmax(options, net, count, sections->size - 1 - 1 == count);
@@ -318,11 +339,10 @@ network *parse_network_cfg(char *filename)
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[dropout]")==0){
             dropout_layer *layer = parse_dropout(options, net, count);
-            float *previous_layer_output = get_network_layer_data(net, count - 1, 0, 0);
-            float *previous_layer_delta = get_network_layer_data(net, count - 1, 1, 0);
-            layer->output = previous_layer_output;  // reuse previous layer output and delta
-            layer->delta = previous_layer_delta;
-#ifdef GPU
+#ifndef GPU
+            layer->output = get_network_layer_data(net, count - 1, 0, 0);  // reuse previous layer output and delta
+            layer->delta = get_network_layer_data(net, count - 1, 1, 0);
+#else
             layer->output_gpu = get_network_layer_data(net, count - 1, 0, 1);
             layer->delta_gpu = get_network_layer_data(net, count - 1, 1, 1);
 #endif
@@ -340,6 +360,7 @@ network *parse_network_cfg(char *filename)
             fprintf(stderr, "layer type not recognized: %s\n", s->type);
             exit(-1);
         }
+        option_unused(options);
         free_section(s);
         ++count;
         n = n->next;
@@ -366,5 +387,6 @@ network *parse_network_cfg(char *filename)
         //net->workspace = calloc(1, net->workspace_size);
     }
     free_list(sections);
+    fprintf(stderr, "network total_bflop: %5.3f BFLOPs\n", total_bflop);;
     return net;
 }

@@ -94,7 +94,7 @@ void backward_cost_layer(const cost_layer *l, float *delta)
 
 #ifdef GPU
 
-void forward_cost_layer_gpu(cost_layer *l, float *input_gpu, network *net)
+void forward_cost_layer_gpu(const cost_layer *l, float *input_gpu, network *net)
 {
     if (net->test == 2) return;  // 0: train, 1: valid, 2: test
 
