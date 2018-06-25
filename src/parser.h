@@ -8,6 +8,7 @@
 #include "network.h"
 #include "convolutional_layer.h"
 #include "route_layer.h"
+#include "shortcut_layer.h"
 #include "maxpool_layer.h"
 #include "avgpool_layer.h"
 #include "dropout_layer.h"

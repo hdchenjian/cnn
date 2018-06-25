@@ -11,8 +11,8 @@
 void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear)
 {
     char *base = basecfg(cfgfile);   // get projetc name by cfgfile, cifar.cfg -> cifar
-    printf("train data base name: %s\n", base);
-    printf("the number of GPU: %d\n", ngpus);
+    //fprintf(stderr, "train data base name: %s\n", base);
+    //fprintf(stderr, "the number of GPU: %d\n", ngpus);
     network **nets = calloc(ngpus, sizeof(struct network*));  // todo: free
 
     srand(time(0));
@@ -63,7 +63,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             net->seen, train_set_size, net->max_batches, net->classes, net->batch);
 
     float avg_loss = -1;
-    while(net->batch_train < net->max_batches || net->max_batches == 0){
+    while(net->epoch < net->max_epoch || net->max_epoch == 0){
         time = what_time_is_it_now();
         batch train;
         if(0 == train_data_type) {
@@ -73,50 +73,10 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             for(int i = 0; i < net->classes * net->batch; i++) {
                 //if(train.truth[i] > 0.1) printf("input class: %d %d %f\n", batch_num, i, train.truth[i]);
             }
-            image tmp;
-            tmp.w = train.w;
-            tmp.h = train.h;
-            tmp.c = train.c;
-            tmp.data = train.data;
-            //save_image_png(tmp, "input.jpg");
-            tmp.data = train.data + tmp.w * tmp.h * tmp.c;
-            //save_image_png(tmp, "input0.jpg");
-            float max = -FLT_MAX;
-            float min = FLT_MAX;
-            for(int i = 0; i < tmp.w * tmp.h * tmp.c; ++i){
-                if(tmp.data[i] > max) max = tmp.data[i];
-                if(tmp.data[i] < min) min = tmp.data[i];
-            }
-            //printf("input max: %f, min: %f\n", max, min);
-            //memcpy(train.data + tmp.w * tmp.h * tmp.c, train.data, tmp.w * tmp.h * tmp.c * sizeof(float));
-            //memcpy(train.truth + net->classes, train.truth, net->classes * sizeof(float));
-
-            //save_image_png(tmp, "input1.jpg");
             train_network_batch(net, train);
         } else if(1 == train_data_type) {
             int index = rand() % batch_num;
             train = all_train_data[index];
-            /*
-            index = 1;
-            for(int i = 0; i < net->classes * net->batch; i++) {
-                //if(train.truth[i] > 0.1) printf("input class: %d %d %f\n", batch_num, i, train.truth[i]);
-            }
-            image tmp;
-            tmp.w = train.w;
-            tmp.h = train.h;
-            tmp.c = train.c;
-            tmp.data = train.data;
-            //save_image_png(tmp, "input.jpg");
-            tmp.data = train.data + tmp.w * tmp.h * tmp.c;
-            //save_image_png(tmp, "input0.jpg");
-            float max = -FLT_MAX;
-            float min = FLT_MAX;
-            for(int i = 0; i < tmp.w * tmp.h * tmp.c; ++i){
-                if(tmp.data[i] > max) max = tmp.data[i];
-                if(tmp.data[i] < min) min = tmp.data[i];
-            }
-            printf("input max: %f, min: %f\n", max, min);
-            save_image_png(tmp, "input1.jpg");*/
             train_network_batch(net, train);
         } else {
             train = random_batch(paths, net->batch, labels, net->classes, train_set_size,
@@ -136,12 +96,13 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             train_network_batch(net, train);
             free_batch(&train);
         }
+        int epoch_old = net->epoch;
         net->epoch = net->seen / train_set_size;
         float loss = 0;
         if(avg_loss == -1) avg_loss = loss;
         loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
-            printf("\n\nloss too large: %f, exit\n", loss);
+            fprintf(stderr, "\n\nloss too large: %f, exit\n", loss);
             //continue;
             exit(-1);
         }
@@ -150,6 +111,11 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         printf("epoch: %d, batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, "
                 "seen %lu images\n", net->epoch, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
                 loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen);
+        if(epoch_old != net->epoch){
+            char buff[256];
+            sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
+            save_weights(net, buff);
+        }
         //sleep(3);
     }
     char buff[256];
@@ -197,7 +163,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     char **paths = NULL;
     struct list *plist = NULL;
     int train_data_type = option_find_int(options, "train_data_type", 1);    //  0: csv, 1: load to memory
-    batch *all_valid_data;
+    batch *all_valid_data = NULL;
     if(0 == train_data_type) {
         valid_set_size = option_find_int(options, "valid_num", 0);
         all_valid_data = load_csv_image_to_memory(valid_list, net->batch, labels, net->classes, valid_set_size,
@@ -215,7 +181,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         valid_set_size = plist->size;
     }
 
-    printf("valid_set_size: %d, net->classes: %d\n", valid_set_size, net->classes);
+    fprintf(stderr, "valid_set_size: %d, net->classes: %d\n", valid_set_size, net->classes);
 
     float avg_loss = -1;
     int count = 0;
@@ -239,16 +205,17 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         if(avg_loss == -1) avg_loss = loss;
         loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
-            printf("\n\nloss too large: %f, exit\n", loss);
-            exit(-1);
+            fprintf(stderr, "\n\nloss too large: %f, exit\n", loss);
+            //exit(-1);
         }
         avg_loss = avg_loss*.9 + loss*.1;
-        printf("count: %d, accuracy: %.3f, loss: %f, avg_loss: %f\n",
-               count, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss);
-        //sleep(3);
+        if(count == valid_set_size - 1){
+            printf("count: %d, accuracy: %.3f, loss: %f, avg_loss: %f\n",
+                   count, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss);
+        }
         count += 1;
     }
-    //free_network(net);
+    free_network(net);
     free_ptrs((void**)labels, net->classes);
     if(paths) free_ptrs((void**)paths, plist->size);
     if(plist){
@@ -282,5 +249,6 @@ void run_classifier(int argc, char **argv)
     else if(0==strcmp(argv[2], "valid")){
         validate_classifier(data, cfg, weights);
     }
-    printf("total %.2lf seconds\n", what_time_is_it_now() - time_start);
+    fprintf(stderr, "total %.2lf seconds\n\n\n", what_time_is_it_now() - time_start);
+    printf("\n\n");
 }

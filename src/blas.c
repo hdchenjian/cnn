@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-void shortcut_cpu(int batch, int w1, int h1, int c1, float *add, int w2, int h2, int c2, float *out)
+void shortcut_cpu(int batch, int w1, int h1, int c1, float *add, int w2, int h2, int c2, float s1, float s2, float *out)
 {
     int stride = w1/w2;
     int sample = w2/w1;
@@ -22,7 +22,7 @@ void shortcut_cpu(int batch, int w1, int h1, int c1, float *add, int w2, int h2,
                 for(i = 0; i < minw; ++i){
                     int out_index = i*sample + w2*(j*sample + h2*(k + c2*b));
                     int add_index = i*stride + w1*(j*stride + h1*(k + c1*b));
-                    out[out_index] += add[add_index];
+                    out[out_index] = s1*out[out_index] + s2*add[add_index];
                 }
             }
         }

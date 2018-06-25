@@ -37,12 +37,21 @@ enum LAYER_TYPE{
     CONVOLUTIONAL,
     CONNECTED,
     ROUTE,
+    SHORTCUT,
     MAXPOOL,
     AVGPOOL,
     DROPOUT,
     SOFTMAX,
     COST,
 };
+
+typedef struct {
+    int w, h, c, out_w, out_h, out_c, index, batch, outputs;
+    float prev_layer_weight, shortcut_layer_weight;
+    ACTIVATION activation;
+    float *delta, *output;
+    float *output_gpu, *delta_gpu;
+} shortcut_layer;
 
 typedef struct {
     int batch, n, inputs, outputs;
@@ -86,7 +95,7 @@ typedef struct {
 typedef struct {
 	int gpu_index;
     int n;                  // the size of network
-    int max_batches; // max iteration times of batch
+    int max_batches, max_epoch; // max iteration times of batch
     size_t seen;    // the number of image processed
     int batch;   // the number of batch processed
     int epoch;
@@ -133,6 +142,9 @@ void backward_dropout_layer(const dropout_layer *l, float *delta);
 image get_dropout_image(const dropout_layer *layer, int batch);
 void forward_route_layer(const route_layer *l, network *net);
 void backward_route_layer(const route_layer *l, network *net);
+void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net);
+void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net);
+image get_shortcut_image(const shortcut_layer *layer, int batch);
 
 #ifdef GPU
 void forward_avgpool_layer_gpu(const avgpool_layer *l, float *in);
@@ -145,6 +157,8 @@ void forward_dropout_layer_gpu(const dropout_layer *l, float *input, network *ne
 void backward_dropout_layer_gpu(const dropout_layer *l, float *delta);
 void forward_route_layer_gpu(const route_layer *l, network *net);
 void backward_route_layer_gpu(const route_layer *l, network *net);
+void forward_shortcut_layer_gpu(const shortcut_layer *l, float *input_gpu, network *net);
+void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, network *net);
 #endif
 
 float *get_network_layer_data(network *net, int i, int data_type, int is_gpu);

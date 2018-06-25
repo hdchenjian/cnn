@@ -1,90 +1,75 @@
 #include "shortcut_layer.h"
-#include "cuda.h"
-#include "blas.h"
-#include "activations.h"
 
-#include <stdio.h>
-#include <assert.h>
-
-layer make_shortcut_layer(int batch, int index, int w, int h, int c, int w2, int h2, int c2)
+image get_shortcut_image(const shortcut_layer *layer, int batch)
 {
-    fprintf(stderr, "res  %3d                %4d x%4d x%4d   ->  %4d x%4d x%4d\n",index, w2,h2,c2, w,h,c);
-    layer l = {0};
-    l.type = SHORTCUT;
-    l.batch = batch;
-    l.w = w2;
-    l.h = h2;
-    l.c = c2;
-    l.out_w = w;
-    l.out_h = h;
-    l.out_c = c;
-    l.outputs = w*h*c;
-    l.inputs = l.outputs;
+    int h = layer->out_h;
+    int w = layer->out_w;
+    int c = layer->out_c;
+    return float_to_image(h,w,c,layer->output + batch * h * w * c);
+}
 
-    l.index = index;
+shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, int out_w,int out_h,int out_c,
+                                    ACTIVATION activation, float prev_layer_weight, float shortcut_layer_weight)
+{
+    fprintf(stderr, "Shortcut:           %d x %d x %d -> %d x %d x %d, layer: %d\n", w,h,c, out_w,out_h,out_c, index);
+    shortcut_layer *l = calloc(1, sizeof(shortcut_layer));
+    l->batch = batch;
+    l->w = w;
+    l->h = h;
+    l->c = c;
+    l->out_w = out_w;
+    l->out_h = out_h;
+    l->out_c = out_c;
+    l->outputs = out_w*out_h*out_c;
+    l->index = index;
+    l->activation = activation;
+    l->prev_layer_weight = prev_layer_weight;
+    l->shortcut_layer_weight = shortcut_layer_weight;
 
-    l.delta =  calloc(l.outputs*batch, sizeof(float));
-    l.output = calloc(l.outputs*batch, sizeof(float));;
+    l->delta =  calloc(l->outputs*batch, sizeof(float));
+    l->output = calloc(l->outputs*batch, sizeof(float));;
 
-    l.forward = forward_shortcut_layer;
-    l.backward = backward_shortcut_layer;
     #ifdef GPU
-    l.forward_gpu = forward_shortcut_layer_gpu;
-    l.backward_gpu = backward_shortcut_layer_gpu;
-
-    l.delta_gpu =  cuda_make_array(l.delta, l.outputs*batch);
-    l.output_gpu = cuda_make_array(l.output, l.outputs*batch);
+    l->delta_gpu =  cuda_make_array(l->delta, l->outputs*batch);
+    l->output_gpu = cuda_make_array(l->output, l->outputs*batch);
     #endif
     return l;
 }
 
-void resize_shortcut_layer(layer *l, int w, int h)
+void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net)
 {
-    assert(l->w == l->out_w);
-    assert(l->h == l->out_h);
-    l->w = l->out_w = w;
-    l->h = l->out_h = h;
-    l->outputs = w*h*l->out_c;
-    l->inputs = l->outputs;
-    l->delta =  realloc(l->delta, l->outputs*l->batch*sizeof(float));
-    l->output = realloc(l->output, l->outputs*l->batch*sizeof(float));
-
-#ifdef GPU
-    cuda_free(l->output_gpu);
-    cuda_free(l->delta_gpu);
-    l->output_gpu  = cuda_make_array(l->output, l->outputs*l->batch);
-    l->delta_gpu   = cuda_make_array(l->delta,  l->outputs*l->batch);
-#endif
-    
+    copy_cpu(l->outputs*l->batch, input, 1, l->output, 1);
+    float *shortcut_layer_output = get_network_layer_data(net, l->index, 0, 0);
+    shortcut_cpu(l->batch, l->w, l->h, l->c, shortcut_layer_output, l->out_w, l->out_h, l->out_c,
+                 l->prev_layer_weight, l->shortcut_layer_weight, l->output);
+    activate_array(l->output, l->outputs*l->batch, l->activation);
 }
 
-
-void forward_shortcut_layer(const layer l, network net)
+void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net)
 {
-    copy_cpu(l.outputs*l.batch, net.input, 1, l.output, 1);
-    shortcut_cpu(l.batch, l.w, l.h, l.c, net.layers[l.index].output, l.out_w, l.out_h, l.out_c, l.alpha, l.beta, l.output);
-    activate_array(l.output, l.outputs*l.batch, l.activation);
-}
-
-void backward_shortcut_layer(const layer l, network net)
-{
-    gradient_array(l.output, l.outputs*l.batch, l.activation, l.delta);
-    axpy_cpu(l.outputs*l.batch, l.alpha, l.delta, 1, net.delta, 1);
-    shortcut_cpu(l.batch, l.out_w, l.out_h, l.out_c, l.delta, l.w, l.h, l.c, 1, l.beta, net.layers[l.index].delta);
+    gradient_array(l->output, l->outputs*l->batch, l->activation, l->delta);
+    axpy_cpu(l->outputs*l->batch, l->prev_layer_weight, l->delta, 1, delta, 1);
+    float *shortcut_layer_delta = get_network_layer_data(net, l->index, 1, 0);
+    shortcut_cpu(l->batch, l->out_w, l->out_h, l->out_c, l->delta, l->w, l->h, l->c,
+                 1, l->shortcut_layer_weight, shortcut_layer_delta);
 }
 
 #ifdef GPU
-void forward_shortcut_layer_gpu(const layer l, network net)
+void forward_shortcut_layer_gpu(const shortcut_layer *l, float *input_gpu, network *net)
 {
-    copy_gpu(l.outputs*l.batch, net.input_gpu, 1, l.output_gpu, 1);
-    shortcut_gpu(l.batch, l.w, l.h, l.c, net.layers[l.index].output_gpu, l.out_w, l.out_h, l.out_c, l.alpha, l.beta, l.output_gpu);
-    activate_array_gpu(l.output_gpu, l.outputs*l.batch, l.activation);
+    copy_gpu(l->outputs*l->batch, input_gpu, 1, l->output_gpu, 1);
+    float *shortcut_layer_output_gpu = get_network_layer_data(net, l->index, 0, 1);
+    shortcut_gpu(l->batch, l->w, l->h, l->c, shortcut_layer_output_gpu, l->out_w, l->out_h, l->out_c,
+                 l->prev_layer_weight, l->shortcut_layer_weight, l->output_gpu);
+    activate_array_gpu(l->output_gpu, l->outputs*l->batch, l->activation);
 }
 
-void backward_shortcut_layer_gpu(const layer l, network net)
+void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, network *net)
 {
-    gradient_array_gpu(l.output_gpu, l.outputs*l.batch, l.activation, l.delta_gpu);
-    axpy_gpu(l.outputs*l.batch, l.alpha, l.delta_gpu, 1, net.delta_gpu, 1);
-    shortcut_gpu(l.batch, l.out_w, l.out_h, l.out_c, l.delta_gpu, l.w, l.h, l.c, 1, l.beta, net.layers[l.index].delta_gpu);
+    gradient_array_gpu(l->output_gpu, l->outputs*l->batch, l->activation, l->delta_gpu);
+    axpy_gpu(l->outputs*l->batch, l->prev_layer_weight, l->delta_gpu, 1, delta_gpu, 1);
+    float *shortcut_layer_delta_gpu = get_network_layer_data(net, l->index, 1, 1);
+    shortcut_gpu(l->batch, l->out_w, l->out_h, l->out_c, l->delta_gpu, l->w, l->h, l->c,
+                 1, l->shortcut_layer_weight, shortcut_layer_delta_gpu);
 }
 #endif

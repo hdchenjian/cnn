@@ -83,6 +83,24 @@ route_layer *parse_route(struct list *options, network *net, int count)
     return layer;
 }
 
+shortcut_layer *parse_shortcut(struct list *options, network *net, int count)
+{
+    char *l = option_find(options, "from");
+    int index = atoi(l);
+    image shortcut_layer_output_image = get_network_image_layer(net, index);
+    image previous_layer_output_image = get_network_image_layer(net, count - 1);
+    char *activation_s = option_find_str(options, "activation", "linear");
+    ACTIVATION activation = get_activation(activation_s);
+    float prev_layer_weight = option_find_float(options, "prev_layer_weight", 1);
+    float shortcut_layer_weight = option_find_float(options, "shortcut_layer_weight", 1);
+    shortcut_layer *layer = make_shortcut_layer(
+        net->batch, index, shortcut_layer_output_image.w, shortcut_layer_output_image.h,
+        shortcut_layer_output_image.c,
+        previous_layer_output_image.w, previous_layer_output_image.h, previous_layer_output_image.c,
+        activation, prev_layer_weight, shortcut_layer_weight);
+    return layer;
+}
+
 maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
 {
     int h,w,c;
@@ -269,6 +287,7 @@ void parse_net_options(struct list *options, network *net)
     net->exposure = option_find_float(options, "exposure", 1);
     net->hue = option_find_float(options, "hue", 0);
     net->max_batches = option_find_int(options, "max_batches", 0);
+    net->max_epoch = option_find_int(options, "max_epoch", 0);
     net->batch = option_find_int(options, "batch", 0);
     char *policy_s = option_find_str(options, "policy", "constant");
     net->policy = get_policy(policy_s);
@@ -329,6 +348,10 @@ network *parse_network_cfg(char *filename)
             route_layer *layer = parse_route(options, net, count);
             net->layers_type[count] = ROUTE;
             net->layers[count] = layer;
+        } else if(strcmp(s->type, "[shortcut]")==0){
+            shortcut_layer *layer = parse_shortcut(options, net, count);
+            net->layers_type[count] = SHORTCUT;
+            net->layers[count] = layer;
         }else if(strcmp(s->type, "[softmax]")==0){
             softmax_layer *layer = parse_softmax(options, net, count, sections->size - 1 - 1 == count);
             net->layers_type[count] = SOFTMAX;
@@ -387,6 +410,6 @@ network *parse_network_cfg(char *filename)
         //net->workspace = calloc(1, net->workspace_size);
     }
     free_list(sections);
-    fprintf(stderr, "network total_bflop: %5.3f BFLOPs\n", total_bflop);;
+    fprintf(stderr, "\nnetwork total_bflop: %5.3f BFLOPs\n", total_bflop);;
     return net;
 }

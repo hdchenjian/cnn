@@ -9,9 +9,10 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     l->input_sizes = input_sizes;
     int i;
     int outputs = 0;
+    char input_layer_str[128] = {0};
     for(i = 0; i < n; ++i){
-        fprintf(stderr," %d", input_layers[i]);
         outputs += input_sizes[i];
+        sprintf(input_layer_str + i * 3, "%3d", input_layers[i]);
     }
     l->outputs = outputs;
     l->inputs = outputs;
@@ -22,7 +23,7 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     l->delta_gpu =  cuda_make_array(l->delta, outputs*batch);
     l->output_gpu = cuda_make_array(l->output, outputs*batch);
     #endif
-    fprintf(stderr, "Route:               layer num: %d, inputs: %d, \n", n, l->inputs);
+    fprintf(stderr, "Route:              %d inputs, layer: %s\n", l->inputs, input_layer_str);
     return l;
 }
 

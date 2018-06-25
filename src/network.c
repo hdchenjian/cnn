@@ -79,6 +79,14 @@ void free_network(network *net)
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
             free_ptr(layer);
+        } else if(net->layers_type[i] == SHORTCUT){
+            shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+
+            if(layer->output_gpu) cuda_free(layer->output_gpu);
+            if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            free_ptr(layer);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(layer->output) free_ptr(layer->output);
@@ -169,6 +177,10 @@ void forward_network(network *net, float *input)
             route_layer *layer = (route_layer *)net->layers[i];
             forward_route_layer(layer, net);
             input = layer->output;
+        }else if(net->layers_type[i] == SHORTCUT){
+            shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            forward_shortcut_layer(layer, input, net);
+            input = layer->output;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             forward_maxpool_layer(layer, input);
@@ -206,6 +218,7 @@ void update_network(network *net)
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == ROUTE){
+        } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
         } else if(net->layers_type[i] == DROPOUT){
         } else if(net->layers_type[i] == AVGPOOL){
@@ -235,6 +248,12 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
             return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == ROUTE){
         route_layer *layer = (route_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == SHORTCUT){
+        shortcut_layer *layer = (shortcut_layer *)net->layers[i];
         if(is_gpu)
             return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
@@ -296,6 +315,9 @@ void backward_network(network *net, float *input)
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer(layer, net);
+        } else if(net->layers_type[i] == SHORTCUT){
+            shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            backward_shortcut_layer(layer, prev_delta, net);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(i != 0) backward_maxpool_layer(layer, prev_input, prev_delta);
@@ -335,6 +357,10 @@ void forward_network_gpu(network *net, float *input)
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             forward_route_layer_gpu(layer, net);
+            input = layer->output_gpu;
+        }else if(net->layers_type[i] == SHORTCUT){
+            shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            forward_shortcut_layer_gpu(layer, input, net);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
@@ -384,6 +410,9 @@ void backward_network_gpu(network *net, float *input)
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer_gpu(layer, net);
+        } else if(net->layers_type[i] == SHORTCUT){
+            shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            backward_shortcut_layer_gpu(layer, prev_delta, net);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(i != 0) backward_maxpool_layer_gpu(layer, prev_delta);
@@ -416,6 +445,7 @@ void update_network_gpu(network *net)
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == ROUTE){
+        } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
         } else if(net->layers_type[i] == DROPOUT){
         } else if(net->layers_type[i] == AVGPOOL){
@@ -478,6 +508,9 @@ int get_network_output_size_layer(network *net, int i)
     } else if(net->layers_type[i] == ROUTE){
         route_layer *layer = (route_layer *)net->layers[i];
         return layer->outputs;
+    } else if(net->layers_type[i] == SHORTCUT){
+        shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+        return layer->outputs;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         image output = get_maxpool_image(layer, net->batch - 1);
@@ -516,6 +549,9 @@ image get_network_image_layer(network *net, int i)
     } else if(net->layers_type[i] == DROPOUT){
         dropout_layer *layer = (dropout_layer *)net->layers[i];
         return get_dropout_image(layer, net->batch - 1);
+    } else if(net->layers_type[i] == SHORTCUT){
+        shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+        return get_shortcut_image(layer, net->batch - 1);
     } else {
         printf("get_network_image_layer layers_type error, layer: %d\n", i);
         exit(-1);
@@ -587,7 +623,8 @@ void save_weights(network *net, char *filename)
     int major = 0;
     int minor = 2;
     int revision = 0;
-    printf("weights version info: major: %d, minor: %d, revision: %d, net->seen: %lu\n", major, minor, revision, net->seen);
+    fprintf(stderr, "weights version info: major: %d, minor: %d, revision: %d, net->seen: %lu\n",
+            major, minor, revision, net->seen);
 
     fwrite(&major, sizeof(int), 1, fp);
     fwrite(&minor, sizeof(int), 1, fp);
@@ -623,7 +660,8 @@ void load_weights(network *net, char *filename)
     fread(&minor, sizeof(int), 1, fp);
     fread(&revision, sizeof(int), 1, fp);
     fread(&net->seen, sizeof(size_t), 1, fp);
-    printf("weights version info: major: %d, minor: %d, revision: %d, net->seen: %lu\n", major, minor, revision, net->seen);
+    fprintf(stderr, "weights version info: major: %d, minor: %d, revision: %d, net->seen: %lu\n",
+            major, minor, revision, net->seen);
 
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){

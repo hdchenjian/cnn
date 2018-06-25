@@ -57,6 +57,6 @@ float option_find_float(struct list *l, char *key, float def)
 {
     char *v = option_find(l, key);
     if(v) return atof(v);
-    fprintf(stderr, "%s: Using default '%lf'\n", key, def);
+    //fprintf(stderr, "%s: Using default '%lf'\n", key, def);
     return def;
 }

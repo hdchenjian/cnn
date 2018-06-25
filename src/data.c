@@ -75,53 +75,9 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
     fclose(fp);
 }
 
-batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size,
-        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
+int *get_random_index(int train_set_size, int train_set_size_real)
 {
-    int image_size = h * w * c;
-    float *image_all = calloc(train_set_size * image_size, sizeof(float));
-    float *truth_all = calloc(train_set_size * classes, sizeof(float));
-    load_csv_images(filename, labels, classes, train_set_size, image_size, image_all, truth_all, hue, saturation, exposure);
-
     /* random the train image index */
-    int train_set_size_real = 0;
-    if(train_set_size % batch_size == 0) {
-        train_set_size_real = train_set_size;
-    } else {
-        train_set_size_real = (train_set_size / batch_size + 1) * batch_size;
-    }
-
-    int batch_num = train_set_size_real / batch_size;
-    int less_image = batch_num * batch_size - train_set_size;
-    *batch_num_return = batch_num;
-    batch *train_data = calloc(batch_num, sizeof(batch));
-    for(int i = 0; i < batch_num; i++){
-        train_data[i].n = batch_size;
-        train_data[i].w = w;
-        train_data[i].h = h;
-        train_data[i].c = c;
-        if(i == batch_num - 1) {
-            train_data[i].data = image_all + (i * batch_size - less_image) * image_size;
-            train_data[i].truth = truth_all + (i * batch_size - less_image) * classes;
-        } else {
-            train_data[i].data = image_all + i * batch_size * image_size;
-            train_data[i].truth = truth_all + i * batch_size * classes;
-        }
-    } 
-    return train_data;
-}
-
-batch *load_image_to_memory(char **paths, int batch_size, char **labels, int classes, int train_set_size,
-        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
-{
-    double time = what_time_is_it_now();
-    /* random the train image index */
-    int train_set_size_real = 0;
-    if(train_set_size % batch_size == 0) {
-        train_set_size_real = train_set_size;
-    } else {
-        train_set_size_real = (train_set_size / batch_size + 1) * batch_size;
-    }
     int *index = calloc(train_set_size_real, sizeof(int));
     for(int i = 0; i < train_set_size_real; i++) {
         if(i < train_set_size) {
@@ -136,7 +92,58 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
         index[i] = index[index_random];
         index[index_random] = temp;
     }
+    return index;
+}
 
+batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size,
+        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
+{
+    int image_size = h * w * c;
+    float *image_all = calloc(train_set_size * image_size, sizeof(float));
+    float *truth_all = calloc(train_set_size * classes, sizeof(float));
+    load_csv_images(filename, labels, classes, train_set_size, image_size, image_all, truth_all, hue, saturation, exposure);
+
+    int train_set_size_real = 0;
+    if(train_set_size % batch_size == 0) {
+        train_set_size_real = train_set_size;
+    } else {
+        train_set_size_real = (train_set_size / batch_size + 1) * batch_size;
+    }
+    int *index = get_random_index(train_set_size, train_set_size_real);
+
+    int batch_num = train_set_size_real / batch_size;
+    *batch_num_return = batch_num;
+    batch *train_data = calloc(batch_num, sizeof(batch));
+    for(int i = 0; i < batch_num; i++){
+        train_data[i].n = batch_size;
+        train_data[i].w = w;
+        train_data[i].h = h;
+        train_data[i].c = c;
+        train_data[i].data = calloc(batch_size * image_size, sizeof(float));
+        train_data[i].truth = calloc(batch_size * classes, sizeof(float));
+        for(int j = 0; j < batch_size; ++j){
+            //printf("%d ", index[i * batch_size + j]);
+            memcpy(train_data[i].data + j * image_size, image_all + image_size * index[i * batch_size + j], image_size * sizeof(float));
+            memcpy(train_data[i].truth + j * classes, truth_all + classes * index[i * batch_size + j], classes * sizeof(float));
+        }
+    }
+    free_ptr(index);
+    free_ptr(image_all);
+    free_ptr(truth_all);
+    return train_data;
+}
+
+batch *load_image_to_memory(char **paths, int batch_size, char **labels, int classes, int train_set_size,
+        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
+{
+    double time = what_time_is_it_now();
+    int train_set_size_real = 0;
+    if(train_set_size % batch_size == 0) {
+        train_set_size_real = train_set_size;
+    } else {
+        train_set_size_real = (train_set_size / batch_size + 1) * batch_size;
+    }
+    int *index = get_random_index(train_set_size, train_set_size_real);
     int image_size = h * w * c;
     int batch_num = train_set_size_real / batch_size;
     *batch_num_return = batch_num;
@@ -158,7 +165,7 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
             fill_truth(paths[index[i * batch_size + j]], labels, classes, train_data[i].truth + j * classes);
         }
     }
-    free(index);
+    free_ptr(index);
     printf("load_image_to_memory done: use memory: %f MB, spend %f s\n",
            batch_num * batch_size * (image_size + classes ) * sizeof(float) / 1024.0 / 1024.0,
            what_time_is_it_now() - time);
