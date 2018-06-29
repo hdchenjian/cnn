@@ -1,12 +1,12 @@
 #include "maxpool_layer.h"
 #include <stdio.h>
 
-image get_maxpool_image(const maxpool_layer *layer, int batch)
+image get_maxpool_image(const maxpool_layer *layer)
 {
     int h = layer->out_h;
     int w = layer->out_w;
     int c = layer->c;
-    return float_to_image(h,w,c,layer->output + batch * h * w * c);
+    return float_to_image(h,w,c,NULL);
 }
 
 image get_maxpool_delta(const maxpool_layer *layer, int batch)
@@ -14,12 +14,12 @@ image get_maxpool_delta(const maxpool_layer *layer, int batch)
     int h = layer->out_h;
     int w = layer->out_w;
     int c = layer->c;
-    return float_to_image(h,w,c,layer->delta + batch * h * w * c);
+    return float_to_image(h,w,c,NULL);
 }
 
 maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int batch, int padding)
 {
-    fprintf(stderr, "Maxpool:            %d x %d x %d inputs, size: %d, %d stride\n", h,w,c,size,stride);
+    fprintf(stderr, "Maxpool:            %d x %d x %d inputs, size: %d, %d stride\n", w,h,c,size,stride);
     maxpool_layer *layer = calloc(1, sizeof(maxpool_layer));
     layer->h = h;
     layer->w = w;

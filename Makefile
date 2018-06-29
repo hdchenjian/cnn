@@ -1,7 +1,7 @@
-GPU=1
+GPU=0
 DEBUG=1
 CUDNN=0
-OPENMP=0
+OPENMP=1
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
       -gencode arch=compute_61,code=[sm_61,compute_61]
@@ -45,7 +45,7 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -L/opt/ego/cudnn-v7 -lcudnn
 endif
 
-OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o
+OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o normalize_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 

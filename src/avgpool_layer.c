@@ -1,11 +1,18 @@
 #include "avgpool_layer.h"
 
+image get_avgpool_image(const avgpool_layer *layer)
+{
+    int h = 1;
+    int w = 1;
+    int c = layer->c;
+    return float_to_image(h,w,c,NULL);
+}
+
 avgpool_layer *make_avgpool_layer(int batch, int w, int h, int c)
 {
     fprintf(stderr, "Avgpool:            %d x %d x %d image -> 1 x 1 x %d image\n", w,h,c, c);
     avgpool_layer *l = calloc(1, sizeof(avgpool_layer));
     l->batch = batch;
-    l->type = AVGPOOL;
     l->h = h;
     l->w = w;
     l->c = c;

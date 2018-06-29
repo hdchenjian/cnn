@@ -56,6 +56,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         plist = get_paths(train_list);
         paths = (char **)list_to_array(plist);
         train_set_size = plist->size;
+        train_set_size = option_find_int(options, "train_num", train_set_size);
     }
     double time;
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
@@ -63,7 +64,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             net->seen, train_set_size, net->max_batches, net->classes, net->batch);
 
     float avg_loss = -1;
-    while(net->epoch < net->max_epoch || net->max_epoch == 0){
+    while(net->batch_train < net->max_batches){
         time = what_time_is_it_now();
         batch train;
         if(0 == train_data_type) {

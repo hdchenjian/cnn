@@ -41,8 +41,9 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
         if (h == 0) error("Layer before convolutional layer must output image.");
     }
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
+    int pad = option_find_int(options, "pad", 0);
     convolutional_layer *layer = make_convolutional_layer(
-        h, w, c, n, size, stride, net->batch, activation, &(net->workspace_size), batch_normalize);
+        h, w, c, n, size, stride, net->batch, activation, &(net->workspace_size), batch_normalize, pad);
     return layer;
 }
 
@@ -75,11 +76,12 @@ route_layer *parse_route(struct list *options, network *net, int count)
     for(int i = 0; i < n; ++i){
         int index = atoi(l);
         l = strchr(l, ',')+1;
+        if(index < 0) index = count + index;
         layers[i] = index;
         sizes[i] = get_network_output_size_layer(net, index);
     }
 
-    route_layer *layer = make_route_layer(net->batch, n, layers, sizes);
+    route_layer *layer = make_route_layer(net->batch, n, layers, sizes, net);
     return layer;
 }
 
@@ -122,6 +124,24 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
     return layer;
 }
 
+normalize_layer *parse_normalize(struct list *options, network *net, int count)
+{
+    int h,w,c;
+    if(count == 0){
+        h = net->h;
+        w = net->w;
+        c = net->c;
+    }else{
+        image m =  get_network_image_layer(net, count-1);
+        h = m.h;
+        w = m.w;
+        c = m.c;
+        if(h == 0) error("Layer before normalize layer must output image.");
+    }
+    normalize_layer *layer = make_normalize_layer(h,w,c,net->batch);
+    return layer;
+}
+
 avgpool_layer *parse_avgpool(struct list *options, network *net, int count)
 {
     int w,h,c;
@@ -130,7 +150,6 @@ avgpool_layer *parse_avgpool(struct list *options, network *net, int count)
     h = m.h;
     c = m.c;
     if(!(h && w && c)) error("Layer before avgpool layer must output image.");
-
     avgpool_layer *layer = make_avgpool_layer(net->batch,w,h,c);
     return layer;
 }
@@ -315,6 +334,8 @@ void parse_net_options(struct list *options, network *net)
         net->scales = scales;
         net->steps = steps;
         net->num_steps = n;
+    } else if(net->policy == POLY){
+        net->learning_rate_poly_power = option_find_int(options, "learning_rate_poly_power", 0);
     }
 }
 
@@ -331,6 +352,7 @@ network *parse_network_cfg(char *filename)
     float total_bflop = 0;
     n = n->next;
     int count = 0;
+    fprintf(stderr, "layer     filters    size              input                output\n");
     while(n){
         struct section *s = (struct section *)n->val;
         struct list *options = s->options;
@@ -359,6 +381,10 @@ network *parse_network_cfg(char *filename)
         }else if(strcmp(s->type, "[maxpool]")==0){
             maxpool_layer *layer = parse_maxpool(options, net, count);
             net->layers_type[count] = MAXPOOL;
+            net->layers[count] = layer;
+        }else if(strcmp(s->type, "[normalize]")==0){
+            normalize_layer *layer = parse_normalize(options, net, count);
+            net->layers_type[count] = NORMALIZE;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[dropout]")==0){
             dropout_layer *layer = parse_dropout(options, net, count);

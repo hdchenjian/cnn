@@ -13,9 +13,9 @@ __global__ void drop_layer_kernal(float *input, int size, float *rand, float pro
     if(id < size) input[id] = (rand[id] < prob) ? 0 : input[id]*scale;
 }
 
-void forward_dropout_layer_gpu(const dropout_layer *l, float *input, network *net)
+void forward_dropout_layer_gpu(const dropout_layer *l, float *input, int test)
 {
-    if (0 != net->test) return;  // 0: train, 1: valid, 2: test
+    if (0 != test) return;  // 0: train, 1: valid, 2: test
     int size = l->inputs*l->batch;
     cuda_random(l->rand_gpu, size);
     drop_layer_kernal<<<cuda_gridsize(size), BLOCK>>>(input, size, l->rand_gpu, l->probability, l->scale);

@@ -11,6 +11,7 @@
 #include "shortcut_layer.h"
 #include "maxpool_layer.h"
 #include "avgpool_layer.h"
+#include "normalize_layer.h"
 #include "dropout_layer.h"
 #include "softmax_layer.h"
 #include "cost_layer.h"

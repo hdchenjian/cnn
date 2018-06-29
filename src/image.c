@@ -1254,7 +1254,7 @@ void back_convolve(image in_delta, image kernel, int stride, int channel, image 
 
 image float_to_image(int h, int w, int c, float *data)
 {
-    image out = make_empty_image(h,w,c);
+    image out = make_empty_image(w,h,c);
     out.data = data;
     return out;
 }

@@ -154,6 +154,12 @@ void cuda_free_int(int *x_gpu)
     check_error(status);
 }
 
+void cuda_mem_copy(float *des_gpu, float *src_gpu, size_t n)
+{
+    cudaError_t status = cudaMemcpy(des_gpu, src_gpu, sizeof(float)*n, cudaMemcpyDeviceToDevice);
+    check_error(status);
+}
+
 void cuda_push_array(float *x_gpu, float *x, size_t n)
 {
     size_t size = sizeof(float)*n;

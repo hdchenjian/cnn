@@ -470,7 +470,7 @@ extern "C" void normalize_gpu(float *x, float *mean, float *variance, int batch,
     check_error(cudaPeekAtLastError());
 }
 
-__global__ void l2norm_kernel(int N, float *x, float *dx, int batch, int filters, int spatial)
+__global__ void l2norm_kernel(int N, float *x, int batch, int filters, int spatial)
 {
     int index = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
     if (index >= N) return;
@@ -488,14 +488,13 @@ __global__ void l2norm_kernel(int N, float *x, float *dx, int batch, int filters
     for(f = 0; f < filters; ++f){
         int index = b*filters*spatial + f*spatial + i;
         x[index] /= sum;
-        dx[index] = (1 - x[index]) / sum;
     }
 }
 
-extern "C" void l2normalize_gpu(float *x, float *dx, int batch, int filters, int spatial)
+extern "C" void l2normalize_gpu(float *x, int batch, int filters, int spatial)
 {
     size_t N = batch*spatial;
-    l2norm_kernel<<<cuda_gridsize(N), BLOCK>>>(N, x, dx, batch, filters, spatial);
+    l2norm_kernel<<<cuda_gridsize(N), BLOCK>>>(N, x, batch, filters, spatial);
     check_error(cudaPeekAtLastError());
 }
 

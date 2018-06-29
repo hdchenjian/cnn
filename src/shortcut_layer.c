@@ -1,11 +1,11 @@
 #include "shortcut_layer.h"
 
-image get_shortcut_image(const shortcut_layer *layer, int batch)
+image get_shortcut_image(const shortcut_layer *layer)
 {
     int h = layer->out_h;
     int w = layer->out_w;
     int c = layer->out_c;
-    return float_to_image(h,w,c,layer->output + batch * h * w * c);
+    return float_to_image(h,w,c,NULL);
 }
 
 shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, int out_w,int out_h,int out_c,

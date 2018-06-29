@@ -1,6 +1,14 @@
 #include "route_layer.h"
 
-route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_sizes)
+image get_route_image(const route_layer *layer)
+{
+    int h = layer->out_h;
+    int w = layer->out_w;
+    int c = layer->out_c;
+    return float_to_image(h,w,c,NULL);
+}
+
+route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_sizes, network *net)
 {
     route_layer *l = calloc(1, sizeof(route_layer));
     l->batch = batch;
@@ -14,6 +22,21 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
         outputs += input_sizes[i];
         sprintf(input_layer_str + i * 3, "%3d", input_layers[i]);
     }
+    image first_layer = get_network_image_layer(net, input_layers[0]);
+    l->out_w = first_layer.w;
+    l->out_h = first_layer.h;
+    l->out_c = first_layer.c;
+    for(int i = 1; i < n; ++i){
+        int index = input_layers[i];
+        image before_layer = get_network_image_layer(net, index);
+        if(before_layer.w == first_layer.w && before_layer.h == first_layer.h){
+            l->out_c += before_layer.c;
+        }else{
+        	fprintf(stderr, "make_route_layer, input layer size not same\n");
+            exit(-1);
+        }
+    }
+
     l->outputs = outputs;
     l->inputs = outputs;
     l->delta =  calloc(outputs*batch, sizeof(float));
@@ -23,7 +46,8 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     l->delta_gpu =  cuda_make_array(l->delta, outputs*batch);
     l->output_gpu = cuda_make_array(l->output, outputs*batch);
     #endif
-    fprintf(stderr, "Route:              %d inputs, layer: %s\n", l->inputs, input_layer_str);
+    fprintf(stderr, "Route:              %d x %d x %d -> %d x %d x %d, %d inputs, layer: %s\n",
+            l->out_w, l->out_h, l->out_c, l->out_w, l->out_h, l->out_c, l->inputs, input_layer_str);
     return l;
 }
 

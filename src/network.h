@@ -8,6 +8,9 @@
 #include "convolutional_layer.h"
 #include "connected_layer.h"
 #include "maxpool_layer.h"
+#include "dropout_layer.h"
+#include "normalize_layer.h"
+#include "avgpool_layer.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,6 +43,7 @@ enum LAYER_TYPE{
     SHORTCUT,
     MAXPOOL,
     AVGPOOL,
+    NORMALIZE,
     DROPOUT,
     SOFTMAX,
     COST,
@@ -54,25 +58,12 @@ typedef struct {
 } shortcut_layer;
 
 typedef struct {
-    int batch, n, inputs, outputs;
+    int batch, n, inputs, outputs, out_w, out_h, out_c;
     int *input_layers, *input_sizes;
     float *delta, *output;
     float *output_gpu, *delta_gpu;
 } route_layer;
 
-typedef struct {
-    int h,w,c,batch;
-    float *delta, *output;
-    float *output_gpu, *delta_gpu;
-    enum LAYER_TYPE type;
-} avgpool_layer;
-
-typedef struct {
-    int batch, inputs, outputs, out_h, out_w, c;
-    float probability, scale;
-    float *rand, *output, *delta;
-    float *rand_gpu, *output_gpu, *delta_gpu;
-} dropout_layer;
 
 typedef struct {
 	int is_last_layer;   // 1: is last layer, 0: not
@@ -114,6 +105,7 @@ typedef struct {
     float hue, saturation, exposure;  // random_distort_image
 
     enum learning_rate_policy policy;
+    int learning_rate_poly_power;  // for POLY learning_rate_policy
     float learning_rate;
     float momentum;
     float decay;
@@ -123,38 +115,29 @@ typedef struct {
 
     void **layers;
     enum LAYER_TYPE *layers_type;
-
 #ifdef GPU
     float *input_gpu;  // train data
     float *truth_gpu;  // train data truth
 #endif
-
 }network;
 
-void forward_avgpool_layer(const avgpool_layer *l, float *in);
-void backward_avgpool_layer(const avgpool_layer *l, float *delta);
+image get_avgpool_image(const avgpool_layer *l);
 void forward_cost_layer(const cost_layer *l, float *input, network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
 void forward_softmax_layer(const softmax_layer *layer, float *input, network *net);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
-void forward_dropout_layer(const dropout_layer *l, float *input, network *net);
-void backward_dropout_layer(const dropout_layer *l, float *delta);
-image get_dropout_image(const dropout_layer *layer, int batch);
 void forward_route_layer(const route_layer *l, network *net);
 void backward_route_layer(const route_layer *l, network *net);
+image get_route_image(const route_layer *layer);
 void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net);
 void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net);
-image get_shortcut_image(const shortcut_layer *layer, int batch);
+image get_shortcut_image(const shortcut_layer *layer);
 
 #ifdef GPU
-void forward_avgpool_layer_gpu(const avgpool_layer *l, float *in);
-void backward_avgpool_layer_gpu(const avgpool_layer *l, float *delta);
 void forward_cost_layer_gpu(const cost_layer *l, float *input, network *net);
 void backward_cost_layer_gpu(const cost_layer *l, float *delta);
 void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, network *net);
 void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu);
-void forward_dropout_layer_gpu(const dropout_layer *l, float *input, network *net);
-void backward_dropout_layer_gpu(const dropout_layer *l, float *delta);
 void forward_route_layer_gpu(const route_layer *l, network *net);
 void backward_route_layer_gpu(const route_layer *l, network *net);
 void forward_shortcut_layer_gpu(const shortcut_layer *l, float *input_gpu, network *net);

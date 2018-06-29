@@ -8,6 +8,7 @@
 #include "gemm.h"
 #include "utils.h"
 #include "blas.h"
+#include "image.h"
 
 #ifdef GPU
     #include "cuda.h"
@@ -18,7 +19,7 @@
 #endif
 
 typedef struct {
-    int h, w, c, n, size, stride, batch, out_h, out_w, batch_normalize;
+    int h, w, c, n, size, stride, batch, out_h, out_w, batch_normalize, pad;
     float bflop;
     float *weights, *weight_updates, *biases, *bias_updates, *delta, *output;
     float *mean, *mean_delta, *variance, *variance_delta, *rolling_mean, *rolling_variance, *x;
@@ -27,8 +28,9 @@ typedef struct {
     ACTIVATION activation;
 } convolutional_layer;
 
+image get_convolutional_image(const convolutional_layer *layer);
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
-        ACTIVATION activation, size_t *workspace_size, int batch_normalize);
+        ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad);
 void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test);
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace, int test);
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay);

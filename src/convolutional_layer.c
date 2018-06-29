@@ -1,8 +1,16 @@
 #include "convolutional_layer.h"
 #include <float.h>
 
+image get_convolutional_image(const convolutional_layer *layer)
+{
+    int h = layer->out_h;
+    int w = layer->out_w;
+    int c = layer->n;
+    return float_to_image(h,w,c,NULL);
+}
+
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
-        ACTIVATION activation, size_t *workspace_size, int batch_normalize)
+        ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad)
 {
     convolutional_layer *layer = calloc(1, sizeof(convolutional_layer));
     layer->h = h;
@@ -28,12 +36,13 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     fprintf(
         stderr,
         "Convolutional:      %d x %d x %d inputs, %d weights size %d stride %d -> %d x %d x %d outputs %5.3f BFLOPs\n",
-        h,w,c, n, size, stride, layer->out_h, layer->out_w, n, layer->bflop); 
+		w,h,c, n, size, stride, layer->out_w, layer->out_h, n, layer->bflop);
     layer->output = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     layer->delta  = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     layer->activation = activation;
 
     layer->batch_normalize = batch_normalize;
+    layer->pad = pad;
     if(batch_normalize){
         layer->mean = calloc(n, sizeof(float));
         layer->variance = calloc(n, sizeof(float));
@@ -72,44 +81,66 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     return layer;
 }
 
-//From Berkeley Vision's Caffe!
-void im2col_cpu(float* data_im, const int channels,
-        const int height, const int width, const int ksize, const int stride, float* data_col)
+float im2col_get_pixel(float *im, int height, int width, int channels, int row, int col, int channel, int pad)
+{
+    row -= pad;
+    col -= pad;
+    if (row < 0 || col < 0 || row >= height || col >= width) return 0;
+    return im[col + width*(row + height*channel)];
+}
+
+//From Berkeley Vision's Caffe! https://github.com/BVLC/caffe/blob/master/LICENSE
+void im2col_cpu(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
 {
     int c,h,w;
-    int height_col = (height - ksize) / stride + 1;
-    int width_col = (width - ksize) / stride + 1;
+    int height_col = (height + 2*pad - ksize) / stride + 1;
+    int width_col = (width + 2*pad - ksize) / stride + 1;
+
     int channels_col = channels * ksize * ksize;
-    for ( c = 0; c < channels_col; ++c) {
+    for (c = 0; c < channels_col; ++c) {
         int w_offset = c % ksize;
         int h_offset = (c / ksize) % ksize;
         int c_im = c / ksize / ksize;
-        for ( h = 0; h < height_col; ++h) {
-            for ( w = 0; w < width_col; ++w) {
-                data_col[(c * height_col + h) * width_col + w] =
-                    data_im[(c_im * height + h * stride + h_offset) * width
-                    + w * stride + w_offset];
+        for (h = 0; h < height_col; ++h) {
+            for (w = 0; w < width_col; ++w) {
+                int im_row = h_offset + h * stride;
+                int im_col = w_offset + w * stride;
+                int col_index = (c * height_col + h) * width_col + w;
+                data_col[col_index] = im2col_get_pixel(data_im, height, width, channels,
+                        im_row, im_col, c_im, pad);
             }
         }
     }
 }
 
-void col2im_cpu(float* data_col, const int channels,
-        const int height, const int width, const int ksize, const int stride,
-        float* data_im)
+void col2im_add_pixel(float *im, int height, int width, int channels,
+                      int row, int col, int channel, int pad, float val)
+{
+    row -= pad;
+    col -= pad;
+    if (row < 0 || col < 0 || row >= height || col >= width) return;
+    im[col + width*(row + height*channel)] += val;
+}
+
+void col2im_cpu(float* data_col, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_im)
 {
     int c,h,w;
-    int height_col = (height - ksize) / stride + 1;
-    int width_col = (width - ksize) / stride + 1;
+    int height_col = (height + 2*pad - ksize) / stride + 1;
+    int width_col = (width + 2*pad - ksize) / stride + 1;
+
     int channels_col = channels * ksize * ksize;
-    for ( c = 0; c < channels_col; ++c) {
+    for (c = 0; c < channels_col; ++c) {
         int w_offset = c % ksize;
         int h_offset = (c / ksize) % ksize;
         int c_im = c / ksize / ksize;
-        for ( h = 0; h < height_col; ++h) {
-            for ( w = 0; w < width_col; ++w) {
-                data_im[(c_im * height + h * stride + h_offset) * width
-                    + w * stride + w_offset]+= data_col[(c * height_col + h) * width_col + w];
+        for (h = 0; h < height_col; ++h) {
+            for (w = 0; w < width_col; ++w) {
+                int im_row = h_offset + h * stride;
+                int im_col = w_offset + w * stride;
+                int col_index = (c * height_col + h) * width_col + w;
+                double val = data_col[col_index];
+                col2im_add_pixel(data_im, height, width, channels,
+                        im_row, im_col, c_im, pad, val);
             }
         }
     }
@@ -145,7 +176,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         float *b = workspace;
         float *c = layer->output + i * m * n;
         im2col_cpu(in + i * layer->w * layer->h * layer->c,
-                layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, b);
+                   layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
 
@@ -259,7 +290,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
         if(layer->size == 1){
             b = im;
         } else {
-            im2col_cpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, b);
+            im2col_cpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, layer->pad, b);
         }
         gemm(0,1,m,n,k,1,a,k,b,k,1,c,n);
 
@@ -276,8 +307,8 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             }
             gemm(1,0,m,n,k,1,a,m,b,n,0,c,n);
             if (layer->size != 1) {
-                col2im_cpu(workspace, layer->c, layer->h, layer->w, layer->size, layer->stride,
-                        delta + j * layer->h * layer->w * layer->c);
+                col2im_cpu(workspace, layer->c, layer->h, layer->w, layer->size, layer->stride, layer->pad,
+                           delta + j * layer->h * layer->w * layer->c);
             }
         }
     }
