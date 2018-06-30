@@ -1,17 +1,21 @@
 #include "connected_layer.h"
 #include <float.h>
 
-connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation)
+connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation,
+                                      int weight_normalize, int bias_term)
 {
-    fprintf(stderr, "Connected Layer:    %d inputs, %d outputs\n", inputs, outputs);
+    fprintf(stderr, "Connected Layer:    %d inputs, %d outputs, weight_normalize: %d, bias_term: %d\n",
+            inputs, outputs, weight_normalize, bias_term);
     connected_layer *layer = calloc(1, sizeof(connected_layer));
+    layer->weight_normalize = weight_normalize;
+    layer->bias_term = bias_term;
     layer->inputs = inputs;
     layer->outputs = outputs;
     layer->batch = batch;
     layer->output = calloc(batch*outputs, sizeof(float));
     layer->delta = calloc(batch*outputs, sizeof(float));
 
-    layer->weights = calloc(inputs*outputs, sizeof(float));  // layer->inputs is the number of rows
+    layer->weights = calloc(inputs*outputs, sizeof(float));  // layer->outputs is the number of rows
     float scale = sqrt(2.0F/inputs);
     for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = rand_normal() * scale;
     //scale = 1.0F/(inputs);
@@ -36,16 +40,34 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
 
 void forward_connected_layer(connected_layer *layer, float *input)
 {
-    for(int i = 0; i < layer->batch; ++i){
-        memcpy(layer->output + layer->outputs * i, layer->biases, layer->outputs*sizeof(float));
+    if(layer->bias_term){
+        for(int i = 0; i < layer->batch; ++i){
+            memcpy(layer->output + layer->outputs * i, layer->biases, layer->outputs*sizeof(float));
+        }
+    }else{
+        memset(layer->output, 0, layer->batch * layer->outputs * sizeof(float));
     }
+    if(layer->weight_normalize){
+        for(int i = 0; i < layer->outputs; i++){
+            float sum = 1e-6;
+            for(int j = 0; j < layer->inputs; j++){
+                float temp = layer->weights[i * layer->inputs + j];
+                sum += temp * temp;
+            }
+            float scale = sqrtf(sum);
+            for(int j = 0; j < layer->inputs; j++){
+                layer->weights[i * layer->inputs + j] /= scale;
+            }
+        }
+    }
+
     float *a = input;
-    float *b = layer->weights;  // layer->inputs is the number of rows
+    float *b = layer->weights;  // layer->outputs is the number of rows
     float *c = layer->output;
     int m = layer->batch;
     int n = layer->outputs;
     int k = layer->inputs;
-    gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
+    gemm(0, 1, m, n, k, 1, a, k, b, k, 1, c, n);
     int all_outputs = layer->outputs * layer->batch;
     for(int i = 0; i < all_outputs; ++i){
         layer->output[i] = activate(layer->output[i], layer->activation);
@@ -85,12 +107,12 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
             layer->bias_updates[j] += (layer->delta + i * layer->outputs)[j];
         }
     }
-    int m = layer->inputs;
-    int n = layer->outputs;
+    int m = layer->outputs;
+    int n = layer->inputs;
     int k = layer->batch;
-    float *a = input;
-    float *b = layer->delta;
-    float *c = layer->weight_updates;  // layer->inputs is the number of rows
+    float *a = layer->delta;
+    float *b = input;
+    float *c = layer->weight_updates;  // layer->outputs is the number of rows
     gemm(1,0,m,n,k,1,a,m,b,n,1,c,n);
 
     if(delta) {
@@ -100,7 +122,7 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
         a = layer->delta;
         b = layer->weights;
         c = delta;
-        gemm(0,1,m,n,k,1,a,k,b,k,0,c,n);
+        gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
 }
 
@@ -119,14 +141,21 @@ void update_connected_layer_gpu(connected_layer *layer, float learning_rate, flo
 
 void forward_connected_layer_gpu(connected_layer *layer, float *input)
 {
+    if(layer->weight_normalize){
+        weight_normalize_gpu(layer->inputs, layer->outputs, layer->weights_gpu);
+    }
+
     int m = layer->batch;
     int n = layer->outputs;
     int k = layer->inputs;
     float * a = input;
     float * b = layer->weights_gpu;
     float * c = layer->output_gpu;
-    gemm_gpu(0, 0, m, n, k, 1, a, k, b, n, 0, c, n);
-    add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
+    gemm_gpu(0, 1, m, n, k, 1, a, k, b, k, 0, c, n);
+    if(layer->bias_term){
+        add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
+    }
+
     activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
 
     /*
@@ -140,11 +169,11 @@ void backward_connected_layer_gpu(connected_layer *layer, float *input, float *d
     gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->outputs, 1);
 
-    int m = layer->inputs;
-    int n = layer->outputs;
+    int m = layer->outputs;
+    int n = layer->inputs;
     int k = layer->batch;
-    float * a = input;
-    float * b = layer->delta_gpu;
+    float * a = layer->delta_gpu;
+    float * b = input;
     float * c = layer->weight_updates_gpu;
     gemm_gpu(1,0,m,n,k,1,a,m,b,n,1,c,n);
 
@@ -155,7 +184,7 @@ void backward_connected_layer_gpu(connected_layer *layer, float *input, float *d
     b = layer->weights_gpu;
     c = delta;
     if(c) {
-        gemm_gpu(0,1,m,n,k,1,a,k,b,k,0,c,n);
+        gemm_gpu(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
 
     /*char cuda_compare_error_string[128] = {0};

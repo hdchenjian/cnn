@@ -58,7 +58,9 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
     }else{
         input = get_network_output_size_layer(net, count-1);
     }
-    connected_layer *layer = make_connected_layer(input, output, net->batch, activation);
+    int weight_normalize =option_find_int(options, "weight_normalize", 0);
+    int bias_term = option_find_int(options, "bias_term", 1);
+    connected_layer *layer = make_connected_layer(input, output, net->batch, activation, weight_normalize, bias_term);
     return layer;
 }
 
@@ -180,7 +182,9 @@ softmax_layer *parse_softmax(struct list *options, network *net, int count, int 
     }else{
         input =  get_network_output_size_layer(net, count-1);
     }
-    softmax_layer *layer = make_softmax_layer(input ,net->batch, is_last_layer);
+    float label_specific_margin_bias = option_find_float(options, "label_specific_margin_bias", 0);;
+    int margin_scale = option_find_int(options, "margin_scale", 0);
+    softmax_layer *layer = make_softmax_layer(input ,net->batch, is_last_layer, label_specific_margin_bias, margin_scale);
     return layer;
 }
 
@@ -418,6 +422,8 @@ network *parse_network_cfg(char *filename)
     net->classes = get_network_output_size_layer(net, net->n - 1);
     net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
     net->truth_gpu = cuda_make_array(0, net->classes * net->batch);
+    net->truth_label_index_gpu = cuda_make_int_array(0, net->batch);
+    net->is_not_max_gpu = cuda_make_int_array(0, net->batch);
     net->gpu_index = cuda_get_device();
 #endif
     if(net->workspace_size){

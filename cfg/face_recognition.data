@@ -1,4 +1,4 @@
-classes=10572
+classes=10575
 train_data_type = 2
 train  = /home/luyao/git/sphereface/preprocess/result/CASIA-WebFace-224X192.txt
 train_num = 50

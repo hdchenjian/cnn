@@ -10,6 +10,7 @@ typedef struct{
     int c;
     float *data;
     float *truth;
+    int *truth_label_index;
 } batch;
 
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size,

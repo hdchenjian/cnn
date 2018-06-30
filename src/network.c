@@ -510,10 +510,12 @@ void update_network_gpu(network *net)
 void train_network_batch(network *net, batch b)
 {
     net->truth = b.truth;
+    net->truth_label_index = b.truth_label_index;
 #ifdef GPU
     cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
     if(net->truth){
         cuda_push_array(net->truth_gpu, net->truth, net->classes*net->batch);
+        cuda_push_array(net->truth_label_index_gpu, net->truth_label_index, net->batch);
     }
     forward_network_gpu(net, net->input_gpu);
     backward_network_gpu(net, net->input_gpu);

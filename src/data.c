@@ -26,20 +26,23 @@ void free_batch(batch *b)
     b->data = NULL;
     free(b->truth);
     b->truth = NULL;
+    free(b->truth_label_index);
+    b->truth_label_index = NULL;
 }
 
 
-void fill_truth(char *path, char **labels, int classes, float *truth)
+void fill_truth(char *path, char **labels, int classes, float *truth, int *truth_label_index)
 {
     for(int i = 0; i < classes; ++i){
         if(strstr(path, labels[i])){
             truth[i] = 1;
+            *truth_label_index = i;
         }
     }
 }
 
-void load_csv_images(char *filename, char **labels, int classes, int train_set_size,
-        int image_size, float *image_all, float *truth_all, float hue, float saturation, float exposure)
+void load_csv_images(char *filename, char **labels, int classes, int train_set_size, int image_size, float *image_all,
+                     float *truth_all, int *truth_lable_all, float hue, float saturation, float exposure)
 {
     FILE *fp = fopen(filename, "r");
     if(!fp) file_error(filename);
@@ -67,7 +70,7 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
         normalize_array(image_all + n * image_size, image_size);
         char name[16] = {0};
         sprintf(name, "%c.png", class);
-        fill_truth(name, labels, classes, truth_all + n * classes);
+        fill_truth(name, labels, classes, truth_all + n * classes, truth_lable_all + n);
         free(line);
         free(value);
         n += 1;
@@ -101,7 +104,9 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
     int image_size = h * w * c;
     float *image_all = calloc(train_set_size * image_size, sizeof(float));
     float *truth_all = calloc(train_set_size * classes, sizeof(float));
-    load_csv_images(filename, labels, classes, train_set_size, image_size, image_all, truth_all, hue, saturation, exposure);
+    int *truth_lable_all = calloc(train_set_size, sizeof(int));
+    load_csv_images(filename, labels, classes, train_set_size, image_size, image_all, truth_all, truth_lable_all,
+                    hue, saturation, exposure);
 
     int train_set_size_real = 0;
     if(train_set_size % batch_size == 0) {
@@ -121,15 +126,19 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
         train_data[i].c = c;
         train_data[i].data = calloc(batch_size * image_size, sizeof(float));
         train_data[i].truth = calloc(batch_size * classes, sizeof(float));
+        train_data[i].truth_label_index = calloc(batch_size, sizeof(int));
         for(int j = 0; j < batch_size; ++j){
             //printf("%d ", index[i * batch_size + j]);
             memcpy(train_data[i].data + j * image_size, image_all + image_size * index[i * batch_size + j], image_size * sizeof(float));
             memcpy(train_data[i].truth + j * classes, truth_all + classes * index[i * batch_size + j], classes * sizeof(float));
+            memcpy(train_data[i].truth_label_index + j * classes, truth_all + classes * index[i * batch_size + j], classes * sizeof(float));
+            train_data[i].truth_label_index[j] = truth_lable_all[index[i * batch_size + j]];
         }
     }
     free_ptr(index);
     free_ptr(image_all);
     free_ptr(truth_all);
+    free_ptr(truth_lable_all);
     return train_data;
 }
 
@@ -155,6 +164,7 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
         train_data[i].c = c;
         train_data[i].data = calloc(batch_size * image_size, sizeof(float));
         train_data[i].truth = calloc(batch_size * classes, sizeof(float));
+        train_data[i].truth_label_index = calloc(batch_size, sizeof(int));
         for(int j = 0; j < batch_size; ++j){
             //printf("%d ", index[i * batch_size + j]);
             image img = load_image(paths[index[i * batch_size + j]], w, h, c);
@@ -162,7 +172,8 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
             memcpy(train_data[i].data + j * image_size, img.data, image_size * sizeof(float));
             free_image(img);
             //normalize_array(b.data + i * image_size, image_size);
-            fill_truth(paths[index[i * batch_size + j]], labels, classes, train_data[i].truth + j * classes);
+            fill_truth(paths[index[i * batch_size + j]], labels, classes, train_data[i].truth + j * classes,
+                       train_data[i].truth_label_index + j);
         }
     }
     free_ptr(index);
@@ -183,6 +194,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
     b.n = batch_size;
     b.data = calloc(batch_size * image_size, sizeof(float));
     b.truth = calloc(batch_size * classes, sizeof(float));
+    b.truth_label_index = calloc(batch_size, sizeof(int));
 
     for(int i = 0; i < batch_size; ++i){
         int index = rand() % train_set_size;
@@ -192,7 +204,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
         memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
         free_image(img);
         //normalize_array(b.data + i * image_size, image_size);
-        fill_truth(paths[index], labels, classes, b.truth + i * classes);
+        fill_truth(paths[index], labels, classes, b.truth + i * classes, b.truth_label_index + i);
     }
     return b;
 }

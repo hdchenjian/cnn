@@ -66,8 +66,10 @@ typedef struct {
 
 
 typedef struct {
-	int is_last_layer;   // 1: is last layer, 0: not
+    int is_last_layer;   // 1: is last layer, 0: not
     int inputs, batch;
+    float label_specific_margin_bias;
+    int margin_scale;
     float *delta, *output;
     float *delta_gpu, *output_gpu;
     float *loss, *loss_gpu;
@@ -95,6 +97,7 @@ typedef struct {
     int test;    // 0: train, 1: valid, 2: test
     int classes;    // train data classes
     float *truth;  // train data label
+    int *truth_label_index;
 
     int correct_num;  // train correct number
     int correct_num_count;  // all trained data size, train accuracy = correct_num / correct_num_count
@@ -118,6 +121,8 @@ typedef struct {
 #ifdef GPU
     float *input_gpu;  // train data
     float *truth_gpu;  // train data truth
+    int *truth_label_index_gpu;
+    int *is_not_max_gpu; // for counting correct rate in forward_softmax_layer_gpu
 #endif
 }network;
 

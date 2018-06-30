@@ -63,5 +63,6 @@ void softmax_gpu_me(float *input, int n, int batch, float *output);
 void shortcut_gpu(int batch, int w1, int h1, int c1, float *add, int w2, int h2, int c2, float s1, float s2, float *out);
 void softmax_x_ent_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void l2normalize_gpu(float *x, int batch, int filters, int spatial);
+void weight_normalize_kernel(int inputs, int outputs, float *x);
 #endif
 #endif
