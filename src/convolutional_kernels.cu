@@ -180,7 +180,8 @@ void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
 void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *input, float *delta,
         float *workspace, int test)
 {
-    gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation, layer->delta_gpu);
+    gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,
+                       layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     if(layer->batch_normalize){
         backward_batchnorm_layer_gpu(layer, test);

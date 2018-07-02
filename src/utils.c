@@ -537,7 +537,7 @@ float dist_array(float *a, float *b, int n, int sub)
     int i;
     float sum = 0;
     for(i = 0; i < n; i += sub) sum += pow(a[i]-b[i], 2);
-    return sqrt(sum);
+    return sqrtf(sum);
 }
 
 float mse_array(float *a, int n)
@@ -545,14 +545,14 @@ float mse_array(float *a, int n)
     int i;
     float sum = 0;
     for(i = 0; i < n; ++i) sum += a[i]*a[i];
-    return sqrt(sum/n);
+    return sqrtf(sum/n);
 }
 
 void normalize_array(float *a, int n)
 {
     int i;
     float mu = mean_array(a,n);
-    float sigma = sqrt(variance_array(a,n));
+    float sigma = sqrtf(variance_array(a,n));
     for(i = 0; i < n; ++i){
         a[i] = (a[i] - mu)/sigma;
     }
@@ -573,7 +573,7 @@ float mag_array(float *a, int n)
     for(i = 0; i < n; ++i){
         sum += a[i]*a[i];   
     }
-    return sqrt(sum);
+    return sqrtf(sum);
 }
 
 void scale_array(float *a, int n, float s)
@@ -664,7 +664,7 @@ float rand_normal()
     if(haveSpare)
     {
         haveSpare = 0;
-        return sqrt(rand1) * sin(rand2);
+        return sqrtf(rand1) * sin(rand2);
     }
 
     haveSpare = 1;
@@ -674,7 +674,7 @@ float rand_normal()
     rand1 = -2 * log(rand1);
     rand2 = (rand() / ((double) RAND_MAX)) * TWO_PI;
 
-    return sqrt(rand1) * cos(rand2);
+    return sqrtf(rand1) * cos(rand2);
 }
 
 size_t rand_size_t()

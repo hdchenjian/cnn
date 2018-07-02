@@ -71,9 +71,6 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             int index = rand() % batch_num;
             //index = 1;
             train = all_train_data[index];
-            for(int i = 0; i < net->classes * net->batch; i++) {
-                //if(train.truth[i] > 0.1) printf("input class: %d %d %f\n", batch_num, i, train.truth[i]);
-            }
             train_network_batch(net, train);
         } else if(1 == train_data_type) {
             int index = rand() % batch_num;
@@ -82,17 +79,13 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         } else {
             train = random_batch(paths, net->batch, labels, net->classes, train_set_size,
                     net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
-            for(int i = 0; i < net->classes * net->batch; i++) {
-                if(train.truth[i] > 0.1) printf("input class: %d %f\n", i, train.truth[i]);
-            }
+            /*
             image tmp;
             tmp.w = train.w;
             tmp.h = train.h;
             tmp.c = train.c;
             tmp.data = train.data;
-            save_image_png(tmp, "input.jpg");
-            //tmp.data = train.data + tmp.w * tmp.h * tmp.c;
-            //save_image_png(tmp, "input0.jpg");
+            save_image_png(tmp, "input.jpg");*/
 
             train_network_batch(net, train);
             free_batch(&train);

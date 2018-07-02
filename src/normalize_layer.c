@@ -3,7 +3,7 @@
 normalize_layer *make_normalize_layer(int w, int h, int c, int batch)
 {
 	int inputs = w * h * c;
-    fprintf(stderr, "Normalize:         %d %d %d, %d inputs\n", w, h, c, inputs);
+    fprintf(stderr, "Normalize:          %d x %d x %d, %d inputs\n", w, h, c, inputs);
     normalize_layer *l = calloc(1, sizeof(normalize_layer));
     l->w = w;
     l->h = h;

@@ -298,7 +298,7 @@ image image_distance(image a, image b)
         }
     }
     for(j = 0; j < a.h*a.w; ++j){
-        dist.data[j] = sqrt(dist.data[j]);
+        dist.data[j] = sqrtf(dist.data[j]);
     }
     return dist;
 }
@@ -306,11 +306,11 @@ image image_distance(image a, image b)
 void ghost_image(image source, image dest, int dx, int dy)
 {
     int x,y,k;
-    float max_dist = sqrt((-source.w/2. + .5)*(-source.w/2. + .5));
+    float max_dist = sqrtf((-source.w/2. + .5)*(-source.w/2. + .5));
     for(k = 0; k < source.c; ++k){
         for(y = 0; y < source.h; ++y){
             for(x = 0; x < source.w; ++x){
-                float dist = sqrt((x - source.w/2. + .5)*(x - source.w/2. + .5) + (y - source.h/2. + .5)*(y - source.h/2. + .5));
+                float dist = sqrtf((x - source.w/2. + .5)*(x - source.w/2. + .5) + (y - source.h/2. + .5)*(y - source.h/2. + .5));
                 float alpha = (1 - dist/max_dist);
                 if(alpha < 0) alpha = 0;
                 float v1 = get_pixel(source, x,y,k);

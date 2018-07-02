@@ -61,15 +61,10 @@ void resize_cost_layer(cost_layer *l, int inputs)
 void forward_cost_layer(const cost_layer *l, float *input, network *net)
 {
     if (net->test == 2) return;  // 0: train, 1: valid, 2: test
-    if(l->cost_type == MASKED){
-        for(int i = 0; i < l->batch*l->inputs; ++i){
-            if(net->truth[i] == SECRET_NUM) input[i] = SECRET_NUM;
-        }
-    }
     if(l->cost_type == SMOOTH){
         smooth_l1_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
     } else {
-        l2_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
+        l2_cpu(l->batch, l->inputs, input, net->truth_label_index, l->delta, l->output);
     }
 
     for(int b = 0; b < l->batch; ++b){
@@ -81,7 +76,7 @@ void forward_cost_layer(const cost_layer *l, float *input, network *net)
                 max_i = j;
             }
         }
-        if(net->truth[max_i + b * l->inputs] > 0.99F) net->correct_num += 1;
+        if(net->truth_label_index[b] == max_i) net->correct_num += 1;
     }
     l->cost[0] = sum_array(l->output, l->batch*l->inputs) / l->batch;
     net->loss = l->cost[0];
@@ -101,7 +96,7 @@ void forward_cost_layer_gpu(const cost_layer *l, float *input_gpu, network *net)
     if(l->cost_type == SMOOTH){
         smooth_l1_gpu(l->batch*l->inputs, input_gpu, net->truth_gpu, l->delta_gpu, l->output_gpu);
     } else {
-        l2_gpu(l->batch*l->inputs, input_gpu, net->truth_gpu, l->delta_gpu, l->output_gpu);
+        l2_gpu(l->batch, l->inputs, input_gpu, net->truth_label_index_gpu, l->delta_gpu, l->output_gpu);
     }
 
     /*
@@ -114,13 +109,13 @@ void forward_cost_layer_gpu(const cost_layer *l, float *input_gpu, network *net)
         int max_i = 0;
         double max = input_temp[b * l->inputs];
         for(int j = 0; j < net->classes; ++j){
-            //printf("%d %f %f %f\n", j, net->truth[j], l->output[j], l->delta[j]);
+            //printf("%d %d %f %f\n", j, j == net->truth_label_index[b], l->output[j], l->delta[j]);
             if(input_temp[j + b * l->inputs] > max){
                 max = input_temp[j + b * l->inputs];
                 max_i = j;
             }
         }
-        if(net->truth[max_i + b * l->inputs] > 0.99F) net->correct_num += 1;
+        if(net->truth_label_index[b] == max_i) net->correct_num += 1;
     }
     cuda_pull_array(l->output_gpu, l->output, l->batch*l->inputs);
     l->cost[0] = sum_array(l->output, l->batch*l->inputs);

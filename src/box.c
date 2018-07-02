@@ -98,7 +98,7 @@ float box_iou(box a, box b)
 
 float box_rmse(box a, box b)
 {
-    return sqrt(pow(a.x-b.x, 2) + 
+    return sqrtf(pow(a.x-b.x, 2) + 
                 pow(a.y-b.y, 2) + 
                 pow(a.w-b.w, 2) + 
                 pow(a.h-b.h, 2));

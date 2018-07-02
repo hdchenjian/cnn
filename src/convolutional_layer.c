@@ -21,7 +21,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->stride = stride;
     layer->batch = batch;
     layer->weights = calloc(c*n*size*size, sizeof(float));
-    float scale = sqrt(2.0F/(size*size*c));
+    float scale = sqrtf(2.0F/(size*size*c));
     for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_normal();
     //scale = 1.0F/(size*size*c);
     //for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_uniform(0, 1);
@@ -175,8 +175,12 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         float *a = layer->weights;
         float *b = workspace;
         float *c = layer->output + i * m * n;
-        im2col_cpu(in + i * layer->w * layer->h * layer->c,
-                   layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
+        if (layer->size == 1){
+            b = in + i * layer->w * layer->h * layer->c;
+        } else {
+            im2col_cpu(in + i * layer->w * layer->h * layer->c,
+                       layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
+        }
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
 
@@ -192,17 +196,6 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     }
 
     for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
-
-    /*
-    for(int b = 0; b < layer->batch; ++b){
-        float max = -FLT_MAX;
-        float min = FLT_MAX;
-        for(int i = 0; i <  m*n; ++i){
-            if(layer->output[i +b*m*n] > max) max = layer->output[i +b*m*n];
-            if(layer->output[i +b*m*n] < min) min = layer->output[i +b*m*n];
-        }
-        printf("forward_convolutional_layer max: %f, min: %f\n", max, min);
-    }*/
 }
 
 void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int spatial, float *mean_delta)
@@ -217,10 +210,11 @@ void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int s
                 mean_delta[i] += delta[index];
             }
         }
-        mean_delta[i] *= (-1./sqrt(variance[i] + .00001f));
+        mean_delta[i] *= (-1./sqrtf(variance[i] + .00001f));
     }
 }
-void  variance_delta_cpu(float *x, float *delta, float *mean, float *variance, int batch, int filters, int spatial, float *variance_delta)
+void  variance_delta_cpu(float *x, float *delta, float *mean, float *variance, int batch, int filters,
+                         int spatial, float *variance_delta)
 {
 
     int i,j,k;
@@ -235,14 +229,16 @@ void  variance_delta_cpu(float *x, float *delta, float *mean, float *variance, i
         variance_delta[i] *= -.5 * pow(variance[i] + .00001f, (float)(-3./2.));
     }
 }
-void normalize_delta_cpu(float *x, float *mean, float *variance, float *mean_delta, float *variance_delta, int batch, int filters, int spatial, float *delta)
+void normalize_delta_cpu(float *x, float *mean, float *variance, float *mean_delta, float *variance_delta,
+                         int batch, int filters, int spatial, float *delta)
 {
     int f, j, k;
     for(j = 0; j < batch; ++j){
         for(f = 0; f < filters; ++f){
             for(k = 0; k < spatial; ++k){
                 int index = j*filters*spatial + f*spatial + k;
-                delta[index] = delta[index] * 1./(sqrt(variance[f] + .00001f)) + variance_delta[f] * 2. * (x[index] - mean[f]) / (spatial * batch) + mean_delta[f]/(spatial*batch);
+                delta[index] = delta[index] * 1./(sqrtf(variance[f] + .00001f)) +
+                    variance_delta[f] * 2. * (x[index] - mean[f]) / (spatial * batch) + mean_delta[f]/(spatial*batch);
             }
         }
     }
@@ -312,26 +308,6 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             }
         }
     }
-    /*
-    for(int j = 0; j < layer->batch; ++j){
-        int n = layer->out_w * layer->out_h;
-        int k = layer->n;
-        float max = -FLT_MAX, min = FLT_MAX;
-        for(int kk = 0; kk < n * k; ++kk){
-            if(layer->delta[j * n * k +kk] > max) max = layer->delta[j * n * k +kk];
-            if(layer->delta[j * n * k +kk] < min) min = layer->delta[j * n * k +kk];
-        }
-        printf("backward_convolutional_layer layer->delta max: %f, min: %f\n", max, min);
-        if(delta){
-            max = -FLT_MAX, min = FLT_MAX;
-            n = layer->h * layer->w * layer->c;
-            for(int kk = 0; kk < n; ++kk){
-                if(delta[j * n +kk] > max) max = delta[j * n +kk];
-                if(delta[j * n +kk] < min) min = delta[j * n +kk];
-            }
-            printf("backward_convolutional_layer delta max: %f, min: %f\n", max, min);
-        }
-    }*/
 }
 
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay)

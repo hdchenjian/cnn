@@ -86,7 +86,7 @@ void normalize_cpu(float *x, float *mean, float *variance, int batch, int filter
         for(f = 0; f < filters; ++f){
             for(i = 0; i < spatial; ++i){
                 int index = b*filters*spatial + f*spatial + i;
-                x[index] = (x[index] - mean[f])/(sqrt(variance[f]) + .000001f);
+                x[index] = (x[index] - mean[f])/(sqrtf(variance[f]) + .000001f);
             }
         }
     }
@@ -151,14 +151,21 @@ void smooth_l1_cpu(int n, float *pred, float *truth, float *delta, float *error)
     }
 }
 
-void l2_cpu(int n, float *pred, float *truth, float *delta, float *error)
+void l2_cpu(int batch, int n, float *pred, int *truth_label_index, float *delta, float *error)
 {
-    int i;
-    for(i = 0; i < n; ++i){
-        float diff = truth[i] - pred[i];
-        error[i] = diff * diff;
-        delta[i] = diff;
-        //printf("%d %f %f %f\n", i, truth[i], pred[i], delta[i]);
+    float diff = 0.0F;
+    for(int b = 0; b < batch; ++b){
+        int index = b * n;
+        for(int i = 0; i < n; ++i){
+            if(truth_label_index[b] == i){
+                diff = 1.0F - pred[i + index];
+            } else {
+                diff = 0.0F - pred[i + index];
+            }
+            error[i + index] = diff * diff;
+            delta[i + index] = diff;
+            //printf("%d %d %f %f\n", i, i == truth_label_index[b], pred[i + index], delta[i + index]);
+        }
     }
     //printf("\n");
 }

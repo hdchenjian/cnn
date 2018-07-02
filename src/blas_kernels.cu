@@ -139,8 +139,8 @@ __global__ void dot_kernel(float *output, float scale, int batch, int n, int siz
             norm2 += output[i2] * output[i2];
         }
     }
-    norm1 = sqrt(norm1);
-    norm2 = sqrt(norm2);
+    norm1 = sqrtf(norm1);
+    norm2 = sqrtf(norm2);
     float norm = norm1 * norm2;
     sum = sum / norm;
     for(b = 0; b <  batch; ++b){
@@ -817,19 +817,27 @@ extern "C" void logistic_x_ent_gpu(int n, float *pred, float *truth, float *delt
     check_error(cudaPeekAtLastError());
 }
 
-__global__ void l2_kernel(int n, float *pred, float *truth, float *delta, float *error)
+__global__ void l2_kernel(int batch, int n, float *pred, int *truth_label_index_gpu, float *delta, float *error)
 {
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n){
-        float diff = truth[i] - pred[i];
-        error[i] = diff * diff; //I know this is technically wrong, deal with it.
-        delta[i] = diff;
+    float diff = 0.0F;
+    int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(id < batch * n){
+        int b = id / n;
+        int i = id % n;
+        int index = b * n + i;
+        if(i == truth_label_index_gpu[b]){
+            diff = 1.0F - pred[index];
+        } else {
+            diff = 0.0F - pred[index];
+        }
+        error[index] = diff * diff; //I know this is technically wrong, deal with it.
+        delta[index] = diff;
     }
 }
 
-extern "C" void l2_gpu(int n, float *pred, float *truth, float *delta, float *error)
+extern "C" void l2_gpu(int batch, int n, float *pred, int *truth_label_index_gpu, float *delta, float *error)
 {
-    l2_kernel<<<cuda_gridsize(n), BLOCK>>>(n, pred, truth, delta, error);
+    l2_kernel<<<cuda_gridsize(batch * n), BLOCK>>>(batch, n, pred, truth_label_index_gpu, delta, error);
     check_error(cudaPeekAtLastError());
 }
 

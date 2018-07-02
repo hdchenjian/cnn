@@ -20,7 +20,7 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     char input_layer_str[128] = {0};
     for(i = 0; i < n; ++i){
         outputs += input_sizes[i];
-        sprintf(input_layer_str + i * 3, "%3d", input_layers[i]);
+        sprintf(input_layer_str + i * 3, "%3d ", input_layers[i]);
     }
     image first_layer = get_network_image_layer(net, input_layers[0]);
     l->out_w = first_layer.w;
@@ -88,7 +88,7 @@ void forward_route_layer_gpu(const route_layer *l, network *net)
         float *input = get_network_layer_data(net, index, 0, 1);
         int input_size = l->input_sizes[i];
         for(int j = 0; j < l->batch; ++j){
-            copy_gpu(input_size, input + j*input_size, 1, l->output_gpu + offset + j*l->outputs, 1);
+            cuda_mem_copy(l->output_gpu + offset + j*l->outputs, input + j*input_size, input_size);
         }
         offset += input_size;
     }
@@ -102,7 +102,7 @@ void backward_route_layer_gpu(const route_layer *l, network *net)
         float *delta = get_network_layer_data(net, index, 1, 1);
         int input_size = l->input_sizes[i];
         for(int j = 0; j < l->batch; ++j){
-            axpy_gpu(input_size, 1, l->delta_gpu + offset + j*l->outputs, 1, delta + j*input_size, 1);
+            cuda_mem_copy(delta + j*input_size, l->delta_gpu + offset + j*l->outputs, input_size);
         }
         offset += input_size;
     }

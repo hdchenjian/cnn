@@ -9,7 +9,6 @@ typedef struct{
     int w;
     int c;
     float *data;
-    float *truth;
     int *truth_label_index;
 } batch;
 

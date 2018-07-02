@@ -86,8 +86,8 @@ void load_csv_image(char *filename, char *save_dir)
         int fields = count_fields(line);
         float *value = parse_fields(line, fields);
         image im;
-        im.h = sqrt(fields);
-        im.w = sqrt(fields);
+        im.h = sqrtf(fields);
+        im.w = sqrtf(fields);
         im.c = 1;
         im.data = value + 1;
         char name[128] = {0};

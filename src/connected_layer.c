@@ -16,7 +16,7 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
     layer->delta = calloc(batch*outputs, sizeof(float));
 
     layer->weights = calloc(inputs*outputs, sizeof(float));  // layer->outputs is the number of rows
-    float scale = sqrt(2.0F/inputs);
+    float scale = sqrtf(2.0F/inputs);
     for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = rand_normal() * scale;
     //scale = 1.0F/(inputs);
     //for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = scale*rand_uniform(0, 1);

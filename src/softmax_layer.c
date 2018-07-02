@@ -75,10 +75,10 @@ void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
                     max_i = j;
                 }
             }
-            if(net->truth[max_i + index] > 0.99F) net->correct_num += 1;
+            if(net->truth_label_index[b] == max_i) net->correct_num += 1;
         }
         //softmax_x_ent_cpu(layer->batch*layer->inputs, layer->output, net->truth, layer->delta, layer->loss);
-        l2_cpu(layer->batch*layer->inputs, layer->output, net->truth, layer->delta, layer->loss);
+        l2_cpu(layer->batch, layer->inputs, layer->output, net->truth_label_index, layer->delta, layer->loss);
         layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
         net->loss = layer->cost[0];
     }
@@ -109,9 +109,9 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
     }
     softmax_gpu_me(layer->input_backup_gpu, layer->inputs, layer->batch, layer->output_gpu);
 
-    char cuda_compare_error_string[128] = {0};
+    /*char cuda_compare_error_string[128] = {0};
     sprintf(cuda_compare_error_string, "\n%s", "forward_softmax_layer_gpu output");
-    cuda_compare(layer->output_gpu, layer->output, layer->inputs*layer->batch, cuda_compare_error_string);
+    cuda_compare(layer->output_gpu, layer->output, layer->inputs*layer->batch, cuda_compare_error_string);*/
 
     if(layer->is_last_layer){
         cudaError_t status = cudaMemset(net->is_not_max_gpu, 0, sizeof(int) * layer->batch);
@@ -125,8 +125,8 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
                 correct_num += 1;
             }
         }
-        printf("correct_num: %d\n", correct_num);
         net->correct_num += correct_num;
+        /*printf("correct_num: %d\n", correct_num);
 
         float *input_temp = calloc(layer->inputs*layer->batch, sizeof(float));
         cuda_pull_array(layer->output_gpu, input_temp, layer->batch*layer->inputs);
@@ -135,18 +135,18 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
             int max_i = 0;
             double max = input_temp[b * layer->inputs];
             for(int j = 0; j < net->classes; ++j){
-                printf("%d %f %f\n", j, net->truth[j], input_temp[j]);
+                printf("%d %d %f\n", j, j == net->truth_label_index[b], input_temp[j]);
                 if(input_temp[j + b * layer->inputs] > max){
                     max = input_temp[j + b * layer->inputs];
                     max_i = j;
                 }
             }
-            if(net->truth[max_i + b * layer->inputs] > 0.99F) correct_num += 1;
+            if(net->truth_label_index[b] == max_i) correct_num += 1;
         }
-        printf("correct_num: %d\n", correct_num);
+        printf("correct_num: %d\n", correct_num);*/
 
         //softmax_x_ent_gpu(layer->batch*layer->inputs, layer->output_gpu, net->truth_gpu, layer->delta_gpu, layer->loss_gpu);
-        l2_gpu(layer->batch*layer->inputs, layer->output_gpu, net->truth_gpu, layer->delta_gpu, layer->loss_gpu);
+        l2_gpu(layer->batch, layer->inputs, layer->output_gpu, net->truth_label_index_gpu, layer->delta_gpu, layer->loss_gpu);
         cuda_pull_array(layer->loss_gpu, layer->loss, layer->batch*layer->inputs);
         layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
         net->loss = layer->cost[0];
