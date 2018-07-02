@@ -36,15 +36,18 @@ void backward_normalize_layer(const normalize_layer *l, float *delta)
 
 #ifdef GPU
 
-void forward_l2norm_layer_gpu(const layer *l, float *input)
+void forward_normalize_layer_gpu(const normalize_layer *l, float *input)
 {
     cuda_mem_copy(l->output_gpu, input, l->inputs*l->batch);
-    l2normalize_gpu(l->output_gpu, l->scales_gpu, l->batch, l->out_c, l->out_w*l->out_h);
+    l2normalize_gpu(l->output_gpu, l->batch, l->c, l->w*l->h);
+    /*char cuda_compare_error_string[128] = {0};
+    sprintf(cuda_compare_error_string, "\n%s", "forward_normalize_layer_gpu output");
+    cuda_compare(l->output_gpu, l->output, l->inputs*l->batch, cuda_compare_error_string);*/
 }
 
-void backward_l2norm_layer_gpu(const layer *l, float *delta)
+void backward_normalize_layer_gpu(const normalize_layer *l, float *delta)
 {
-    cuda_mem_copy(l->delta, l->delta_gpu, l->inputs*l->batch);
+    cuda_mem_copy(delta, l->delta_gpu, l->inputs*l->batch);
 }
 
 #endif

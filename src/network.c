@@ -179,7 +179,8 @@ float update_current_learning_rate(network *net)
             }
             return net->learning_rate;;
         case POLY:
-            net->learning_rate *= pow(1 - (float)net->batch_train / net->max_batches, net->learning_rate_poly_power);
+            net->learning_rate = net->learning_rate_init *
+                pow(1 - (float)net->batch_train / net->max_batches, net->learning_rate_poly_power);
             return net->learning_rate;
         default:
             //fprintf(stderr, "Policy is weird!\n");
@@ -515,7 +516,7 @@ void train_network_batch(network *net, batch b)
     cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
     if(net->truth){
         cuda_push_array(net->truth_gpu, net->truth, net->classes*net->batch);
-        cuda_push_array(net->truth_label_index_gpu, net->truth_label_index, net->batch);
+        cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
     }
     forward_network_gpu(net, net->input_gpu);
     backward_network_gpu(net, net->input_gpu);

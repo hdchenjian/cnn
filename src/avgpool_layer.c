@@ -34,33 +34,28 @@ void resize_avgpool_layer(avgpool_layer *l, int w, int h)
 
 void forward_avgpool_layer(const avgpool_layer *l, float *in)
 {
-    int b,i,k;
-    for(b = 0; b < l->batch; ++b){
-        for(k = 0; k < l->c; ++k){
+    for(int b = 0; b < l->batch; ++b){
+        for(int k = 0; k < l->c; ++k){
             int out_index = k + b*l->c;
-            l->output[out_index] = 0;
-            for(i = 0; i < l->h*l->w; ++i){
+            float sum = 0;
+            for(int i = 0; i < l->h*l->w; ++i){
                 int in_index = i + l->h*l->w*(k + b*l->c);
-                l->output[out_index] += in[in_index];
+                sum += in[in_index];
             }
-            l->output[out_index] /= l->h*l->w;
+            l->output[out_index] = sum / (l->h*l->w);
         }
     }
 }
 
 void backward_avgpool_layer(const avgpool_layer *l, float *delta)
 {
-    int b,i,k;
-
-    for(int j = 0; j < l->h*l->w * l->c * l->batch; j++) {
-        delta[j] = 0.0F;
-    }
-    for(b = 0; b < l->batch; ++b){
-        for(k = 0; k < l->c; ++k){
+    for(int b = 0; b < l->batch; ++b){
+        for(int k = 0; k < l->c; ++k){
             int out_index = k + b*l->c;
-            for(i = 0; i < l->h*l->w; ++i){
+            float temp = l->delta[out_index];
+            for(int i = 0; i < l->h*l->w; ++i){
                 int in_index = i + l->h*l->w*(k + b*l->c);
-                delta[in_index] += l->delta[out_index] / (l->h*l->w);
+                delta[in_index] = temp / (l->h*l->w);
             }
         }
     }

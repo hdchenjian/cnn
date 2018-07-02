@@ -72,6 +72,7 @@ typedef struct {
     int margin_scale;
     float *delta, *output;
     float *delta_gpu, *output_gpu;
+    float *input_backup, *input_backup_gpu;  // for AM-softmax
     float *loss, *loss_gpu;
     float *cost;
 } softmax_layer;
@@ -86,7 +87,7 @@ typedef struct {
 } cost_layer;
 
 typedef struct {
-	int gpu_index;
+    int gpu_index;
     int n;                  // the size of network
     int max_batches, max_epoch; // max iteration times of batch
     size_t seen;    // the number of image processed
@@ -109,6 +110,7 @@ typedef struct {
 
     enum learning_rate_policy policy;
     int learning_rate_poly_power;  // for POLY learning_rate_policy
+    float learning_rate_init;
     float learning_rate;
     float momentum;
     float decay;
@@ -129,7 +131,7 @@ typedef struct {
 image get_avgpool_image(const avgpool_layer *l);
 void forward_cost_layer(const cost_layer *l, float *input, network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
-void forward_softmax_layer(const softmax_layer *layer, float *input, network *net);
+void forward_softmax_layer(softmax_layer *layer, float *input, network *net);
 void backward_softmax_layer(const softmax_layer *layer, float *delta);
 void forward_route_layer(const route_layer *l, network *net);
 void backward_route_layer(const route_layer *l, network *net);
@@ -141,7 +143,7 @@ image get_shortcut_image(const shortcut_layer *layer);
 #ifdef GPU
 void forward_cost_layer_gpu(const cost_layer *l, float *input, network *net);
 void backward_cost_layer_gpu(const cost_layer *l, float *delta);
-void forward_softmax_layer_gpu(const softmax_layer *layer, float *input_gpu, network *net);
+void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *net);
 void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu);
 void forward_route_layer_gpu(const route_layer *l, network *net);
 void backward_route_layer_gpu(const route_layer *l, network *net);

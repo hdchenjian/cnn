@@ -83,7 +83,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             train = random_batch(paths, net->batch, labels, net->classes, train_set_size,
                     net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
             for(int i = 0; i < net->classes * net->batch; i++) {
-                //if(train.truth[i] > 0.1) printf("input class: %d %f\n", i, train.truth[i]);
+                if(train.truth[i] > 0.1) printf("input class: %d %f\n", i, train.truth[i]);
             }
             image tmp;
             tmp.w = train.w;

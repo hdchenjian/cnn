@@ -198,7 +198,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
 
     for(int i = 0; i < batch_size; ++i){
         int index = rand() % train_set_size;
-        //printf("paths[index]: %s\n", paths[index]);
+        printf("paths[index]: %s\n", paths[index]);
         image img = load_image(paths[index], w, h, c);
         random_distort_image(img, hue, saturation, exposure);
         memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));

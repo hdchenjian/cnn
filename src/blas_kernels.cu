@@ -509,7 +509,7 @@ __global__ void weight_normalize_kernel(int inputs, int outputs, float *x)
     }
     float scale = sqrtf(sum);
     for(int j = 0; j < inputs; j++){
-        x[index * inputs + j] /= sum;
+        x[index * inputs + j] /= scale;
     }
 }
 
@@ -520,14 +520,16 @@ extern "C" void weight_normalize_gpu(int inputs, int outputs, float *x)
 }
 
 __global__ void specific_margin_add_kernel(int batch, int inputs, float *input, float label_specific_margin_bias,
-                                           int margin_scale, float *truth_label_index_gpu)
+                                           int margin_scale, int *truth_label_index_gpu)
 {
     int index = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
     int b = index / inputs;
     if(b >= batch) return;
     int i = index % inputs;
-    if(input[b * inputs + truth_label_index_gpu[b]] > -label_specific_margin_bias){
-        input[b * inputs + truth_label_index_gpu[b]] += label_specific_margin_bias;
+    if(i == truth_label_index_gpu[b]){
+        if(input[b * inputs + truth_label_index_gpu[b]] > -label_specific_margin_bias){
+            input[b * inputs + truth_label_index_gpu[b]] += label_specific_margin_bias;
+        }
     }
     if(margin_scale > 0){
         input[b * inputs + i] *= margin_scale;
@@ -535,9 +537,9 @@ __global__ void specific_margin_add_kernel(int batch, int inputs, float *input, 
 }
 
 extern "C" void specific_margin_add_gpu(int batch, int inputs, float *input, float label_specific_margin_bias,
-                                    int margin_scale, float *truth_label_index_gpu)
+                                    int margin_scale, int *truth_label_index_gpu)
 {
-    specific_margin_add_kernel<<<cuda_gridsize(layer->batch * layer->inputs), BLOCK>>>(
+    specific_margin_add_kernel<<<cuda_gridsize(batch * inputs), BLOCK>>>(
         batch, inputs, input, label_specific_margin_bias, margin_scale, truth_label_index_gpu);
     check_error(cudaPeekAtLastError());
 }
@@ -555,7 +557,7 @@ __global__ void is_max_gpu_kernel(int batch, int inputs, float *output_gpu, int 
 
 extern "C" void is_max_gpu(int batch, int inputs, float *output_gpu, int *truth_label_index_gpu, int *is_not_max)
 {
-    is_max_gpu_kernel<<<cuda_gridsize(layer->batch * layer->inputs), BLOCK>>>(
+    is_max_gpu_kernel<<<cuda_gridsize(batch * inputs), BLOCK>>>(
         batch, inputs, output_gpu, truth_label_index_gpu, is_not_max);
     check_error(cudaPeekAtLastError());
 }

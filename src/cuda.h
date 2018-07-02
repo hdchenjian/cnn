@@ -30,7 +30,10 @@ void cuda_random(float *x_gpu, size_t n);
 float cuda_compare(float *x_gpu, float *x, size_t n, char *s);
 dim3 cuda_gridsize(size_t n);
 void cuda_push_array(float *x_gpu, float *x, size_t n);
+void cuda_push_array_int(int *x_gpu, int *x, size_t n);
 void cuda_pull_array(float *x_gpu, float *x, size_t n);
+void cuda_pull_array_int(int *x_gpu, int *x, size_t n);
+void cuda_mem_copy(float *des_gpu, float *src_gpu, size_t n);
 void cuda_free(float *x_gpu);
 void cuda_free_int(int *x_gpu);
 

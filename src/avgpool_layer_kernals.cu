@@ -18,12 +18,12 @@ __global__ void forward_avgpool_layer_kernel(int n, int w, int h, int c, float *
 
     int i;
     int out_index = (k + c*b);
-    output[out_index] = 0;
+    float sum = 0.0F;
     for(i = 0; i < w*h; ++i){
         int in_index = i + h*w*(k + b*c);
-        output[out_index] += input[in_index];
+        sum += input[in_index];
     }
-    output[out_index] /= w*h;
+    output[out_index] = sum / (w*h);
 }
 
 __global__ void backward_avgpool_layer_kernel(int n, int w, int h, int c, float *in_delta, float *out_delta)
@@ -37,9 +37,10 @@ __global__ void backward_avgpool_layer_kernel(int n, int w, int h, int c, float 
 
     int i;
     int out_index = (k + c*b);
+    float temp = out_delta[out_index];
     for(i = 0; i < w*h; ++i){
         int in_index = i + h*w*(k + b*c);
-        in_delta[in_index] += out_delta[out_index] / (w*h);
+        in_delta[in_index] = temp / (w*h);
     }
 }
 

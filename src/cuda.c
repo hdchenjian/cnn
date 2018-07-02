@@ -132,7 +132,7 @@ float cuda_compare(float *x_gpu, float *x, size_t n, char *s)
     cuda_pull_array(x_gpu, tmp, n);
     axpy_cpu(n, -1, x, 1, tmp, 1);
     float err = dot_cpu(n, tmp, 1, tmp, 1);
-    printf("%s sqrt(error): %f compare array length: %lu\n", s, sqrt(err/n), n);
+    printf("%s sqrt(error): %f, compare array length: %lu\n", s, sqrt(err/n), n);
     if(n < 30 && sqrt(err/n) > 0.1){
         for(int i = 0; i < n; ++i)
             printf("sqrt(error) large %f %f\n", x[i], tmp[i]);
@@ -167,9 +167,23 @@ void cuda_push_array(float *x_gpu, float *x, size_t n)
     check_error(status);
 }
 
+void cuda_push_array_int(int *x_gpu, int *x, size_t n)
+{
+    size_t size = sizeof(int)*n;
+    cudaError_t status = cudaMemcpy(x_gpu, x, size, cudaMemcpyHostToDevice);
+    check_error(status);
+}
+
 void cuda_pull_array(float *x_gpu, float *x, size_t n)
 {
     size_t size = sizeof(float)*n;
+    cudaError_t status = cudaMemcpy(x, x_gpu, size, cudaMemcpyDeviceToHost);
+    check_error(status);
+}
+
+void cuda_pull_array_int(int *x_gpu, int *x, size_t n)
+{
+    size_t size = sizeof(int)*n;
     cudaError_t status = cudaMemcpy(x, x_gpu, size, cudaMemcpyDeviceToHost);
     check_error(status);
 }

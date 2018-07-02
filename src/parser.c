@@ -340,6 +340,7 @@ void parse_net_options(struct list *options, network *net)
         net->num_steps = n;
     } else if(net->policy == POLY){
         net->learning_rate_poly_power = option_find_int(options, "learning_rate_poly_power", 0);
+        net->learning_rate_init = net->learning_rate;
     }
 }
 
@@ -438,8 +439,8 @@ network *parse_network_cfg(char *filename)
 #endif
     }
     if(net->workspace_gpu){
-        //printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n\n\n\n\n\n");
-        //net->workspace = calloc(1, net->workspace_size);
+        printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n\n\n\n\n\n");
+        net->workspace = calloc(1, net->workspace_size);
     }
     free_list(sections);
     fprintf(stderr, "\nnetwork total_bflop: %5.3f BFLOPs\n", total_bflop);;
