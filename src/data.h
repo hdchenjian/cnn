@@ -3,6 +3,20 @@
 
 #include "image.h"
 
+typedef struct {
+    char **paths;
+    int train_set_size;
+    int h;
+    int w;
+    int c;
+    int n;
+    char **labels;
+    int classes;
+    float saturation;
+    float exposure;
+    float hue;
+} load_args;
+
 typedef struct{
     int n;  // number of image
     int h;

@@ -97,7 +97,6 @@ typedef struct {
     int w, h, c;  // net input data dimension
     int test;    // 0: train, 1: valid, 2: test
     int classes;    // train data classes
-    float *truth;  // train data label
     int *truth_label_index;
 
     int correct_num;  // train correct number
@@ -122,7 +121,6 @@ typedef struct {
     enum LAYER_TYPE *layers_type;
 #ifdef GPU
     float *input_gpu;  // train data
-    float *truth_gpu;  // train data truth
     int *truth_label_index_gpu;
     int *is_not_max_gpu; // for counting correct rate in forward_softmax_layer_gpu
 #endif

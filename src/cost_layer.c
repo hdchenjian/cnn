@@ -61,11 +61,7 @@ void resize_cost_layer(cost_layer *l, int inputs)
 void forward_cost_layer(const cost_layer *l, float *input, network *net)
 {
     if (net->test == 2) return;  // 0: train, 1: valid, 2: test
-    if(l->cost_type == SMOOTH){
-        smooth_l1_cpu(l->batch*l->inputs, input, net->truth, l->delta, l->output);
-    } else {
-        l2_cpu(l->batch, l->inputs, input, net->truth_label_index, l->delta, l->output);
-    }
+    l2_cpu(l->batch, l->inputs, input, net->truth_label_index, l->delta, l->output);
 
     for(int b = 0; b < l->batch; ++b){
         int max_i = 0;
@@ -92,12 +88,7 @@ void backward_cost_layer(const cost_layer *l, float *delta)
 void forward_cost_layer_gpu(const cost_layer *l, float *input_gpu, network *net)
 {
     if (net->test == 2) return;  // 0: train, 1: valid, 2: test
-
-    if(l->cost_type == SMOOTH){
-        smooth_l1_gpu(l->batch*l->inputs, input_gpu, net->truth_gpu, l->delta_gpu, l->output_gpu);
-    } else {
-        l2_gpu(l->batch, l->inputs, input_gpu, net->truth_label_index_gpu, l->delta_gpu, l->output_gpu);
-    }
+    l2_gpu(l->batch, l->inputs, input_gpu, net->truth_label_index_gpu, l->delta_gpu, l->output_gpu);
 
     /*
     cuda_pull_array(l->delta_gpu, l->delta, l->batch*l->inputs);

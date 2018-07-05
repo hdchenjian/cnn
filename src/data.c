@@ -200,6 +200,32 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
     return b;
 }
 
+void random_batch_in_threads(char **paths, int batch_size, char **labels, int classes, int train_set_size,
+                             int w, int h, int c, float hue, float saturation, float exposure)
+{
+    load_args args;
+    int image_size = h * w * c;
+    batch b;
+    b.w = w;
+    b.h = h;
+    b.c = c;
+    b.n = batch_size;
+    b.data = calloc(batch_size * image_size, sizeof(float));
+    //b.truth = calloc(batch_size * classes, sizeof(float));
+    b.truth_label_index = calloc(batch_size, sizeof(int));
+
+    for(int i = 0; i < batch_size; ++i){
+        int index = rand() % train_set_size;
+        //printf("paths[index]: %s\n", paths[index]);
+        image img = load_image(paths[index], w, h, c);
+        random_distort_image(img, hue, saturation, exposure);
+        memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
+        free_image(img);
+        //normalize_array(b.data + i * image_size, image_size);
+        fill_truth(paths[index], labels, classes, b.truth_label_index + i);
+    }
+}
+
 char **get_labels(char *filename)
 {
     struct list *plist = get_paths(filename);

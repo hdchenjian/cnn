@@ -34,8 +34,7 @@ void cuda_push_array_int(int *x_gpu, int *x, size_t n);
 void cuda_pull_array(float *x_gpu, float *x, size_t n);
 void cuda_pull_array_int(int *x_gpu, int *x, size_t n);
 void cuda_mem_copy(float *des_gpu, float *src_gpu, size_t n);
-void cuda_free(float *x_gpu);
-void cuda_free_int(int *x_gpu);
+void cuda_free(void *x_gpu);
 
 #ifdef CUDNN
 cudnnHandle_t cudnn_handle();

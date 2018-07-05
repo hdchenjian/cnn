@@ -91,6 +91,7 @@ shortcut_layer *parse_shortcut(struct list *options, network *net, int count)
 {
     char *l = option_find(options, "from");
     int index = atoi(l);
+    if(index < 0) index = count + index;
     image shortcut_layer_output_image = get_network_image_layer(net, index);
     image previous_layer_output_image = get_network_image_layer(net, count - 1);
     char *activation_s = option_find_str(options, "activation", "linear");
@@ -340,8 +341,8 @@ void parse_net_options(struct list *options, network *net)
         net->num_steps = n;
     } else if(net->policy == POLY){
         net->learning_rate_poly_power = option_find_int(options, "learning_rate_poly_power", 0);
-        net->learning_rate_init = net->learning_rate;
     }
+    net->learning_rate_init = net->learning_rate;
 }
 
 network *parse_network_cfg(char *filename)
@@ -420,9 +421,7 @@ network *parse_network_cfg(char *filename)
         n = n->next;
     }
 #ifdef GPU
-    net->classes = get_network_output_size_layer(net, net->n - 1);
     net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
-    net->truth_gpu = cuda_make_array(0, net->classes * net->batch);
     net->truth_label_index_gpu = cuda_make_int_array(0, net->batch);
     net->is_not_max_gpu = cuda_make_int_array(0, net->batch);
     net->gpu_index = cuda_get_device();

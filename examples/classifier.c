@@ -63,9 +63,12 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d, net->batch: %d\n\n",
             net->seen, train_set_size, net->max_batches, net->classes, net->batch);
 
+    net->batch_train = net->seen / net->batch;
+    net->epoch = net->seen / train_set_size;
     float avg_loss = -1;
     while(net->batch_train < net->max_batches){
         time = what_time_is_it_now();
+        update_current_learning_rate(net);
         batch train;
         if(0 == train_data_type) {
             int index = rand() % batch_num;
@@ -75,17 +78,30 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         } else if(1 == train_data_type) {
             int index = rand() % batch_num;
             train = all_train_data[index];
-            train_network_batch(net, train);
-        } else {
-            train = random_batch(paths, net->batch, labels, net->classes, train_set_size,
-                    net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
             /*
+            printf("class: %d\n", train.truth_label_index[0]);
             image tmp;
             tmp.w = train.w;
             tmp.h = train.h;
             tmp.c = train.c;
             tmp.data = train.data;
-            save_image_png(tmp, "input.jpg");*/
+            save_image_png(tmp, "input.jpg");
+            tmp.data = train.data + train.w * train.h * train.c;
+            */
+            train_network_batch(net, train);
+        } else {
+            train = random_batch(paths, net->batch, labels, net->classes, train_set_size,
+                    net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+
+            printf("class: %d\n", train.truth_label_index[0]);
+            image tmp;
+            tmp.w = train.w;
+            tmp.h = train.h;
+            tmp.c = train.c;
+            tmp.data = train.data;
+            save_image_png(tmp, "input.jpg");
+            tmp.data = train.data + train.w * train.h * train.c;
+            //save_image_png(tmp, "input1.jpg");
 
             train_network_batch(net, train);
             free_batch(&train);
@@ -101,8 +117,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             exit(-1);
         }
         avg_loss = avg_loss*.9 + loss*.1;
-        net->learning_rate = update_current_learning_rate(net);
-        printf("epoch: %d, batch: %d, accuracy: %.3f, loss: %f, avg_loss: %f avg, learning_rate: %f, %lf seconds, "
+        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %.4f, avg_loss: %.4f avg, learning_rate: %f, %lf seconds, "
                 "seen %lu images\n", net->epoch, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
                 loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen);
         if(epoch_old != net->epoch){

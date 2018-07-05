@@ -19,7 +19,6 @@ network *make_network(int n)
 #ifdef GPU
     net->workspace_gpu = NULL;
     net->input_gpu = NULL;
-    net->truth_gpu = NULL;
 #endif
     return net;
 }
@@ -101,7 +100,7 @@ void free_network(network *net)
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
-            if(layer->indexes_gpu) cuda_free_int(layer->indexes_gpu);
+            if(layer->indexes_gpu) cuda_free(layer->indexes_gpu);
 #endif
             free_ptr(layer);
         } else if(net->layers_type[i] == AVGPOOL){
@@ -161,7 +160,8 @@ void free_network(network *net)
     if(net->workspace) free_ptr(net->workspace);
 #ifdef GPU
     if(net->input_gpu) cuda_free(net->input_gpu);
-    if(net->truth_gpu) cuda_free(net->truth_gpu);
+    if(net->truth_label_index_gpu) cuda_free(net->truth_label_index_gpu);
+    if(net->is_not_max_gpu) cuda_free(net->is_not_max_gpu);
     if(net->workspace_gpu) cuda_free(net->workspace_gpu);
 #endif
 
@@ -175,6 +175,13 @@ float update_current_learning_rate(network *net)
             for(int i = 0; i < net->num_steps; ++i){
                 if(net->steps[i] == net->batch_train){
                     net->learning_rate *= net->scales[i];
+                }
+            }
+            if(net->learning_rate_init == net->learning_rate){
+                for(int i = 0; i < net->num_steps; ++i){
+                    if(net->batch_train >= net->steps[i]){
+                        net->learning_rate *= net->scales[i];
+                    }
                 }
             }
             return net->learning_rate;;
@@ -513,10 +520,7 @@ void train_network_batch(network *net, batch b)
     net->truth_label_index = b.truth_label_index;
 #ifdef GPU
     cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
-    if(net->truth){
-        cuda_push_array(net->truth_gpu, net->truth, net->classes*net->batch);
-        cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
-    }
+    cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
     forward_network_gpu(net, net->input_gpu);
     backward_network_gpu(net, net->input_gpu);
     update_network_gpu(net);
@@ -527,7 +531,7 @@ void train_network_batch(network *net, batch b)
 #endif
     net->seen += net->batch;
     net->correct_num_count += net->batch;
-    if(net->correct_num_count > 1000 * net->batch){
+    if(net->correct_num_count > 50 * net->batch){
         net->correct_num_count = 0;
         net->correct_num = 0;
     }
