@@ -87,6 +87,7 @@ typedef struct {
 } cost_layer;
 
 typedef struct {
+    int output_layer; // when output_layer == 1, get output from 1th layer
     int gpu_index;
     int n;                  // the size of network
     int max_batches, max_epoch; // max iteration times of batch

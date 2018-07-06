@@ -33,7 +33,6 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     char *label_list = option_find_str(options, "labels", "data/labels.list");
     char **labels = get_labels(label_list);
     char *train_list = option_find_str(options, "train", "data/train.list");
-    net->classes = option_find_int(options, "classes", 2);
 
     int train_set_size = 0;
     int batch_num = 0;
@@ -117,9 +116,9 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             exit(-1);
         }
         avg_loss = avg_loss*.9 + loss*.1;
-        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %.4f, avg_loss: %.4f avg, learning_rate: %f, %lf seconds, "
-                "seen %lu images\n", net->epoch, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
-                loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen);
+        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %.4f, avg_loss: %.4f avg, learning_rate: %.8f, %lf seconds, "
+               "seen %lu images\n", net->epoch+1, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
+               loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen);
         if(epoch_old != net->epoch){
             char buff[256];
             sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
@@ -153,10 +152,10 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     srand(seed);
 
     network *net = parse_network_cfg(cfgfile);
+    net->test = 1;
     if(weightfile && weightfile[0] != 0){
         load_weights(net, weightfile);
     }
-    net->test = 1;
 #ifdef GPU
     cuda_set_device(net->gpu_index);
 #endif
@@ -194,6 +193,9 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 
     float avg_loss = -1;
     int count = 0;
+
+    FILE *fp = fopen("features.txt", "w");
+    if(!fp) file_error("features.txt");
     while(count < valid_set_size){
         batch train;
         if(0 == train_data_type) {
@@ -210,6 +212,19 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
             valid_network(net, train);
             free_batch(&train);
         }
+        int network_output_size = get_network_output_size_layer(net, net->output_layer);
+#ifdef GPU
+        float *network_output = get_network_layer_data(net, net->output_layer, 0, 0);
+#else
+        float *network_output_gpu = get_network_layer_data(net, net->output_layer, 0, 0);
+        float *network_output = malloc(network_output_size * sizeof(float));
+        cuda_pull_array(network_output_gpu, network_output, network_output_size);
+#endif
+        for(int i = 0; i < network_output_size; i++){
+            fprintf(fp, "%.9f ", network_output[i]);
+        }
+        fprintf(fp, "\n");
+        
         float loss = 0;
         if(avg_loss == -1) avg_loss = loss;
         loss = net->loss;
@@ -247,15 +262,9 @@ void run_classifier(int argc, char **argv)
     char *data = argv[3];
     char *cfg = argv[4];
     char *weights = (argc > 5) ? argv[5] : 0;
-    if(0==strcmp(argv[2], "predict")){
-        //char *filename = (argc > 6) ? argv[6]: 0;
-        //int top = find_int_arg(argc, argv, "-t", 0);
-        ;//predict_classifier(data, cfg, weights, filename, top);
-    }
-    else if(0==strcmp(argv[2], "train")){
+    if(0==strcmp(argv[2], "train")){
         train_classifier(data, cfg, weights, gpus, ngpus, clear);
-    }
-    else if(0==strcmp(argv[2], "valid")){
+    } else if(0==strcmp(argv[2], "valid")){
         validate_classifier(data, cfg, weights);
     }
     fprintf(stderr, "total %.2lf seconds\n\n\n", what_time_is_it_now() - time_start);

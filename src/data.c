@@ -87,11 +87,13 @@ int *get_random_index(int train_set_size, int train_set_size_real)
             index[i] = rand() % train_set_size;
         }
     }
-    for(int i = 0; i < train_set_size_real; i++) {
-        int index_random = rand() % train_set_size_real;
-        int temp = index[i];
-        index[i] = index[index_random];
-        index[index_random] = temp;
+    for(int j = 0; j < 5; j++){
+        for(int i = 0; i < train_set_size_real; i++) {
+            int index_random = rand() % train_set_size_real;
+            int temp = index[i];
+            index[i] = index[index_random];
+            index[index_random] = temp;
+        }
     }
     return index;
 }

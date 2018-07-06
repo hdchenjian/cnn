@@ -297,6 +297,9 @@ enum learning_rate_policy get_policy(char *s)
 
 void parse_net_options(struct list *options, network *net)
 {
+    // get output from the net->output_layer layer
+    net->output_layer = option_find_float(options, "output_layer", -1);
+    net->classes = option_find_int(options, "classes", 0);
     net->learning_rate = option_find_float(options, "learning_rate", .001);
     net->momentum = option_find_float(options, "momentum", .9);
     net->decay = option_find_float(options, "decay", .0001);
@@ -322,9 +325,17 @@ void parse_net_options(struct list *options, network *net)
 
         int len = strlen(steps_str);
         int n = 1;
+        int scales_n = 1;
         int i;
         for(i = 0; i < len; ++i){
             if (steps_str[i] == ',') ++n;
+        }
+        for(i = 0; i < strlen(scales_str); ++i){
+            if (scales_str[i] == ',') ++scales_n;
+        }
+        if(n != scales_n){
+            fprintf(stderr, "error: steps not match scales: %d, %d\n", n, scales_n);
+            exit(-1);
         }
         int *steps = calloc(n, sizeof(int));
         float *scales = calloc(n, sizeof(float));

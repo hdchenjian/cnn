@@ -197,7 +197,7 @@ float update_current_learning_rate(network *net)
 
 void forward_network(network *net, float *input)
 {
-    for(int i = 0; i < net->n; ++i){
+    for(int i = 0; i < net->n && (net->output_layer == -1 || (net->output_layer != -1 && i <= net->output_layer)); ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input, net->workspace, net->test);
@@ -392,7 +392,7 @@ void backward_network(network *net, float *input)
 
 void forward_network_gpu(network *net, float *input)
 {
-    for(int i = 0; i < net->n; ++i){
+    for(int i = 0; i < net->n && (net->output_layer == -1 || (net->output_layer != -1 && i <= net->output_layer)); ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
@@ -434,7 +434,7 @@ void forward_network_gpu(network *net, float *input)
             forward_cost_layer_gpu(layer, input, net);
             input = layer->output_gpu;
         } else {
-            printf("forward_network layers_type error, layer: %d\n", i);
+            printf("forward_network_gpu layers_type error, layer: %d\n", i);
             exit(-1);
         }
     }
