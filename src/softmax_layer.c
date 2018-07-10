@@ -30,49 +30,45 @@ softmax_layer *make_softmax_layer(int inputs, int batch, int is_last_layer,
 
 void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
 {
-    if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid, 2: test
-        memcpy(layer->input_backup, input, layer->batch * layer->inputs * sizeof(float));
-    }
     for(int b = 0; b < layer->batch; b++){
         int index = b * layer->inputs;
         if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid, 2: test
-            if(layer->input_backup[index + net->truth_label_index[b]] > -layer->label_specific_margin_bias){
-                layer->input_backup[index + net->truth_label_index[b]] += layer->label_specific_margin_bias;
+            if(input[index + net->truth_label_index[b]] > -layer->label_specific_margin_bias){
+                input[index + net->truth_label_index[b]] += layer->label_specific_margin_bias;
             }
             for(int i = 0; i < layer->inputs; ++i){
                 if(layer->margin_scale > 0){
-                    layer->input_backup[index + i] *= layer->margin_scale;
+                    input[index + i] *= layer->margin_scale;
                 }
             }
-        } else {
-            layer->input_backup = input;
         }
-
         float sum = 0;
         float largest = -FLT_MAX;
         for(int i = 0; i < layer->inputs; ++i){
-            if(layer->input_backup[i + index] > largest) largest = layer->input_backup[i + index];
+            if(input[i + index] > largest) largest = input[i + index];
         }
         for(int i = 0; i < layer->inputs; ++i){
-            float e = exp(layer->input_backup[i + index] - largest);
+            float e = exp(input[i + index] - largest);
             sum += e;
             layer->output[i + index] = e;
         }
         for(int i = 0; i < layer->inputs; ++i){
             layer->output[i + index] /= sum;
-            //printf("%f %f\n", layer->input_backup[i + index], layer->output[i + index]);
+            printf("%f %f\n", input[i + index], layer->output[i + index]);
         }
     }
 
     if(layer->is_last_layer){
         for(int b = 0; b < layer->batch; ++b){
             int index = b * layer->inputs;
-            int max_i = 0;
-            double max = layer->input_backup[index];
+            int max_i = net->truth_label_index[b];
+            double max = input[index + net->truth_label_index[b]];
             for(int j = 0; j < net->classes; ++j){
-                if(layer->input_backup[j + index] > max){
-                    max = layer->input_backup[j + index];
+                //printf("%d %d %f\n", j, j == net->truth_label_index[b], input[j]);
+                if(input[j + index] >= max && j != max_i){
+                    max = input[j + index];
                     max_i = j;
+                    break;
                 }
             }
             if(net->truth_label_index[b] == max_i) net->correct_num += 1;
@@ -132,13 +128,15 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
         cuda_pull_array(layer->output_gpu, input_temp, layer->batch*layer->inputs);
         int correct_num1 = 0;
         for(int b = 0; b < layer->batch; ++b){
+            int index = b * layer->inputs;
             int max_i = net->truth_label_index[b];
-            double max = input_temp[b * layer->inputs + net->truth_label_index[b]];
+            double max = input_temp[index + net->truth_label_index[b]];
             for(int j = 0; j < net->classes; ++j){
-                //printf("%d %d %f\n", j, j == net->truth_label_index[b], input_temp[j]);
-                if(input_temp[j + b * layer->inputs] > max){
-                    max = input_temp[j + b * layer->inputs];
+                printf("%d %d %f\n", j, j == net->truth_label_index[b], input_temp[j]);
+                if(input_temp[j + index] > max && j != max_i){
+                    max = input_temp[j + index];
                     max_i = j;
+                    //break;
                 }
             }
             if(net->truth_label_index[b] == max_i) correct_num1 += 1;

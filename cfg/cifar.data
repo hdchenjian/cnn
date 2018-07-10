@@ -1,7 +1,6 @@
-classes=10
-train_data_type = 1
+train_data_type = -1
 train  = /var/darknet/cifar/train.list
-#train_num = 50
+#train_num = 500
 valid  = /var/darknet/cifar/test.list
 labels = /var/darknet/cifar/labels.txt
 backup = backup

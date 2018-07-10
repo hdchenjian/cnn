@@ -550,8 +550,7 @@ __global__ void is_max_gpu_kernel(int batch, int inputs, float *output_gpu, int 
     int b = index / inputs;
     if(b >= batch) return;
     int i = index % inputs;
-    //printf("%d %d %d %d %f %f\n", truth_label_index_gpu[b], index, b, i, output_gpu[b * inputs + i], output_gpu[b * inputs + truth_label_index_gpu[b]]);
-    if(output_gpu[b * inputs + i] > output_gpu[b * inputs + truth_label_index_gpu[b]]){
+    if(i != truth_label_index_gpu[b] && output_gpu[b * inputs + i] >= output_gpu[b * inputs + truth_label_index_gpu[b]]){
         is_not_max[b] = 1;
     }
 }

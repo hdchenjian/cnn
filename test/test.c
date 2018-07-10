@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "utils.h"
 #include "image.h"
@@ -101,6 +102,20 @@ void load_csv_image(char *filename, char *save_dir)
     fclose(fp);
 }
 
+void test_image()
+{
+    int w = 96, h = 112, c = 3;
+    float hue = 0.001, saturation = 0.999, exposure = 0.8;
+    image img = load_image("./test.jpg", w, h, c);
+    for(int i = 0; i < 100; i++) {
+        random_distort_image(img, hue, saturation, exposure);
+        char save_name[128];
+        sprintf(save_name, "distort_image_%04d", i);
+        save_image_png(img, save_name);
+        //sleep(1);
+    }
+}
+
 int main(int argc, char **argv)
 {
     // https://pjreddie.com/projects/mnist-in-csv/
@@ -109,7 +124,8 @@ int main(int argc, char **argv)
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
     #ifdef GPU
-    test_gemm_gpu(1000, 1000);
+    //test_gemm_gpu(1000, 1000);
     #endif
+    test_image();
     return 0;
 }

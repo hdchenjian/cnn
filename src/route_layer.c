@@ -92,6 +92,9 @@ void forward_route_layer_gpu(const route_layer *l, network *net)
         }
         offset += input_size;
     }
+    /*char cuda_compare_error_string[128] = {0};
+    sprintf(cuda_compare_error_string, "\n%s", "forward_route_layer_gpu output");
+    cuda_compare(l->output_gpu, l->output, l->inputs*l->batch, cuda_compare_error_string);*/
 }
 
 void backward_route_layer_gpu(const route_layer *l, network *net)

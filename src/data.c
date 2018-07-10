@@ -177,7 +177,7 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
 }
 
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size,
-        int w, int h, int c, float hue, float saturation, float exposure)
+                   int w, int h, int c, float hue, float saturation, float exposure, int test)
 {
     int image_size = h * w * c;
     batch b;
@@ -189,11 +189,14 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
     //b.truth = calloc(batch_size * classes, sizeof(float));
     b.truth_label_index = calloc(batch_size, sizeof(int));
 
+//    #pragma omp parallel for
     for(int i = 0; i < batch_size; ++i){
         int index = rand() % train_set_size;
         //printf("paths[index]: %s\n", paths[index]);
         image img = load_image(paths[index], w, h, c);
-        random_distort_image(img, hue, saturation, exposure);
+        if(test == 0) {      // 0: train, 1: valid, 2: test
+            random_distort_image(img, hue, saturation, exposure);
+        }
         memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
         free_image(img);
         //normalize_array(b.data + i * image_size, image_size);

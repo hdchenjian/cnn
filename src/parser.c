@@ -298,7 +298,7 @@ enum learning_rate_policy get_policy(char *s)
 void parse_net_options(struct list *options, network *net)
 {
     // get output from the net->output_layer layer
-    net->output_layer = option_find_float(options, "output_layer", -1);
+    net->output_layer = option_find_float(options, "output_layer", net->n - 1);
     net->classes = option_find_int(options, "classes", 0);
     net->learning_rate = option_find_float(options, "learning_rate", .001);
     net->momentum = option_find_float(options, "momentum", .9);
@@ -351,7 +351,7 @@ void parse_net_options(struct list *options, network *net)
         net->steps = steps;
         net->num_steps = n;
     } else if(net->policy == POLY){
-        net->learning_rate_poly_power = option_find_int(options, "learning_rate_poly_power", 0);
+        net->learning_rate_poly_power = option_find_int(options, "learning_rate_poly_power", 4);
     }
     net->learning_rate_init = net->learning_rate;
 }
@@ -449,7 +449,7 @@ network *parse_network_cfg(char *filename)
 #endif
     }
     if(net->workspace_gpu){
-        printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n\n\n\n\n\n");
+        printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n");
         net->workspace = calloc(1, net->workspace_size);
     }
     free_list(sections);

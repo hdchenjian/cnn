@@ -151,7 +151,7 @@ void free_network(network *net)
 #endif
             free_ptr(layer);
         } else {
-            printf("forward_network layers_type error, layer: %d\n", i);
+            printf("free_network layers_type error, layer: %d\n", i);
             exit(-1);
         }
     }
@@ -187,21 +187,27 @@ float update_current_learning_rate(network *net)
             return net->learning_rate;;
         case POLY:
             net->learning_rate = net->learning_rate_init *
-                pow(1 - (float)net->batch_train / net->max_batches, net->learning_rate_poly_power);
+                pow(1 - (float)net->batch_train / (float)net->max_batches, net->learning_rate_poly_power);
             return net->learning_rate;
         default:
-            //fprintf(stderr, "Policy is weird!\n");
+            fprintf(stderr, "Policy is weird!\n");
             return net->learning_rate;
     }
 }
 
 void forward_network(network *net, float *input)
 {
-    for(int i = 0; i < net->n && (net->output_layer == -1 || (net->output_layer != -1 && i <= net->output_layer)); ++i){
+    for(int i = 0; i < net->n && i <= net->output_layer; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input, net->workspace, net->test);
             input = layer->output;
+            if(i == 0){
+                for(int ii = 0; ii < 10; ++ii){
+                    printf("%f ", input[ii]);
+                }
+                printf("\n");
+            }
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer(layer, input);
@@ -392,7 +398,7 @@ void backward_network(network *net, float *input)
 
 void forward_network_gpu(network *net, float *input)
 {
-    for(int i = 0; i < net->n && (net->output_layer == -1 || (net->output_layer != -1 && i <= net->output_layer)); ++i){
+    for(int i = 0; i < net->n && i <= net->output_layer; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
@@ -634,9 +640,9 @@ void load_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
 {
     fread(l->biases, sizeof(float), l->n, fp);
     if (l->batch_normalize){
-		fread(l->rolling_mean, sizeof(float), l->n, fp);
-		fread(l->rolling_variance, sizeof(float), l->n, fp);
-	}
+        fread(l->rolling_mean, sizeof(float), l->n, fp);
+        fread(l->rolling_variance, sizeof(float), l->n, fp);
+    }
     fread(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
 #ifdef GPU
     if(gpu_index >= 0){
