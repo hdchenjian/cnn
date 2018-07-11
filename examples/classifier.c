@@ -111,8 +111,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             max_accuracy = net->correct_num / (net->correct_num_count + 0.00001F);
             max_accuracy_batch = net->batch_train;
         }
-        printf("epoch: %d, batch: %d, accuracy: %f, loss: %.4f, avg_loss: %.4f, learning_rate: %.8f, %lf seconds, "
-               "seen %lu images, max_accuracy: %f\n", net->epoch+1, net->batch_train,
+        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %.2f, avg_loss: %.2f, learning_rate: %.8f, %.4f s, "
+               "seen %lu images, max_accuracy: %.4f\n", net->epoch+1, net->batch_train,
                net->correct_num / (net->correct_num_count + 0.00001F),
                loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
         if(epoch_old != net->epoch){
