@@ -176,8 +176,8 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
     return train_data;
 }
 
-batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size,
-                   int w, int h, int c, float hue, float saturation, float exposure, int test)
+batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size, int w, int h, int c,
+                   float hue, float saturation, float exposure, int flip, float mean_value, float scale, int test)
 {
     int image_size = h * w * c;
     batch b;
@@ -189,12 +189,22 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
     //b.truth = calloc(batch_size * classes, sizeof(float));
     b.truth_label_index = calloc(batch_size, sizeof(int));
 
-//    #pragma omp parallel for
+    #pragma omp parallel for
     for(int i = 0; i < batch_size; ++i){
         int index = rand() % train_set_size;
         //printf("paths[index]: %s\n", paths[index]);
         image img = load_image(paths[index], w, h, c);
         if(test == 0) {      // 0: train, 1: valid, 2: test
+            if(flip){
+                if(rand() % 2){
+                    flip_image(img);
+                }
+            }
+            if(mean_value > 0.001){
+                for(int k = 0; k < image_size; ++k){
+                    img.data[k] = (img.data[k] - mean_value) * scale;
+                }
+            }
             random_distort_image(img, hue, saturation, exposure);
         }
         memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
@@ -208,7 +218,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
 void random_batch_in_threads(char **paths, int batch_size, char **labels, int classes, int train_set_size,
                              int w, int h, int c, float hue, float saturation, float exposure)
 {
-    load_args args;
+    //load_args args;
     int image_size = h * w * c;
     batch b;
     b.w = w;

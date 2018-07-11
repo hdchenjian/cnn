@@ -26,8 +26,8 @@ typedef struct{
     int *truth_label_index;
 } batch;
 
-batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size,
-                   int w, int h, int c, float hue, float saturation, float exposure, int test);
+batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size, int w, int h, int c,
+                   float hue, float saturation, float exposure, int flip, float mean_value, float scale, int test);
 void free_batch(batch *b);
 char **get_labels(char *filename);
 struct list *get_paths(char *filename);

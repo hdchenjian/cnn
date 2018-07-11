@@ -65,6 +65,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     net->batch_train = net->seen / net->batch;
     net->epoch = net->seen / train_set_size;
     float avg_loss = -1;
+    float max_accuracy = -1;
+    int max_accuracy_batch = 0;
     while(net->batch_train < net->max_batches){
         time = what_time_is_it_now();
         update_current_learning_rate(net);
@@ -79,18 +81,18 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             train = all_train_data[index];
             train_network_batch(net, train);
         } else {
-            double start_time = what_time_is_it_now();
-            train = random_batch(paths, net->batch, labels, net->classes, train_set_size,
-                                 net->w, net->h, net->c, net->hue, net->saturation, net->exposure, net->test);
-            printf("class: %d spend %f s\n", train.truth_label_index[0], what_time_is_it_now() - start_time);
-            image tmp;
+            //double start_time = what_time_is_it_now();
+            train = random_batch(paths, net->batch, labels, net->classes, train_set_size, net->w, net->h, net->c,
+                                 net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
+                                 net->test);
+            //printf("class: %d spend %f s\n", train.truth_label_index[0], what_time_is_it_now() - start_time);
+            /*image tmp;
             tmp.w = train.w;
             tmp.h = train.h;
             tmp.c = train.c;
             tmp.data = train.data;
             save_image_png(tmp, "input.jpg");
-            //tmp.data = train.data + train.w * train.h * train.c;
-            //save_image_png(tmp, "input1.jpg");
+            */
             train_network_batch(net, train);
             free_batch(&train);
         }
@@ -105,16 +107,22 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             exit(-1);
         }
         avg_loss = avg_loss*.9 + loss*.1;
-        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %.4f, avg_loss: %.4f, learning_rate: %.8f, %lf seconds, "
-               "seen %lu images\n", net->epoch+1, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
-               loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen);
+        if(net->correct_num / (net->correct_num_count + 0.00001F) > max_accuracy){
+            max_accuracy = net->correct_num / (net->correct_num_count + 0.00001F);
+            max_accuracy_batch = net->batch_train;
+        }
+        printf("epoch: %d, batch: %d, accuracy: %f, loss: %.4f, avg_loss: %.4f, learning_rate: %.8f, %lf seconds, "
+               "seen %lu images, max_accuracy: %f\n", net->epoch+1, net->batch_train,
+               net->correct_num / (net->correct_num_count + 0.00001F),
+               loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
         if(epoch_old != net->epoch){
             char buff[256];
             sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
             save_weights(net, buff);
         }
-        //sleep(10);
+        //sleep(30);
     }
+    printf("max_accuracy_batch: %d\n", max_accuracy_batch);
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
     save_weights(net, buff);
@@ -175,35 +183,31 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         plist = get_paths(valid_list);
         paths = (char **)list_to_array(plist);
         valid_set_size = plist->size;
+        batch_num = valid_set_size;
     }
 
-    fprintf(stderr, "valid_set_size: %d, net->classes: %d, net->batch: %d\n", valid_set_size, net->classes, net->batch);
+    fprintf(stderr, "valid_set_size: %d, net->classes: %d, net->batch: %d, batch_num: %d, train_data_type: %d\n",
+            valid_set_size, net->classes, net->batch, batch_num, train_data_type);
+    // when net->batch != 1, train.data may can not match in last batch, such as net->batch = 2, valid_set_size = 11
+    if(net->batch != 1) printf("\n\nerror: net->batch != 1\n\n");
 
     float avg_loss = -1;
     int count = 0;
 
     FILE *fp = fopen("features.txt", "w");
     if(!fp) file_error("features.txt");
-    while(count < valid_set_size){
+    while(count < batch_num){
         batch train;
         if(0 == train_data_type) {
             train = all_valid_data[count];
             valid_network(net, train);
         } else if(1 == train_data_type) {
             train = all_valid_data[count];
-            
-            printf("class: %d\n", train.truth_label_index[0]);
-            image tmp;
-            tmp.w = train.w;
-            tmp.h = train.h;
-            tmp.c = train.c;
-            tmp.data = train.data;
-            save_image_png(tmp, "input.jpg");
-            
             valid_network(net, train);
         } else {
-            train = random_batch(paths, net->batch, labels, net->classes, valid_set_size,
-                                 net->w, net->h, net->c, net->hue, net->saturation, net->exposure, net->test);
+            train = random_batch(paths, net->batch, labels, net->classes, valid_set_size, net->w, net->h, net->c,
+                                 net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
+                                 net->test);
             valid_network(net, train);
             free_batch(&train);
         }

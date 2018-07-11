@@ -202,12 +202,6 @@ void forward_network(network *net, float *input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input, net->workspace, net->test);
             input = layer->output;
-            if(i == 0){
-                for(int ii = 0; ii < 10; ++ii){
-                    printf("%f ", input[ii]);
-                }
-                printf("\n");
-            }
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer(layer, input);
@@ -549,6 +543,7 @@ void valid_network(network *net, batch b)
     net->truth_label_index = b.truth_label_index;
 #ifdef GPU
     cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
+    cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
     forward_network_gpu(net, net->input_gpu);
 #else
     forward_network(net, b.data);

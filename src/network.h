@@ -107,6 +107,8 @@ typedef struct {
     size_t workspace_size;
     float loss;
     float hue, saturation, exposure;  // random_distort_image
+    float mean_value, scale;   // use when load image
+    int flip;
 
     enum learning_rate_policy policy;
     int learning_rate_poly_power;  // for POLY learning_rate_policy

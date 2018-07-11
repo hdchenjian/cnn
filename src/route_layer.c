@@ -20,7 +20,7 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     char input_layer_str[128] = {0};
     for(i = 0; i < n; ++i){
         outputs += input_sizes[i];
-        sprintf(input_layer_str + i * 3, "%3d ", input_layers[i]);
+        sprintf(input_layer_str + i * 4, "%3d ", input_layers[i]);
     }
     image first_layer = get_network_image_layer(net, input_layers[0]);
     l->out_w = first_layer.w;

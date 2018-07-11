@@ -64,12 +64,15 @@ void forward_cost_layer(const cost_layer *l, float *input, network *net)
     l2_cpu(l->batch, l->inputs, input, net->truth_label_index, l->delta, l->output);
 
     for(int b = 0; b < l->batch; ++b){
-        int max_i = 0;
-        double max = input[b * l->inputs];
+        int index = b * l->inputs;
+        int max_i = net->truth_label_index[b];
+        double max = input[index + net->truth_label_index[b]];
         for(int j = 0; j < net->classes; ++j){
-            if(input[j + b * l->inputs] > max){
-                max = input[j + b * l->inputs];
+            //printf("%d %d %f\n", j, j == net->truth_label_index[b], input[j]);
+            if(input[j + index] >= max && j != max_i){
+                max = input[j + index];
                 max_i = j;
+                break;
             }
         }
         if(net->truth_label_index[b] == max_i) net->correct_num += 1;
@@ -89,6 +92,10 @@ void forward_cost_layer_gpu(const cost_layer *l, float *input_gpu, network *net)
 {
     if (net->test == 2) return;  // 0: train, 1: valid, 2: test
     l2_gpu(l->batch, l->inputs, input_gpu, net->truth_label_index_gpu, l->delta_gpu, l->output_gpu);
+    cuda_pull_array(l->output_gpu, l->output, l->batch*l->inputs);
+    l->cost[0] = sum_array(l->output, l->batch*l->inputs);
+    net->loss = l->cost[0];
+    cuda_pull_array(l->delta_gpu, l->delta, l->batch*l->inputs);
 
     /*
     cuda_pull_array(l->delta_gpu, l->delta, l->batch*l->inputs);
@@ -100,7 +107,7 @@ void forward_cost_layer_gpu(const cost_layer *l, float *input_gpu, network *net)
         int max_i = 0;
         double max = input_temp[b * l->inputs];
         for(int j = 0; j < net->classes; ++j){
-            //printf("%d %d %f %f\n", j, j == net->truth_label_index[b], l->output[j], l->delta[j]);
+            //printf("%d %d %f %f %f\n", j, j == net->truth_label_index[b], input_temp[j], l->output[j], l->delta[j]);
             if(input_temp[j + b * l->inputs] > max){
                 max = input_temp[j + b * l->inputs];
                 max_i = j;
@@ -108,9 +115,6 @@ void forward_cost_layer_gpu(const cost_layer *l, float *input_gpu, network *net)
         }
         if(net->truth_label_index[b] == max_i) net->correct_num += 1;
     }
-    cuda_pull_array(l->output_gpu, l->output, l->batch*l->inputs);
-    l->cost[0] = sum_array(l->output, l->batch*l->inputs);
-    net->loss = l->cost[0];
 }
 
 void backward_cost_layer_gpu(const cost_layer *l, float *delta_gpu)
