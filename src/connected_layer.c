@@ -73,12 +73,12 @@ void forward_connected_layer(connected_layer *layer, float *input)
         layer->output[i] = activate(layer->output[i], layer->activation);
     }
 
-    /*float max = -FLT_MAX, min = FLT_MAX;
+    float max = -FLT_MAX, min = FLT_MAX;
     for(int i = 0; i < layer->batch * layer->outputs; ++i){
     	if(layer->output[i] > max) max = layer->output[i];
     	if(layer->output[i] < min) min = layer->output[i];
     }
-    printf("forward_connected_layer max: %f, min: %f\n", max, min);*/
+    printf("forward_connected_layer max: %f, min: %f\n", max, min);
 }
 
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)

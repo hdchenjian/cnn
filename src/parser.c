@@ -314,7 +314,7 @@ void parse_net_options(struct list *options, network *net)
     net->exposure = option_find_float(options, "exposure", 1);
     net->hue = option_find_float(options, "hue", 0);
     net->flip = option_find_float(options, "flip", 0);
-    net->mean_value = option_find_float(options, "mean_value", 1);
+    net->mean_value = option_find_float(options, "mean_value", 0);
     net->mean_value /= 255.0F;  // scale image to [0, 1] when load image
     net->scale = option_find_float(options, "scale", 0);
 

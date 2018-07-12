@@ -128,11 +128,13 @@ void forward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
 
         normalize_gpu(layer->output_gpu, layer->mean_gpu, layer->variance_gpu, layer->batch, layer->n,
                       layer->out_h*layer->out_w);
+        copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->x_norm_gpu, 1);
+        
     } else {
         normalize_gpu(layer->output_gpu, layer->rolling_mean_gpu, layer->rolling_variance_gpu,
                       layer->batch, layer->n, layer->out_h*layer->out_w);
     }
-
+    scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->n, layer->out_h*layer->out_w);
 }
 
 void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test)
@@ -169,6 +171,10 @@ void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
         fprintf(stderr, "backward_batchnorm_layer: use no used!\n");
         exit(-1);
     }
+    backward_scale_gpu(layer->x_norm_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h,
+                       layer->scale_updates_gpu);
+    scale_bias_gpu(layer->delta_gpu, layer->scales_gpu, layer->batch, layer->n, layer->out_h*layer->out_w);
+
     fast_mean_delta_gpu(layer->delta_gpu, layer->variance_gpu, layer->batch, layer->n, layer->out_w*layer->out_h,
                         layer->mean_delta_gpu);
     fast_variance_delta_gpu(layer->x_gpu, layer->delta_gpu, layer->mean_gpu, layer->variance_gpu,
@@ -232,6 +238,11 @@ void update_convolutional_layer_gpu(const convolutional_layer *layer, float lear
 
     axpy_gpu(layer->n, learning_rate/layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
     scal_gpu(layer->n, momentum, layer->bias_updates_gpu, 1);
+
+    if(layer->batch_normalize){
+        axpy_gpu(layer->n, learning_rate/layer->batch, layer->scale_updates_gpu, 1, layer->scales_gpu, 1);
+        scal_gpu(layer->n, momentum, layer->scale_updates_gpu, 1);
+    }
 }
 
 void pull_convolutional_layer(const convolutional_layer *layer)

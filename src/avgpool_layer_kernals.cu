@@ -26,6 +26,13 @@ __global__ void forward_avgpool_layer_kernel(int n, int w, int h, int c, float *
     output[out_index] = sum / (w*h);
 }
 
+extern "C" void forward_avgpool_layer_gpu(const avgpool_layer *l, float *input)
+{
+    size_t n = l->c*l->batch;
+    forward_avgpool_layer_kernel<<<cuda_gridsize(n), BLOCK>>>(n, l->w, l->h, l->c, input, l->output_gpu);
+    check_error(cudaPeekAtLastError());
+}
+
 __global__ void backward_avgpool_layer_kernel(int n, int w, int h, int c, float *in_delta, float *out_delta)
 {
     int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
@@ -42,13 +49,6 @@ __global__ void backward_avgpool_layer_kernel(int n, int w, int h, int c, float 
         int in_index = i + h*w*(k + b*c);
         in_delta[in_index] = temp / (w*h);
     }
-}
-
-extern "C" void forward_avgpool_layer_gpu(const avgpool_layer *l, float *input)
-{
-    size_t n = l->c*l->batch;
-    forward_avgpool_layer_kernel<<<cuda_gridsize(n), BLOCK>>>(n, l->w, l->h, l->c, input, l->output_gpu);
-    check_error(cudaPeekAtLastError());
 }
 
 extern "C" void backward_avgpool_layer_gpu(const avgpool_layer *l, float *delta)

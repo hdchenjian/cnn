@@ -60,7 +60,8 @@ void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
         }
         for(int i = 0; i < layer->inputs; ++i){
             layer->output[i + index] /= sum;
-            //printf("%f %f\n", layer->input_backup[i + index], layer->output[i + index]);
+            //printf("%d %d %f %f\n",
+            //       i, i == net->truth_label_index[b], layer->input_backup[i + index], layer->output[i + index]);
         }
     }
 
@@ -70,7 +71,8 @@ void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
             int max_i = net->truth_label_index[b];
             double max = layer->input_backup[index + net->truth_label_index[b]];
             for(int j = 0; j < net->classes; ++j){
-                printf("%d %d %f %f\n", j, j == net->truth_label_index[b], input[j], layer->input_backup[j]);
+                //printf("forward_softmax_layer: %d %d %f %f %f\n",
+                //       j, j == net->truth_label_index[b], input[j], layer->input_backup[j], layer->output[j]);
                 if(layer->input_backup[j + index] >= max && j != max_i){
                     max = layer->input_backup[j + index];
                     max_i = j;

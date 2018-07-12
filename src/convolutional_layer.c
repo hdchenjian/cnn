@@ -219,6 +219,14 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     }
 
     for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
+
+    /*
+    float max = -FLT_MAX, min = FLT_MAX;
+    for(int i = 0; i < layer->batch * m*n; ++i){
+    	if(layer->output[i] > max) max = layer->output[i];
+    	if(layer->output[i] < min) min = layer->output[i];
+    }
+    printf("forward_convolutional_layer max: %f, min: %f\n", max, min);*/
 }
 
 void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int spatial, float *mean_delta)
@@ -302,7 +310,7 @@ void backward_batchnorm_layer(const convolutional_layer *layer, int test)
 }
 
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta,
-        float *workspace, int test)
+                                  float *workspace, int test)
 {
     int outputs = layer->batch * layer->out_h * layer->out_w * layer->n;
     for(int i = 0; i < outputs; ++i){
@@ -311,7 +319,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
     for(int j = 0; j < layer->batch; ++j){
         for(int i = 0; i < layer->n; ++i){
             layer->bias_updates[i] += sum_array(layer->delta + layer->out_h * layer->out_w * (i + j*layer->n),
-                    layer->out_h * layer->out_w);
+                                                layer->out_h * layer->out_w);
         }
     }
     if(layer->batch_normalize){

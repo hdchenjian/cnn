@@ -133,9 +133,10 @@ float cuda_compare(float *x_gpu, float *x, size_t n, char *s)
     axpy_cpu(n, -1, x, 1, tmp, 1);
     float err = dot_cpu(n, tmp, 1, tmp, 1);
     printf("%s, error: %f, sqrtf(error / n): %f, compare array length: %lu\n", s, err, sqrtf(err/n), n);
+    cuda_pull_array(x_gpu, tmp, n);
     if(n < 30 && sqrtf(err/n) > 0.1){
         for(int i = 0; i < n; ++i){
-            printf("sqrtf(error) large %.19f %.19f\n", x[i], tmp[i]);
+            printf("sqrtf(error) large cpu: %.19f gpu: %.19f\n", x[i], tmp[i]);
         }
     }
 

@@ -209,7 +209,6 @@ void forward_network(network *net, float *input)
                 }
             }
             */
-
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer(layer, input);
@@ -536,7 +535,7 @@ void update_network_gpu(network *net)
 
 void train_network_batch(network *net, batch b)
 {
-    if(net->correct_num_count > 1000){
+    if(net->correct_num_count > 2000){
         net->correct_num_count = 0;
         net->correct_num = 0;
     }

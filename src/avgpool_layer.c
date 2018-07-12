@@ -43,6 +43,7 @@ void forward_avgpool_layer(const avgpool_layer *l, float *in)
                 sum += in[in_index];
             }
             l->output[out_index] = sum / (l->h*l->w);
+            //printf("forward_avgpool_layer: %f\n", l->output[k]);
         }
     }
 }
@@ -53,6 +54,7 @@ void backward_avgpool_layer(const avgpool_layer *l, float *delta)
         for(int k = 0; k < l->c; ++k){
             int out_index = k + b*l->c;
             float temp = l->delta[out_index];
+            //printf("backward_avgpool_layer: %f\n", temp);
             for(int i = 0; i < l->h*l->w; ++i){
                 int in_index = i + l->h*l->w*(k + b*l->c);
                 delta[in_index] = temp / (l->h*l->w);

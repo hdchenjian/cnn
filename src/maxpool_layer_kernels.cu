@@ -47,6 +47,15 @@ __global__ void forward_maxpool_layer_kernel(int n, int in_h, int in_w, int in_c
     indexes[out_index] = max_i;
 }
 
+extern "C" void forward_maxpool_layer_gpu(const maxpool_layer *l, float *in_gpu)
+{
+    
+    size_t n = l->out_h *l->out_w * l->c * l->batch;
+    forward_maxpool_layer_kernel<<<cuda_gridsize(n), BLOCK>>>(n, l->h, l->w, l->c, l->stride, l->size,
+                                                              l->pad, in_gpu, l->output_gpu, l->indexes_gpu);
+    check_error(cudaPeekAtLastError());
+}
+
 __global__ void backward_maxpool_layer_kernel(int n, int in_h, int in_w, int in_c, int stride, int size, int pad,
                                               float *delta, float *prev_delta, int *indexes)
 {
@@ -85,17 +94,10 @@ __global__ void backward_maxpool_layer_kernel(int n, int in_h, int in_w, int in_
     prev_delta[index] += d;
 }
 
-extern "C" void forward_maxpool_layer_gpu(const maxpool_layer *l, float *in_gpu)
-{
-    
-    size_t n = l->out_h *l->out_w * l->c * l->batch;
-    forward_maxpool_layer_kernel<<<cuda_gridsize(n), BLOCK>>>(n, l->h, l->w, l->c, l->stride, l->size,
-                                                              l->pad, in_gpu, l->output_gpu, l->indexes_gpu);
-    check_error(cudaPeekAtLastError());
-}
-
 extern "C" void backward_maxpool_layer_gpu(const maxpool_layer *l, float *delta_gpu)
 {
+    cudaError_t status = cudaMemset(delta_gpu, 0, sizeof(float) * l->h*l->w*l->c*l->batch);
+    check_error(status);
     size_t n = l->h*l->w*l->c*l->batch;
     backward_maxpool_layer_kernel<<<cuda_gridsize(n), BLOCK>>>(n, l->h, l->w, l->c, l->stride, l->size,
                                                                l->pad, l->delta_gpu, delta_gpu, l->indexes_gpu);

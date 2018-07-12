@@ -40,7 +40,7 @@ void fill_truth(char *path, char **labels, int classes, int *truth_label_index)
 }
 
 void load_csv_images(char *filename, char **labels, int classes, int train_set_size, int image_size, float *image_all,
-                     int *truth_lable_all, float hue, float saturation, float exposure)
+                     int *truth_lable_all, float hue, float saturation, float exposure, int test)
 {
     FILE *fp = fopen(filename, "r");
     if(!fp) file_error(filename);
@@ -62,7 +62,7 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
         crop.h = h;
         crop.c = 1;
         crop.data = image_all + n * image_size;
-        if(crop.c == 3){
+        if(crop.c == 3 && test == 0) {      // 0: train, 1: valid, 2: test
             random_distort_image(crop, hue, saturation, exposure);
         }
         normalize_array(image_all + n * image_size, image_size);
@@ -99,13 +99,14 @@ int *get_random_index(int train_set_size, int train_set_size_real)
 }
 
 batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, int classes, int train_set_size,
-        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
+                                int *batch_num_return, int w, int h, int c, float hue, float saturation,
+                                float exposure, int test)
 {
     int image_size = h * w * c;
     float *image_all = calloc(train_set_size * image_size, sizeof(float));
     int *truth_lable_all = calloc(train_set_size, sizeof(int));
     load_csv_images(filename, labels, classes, train_set_size, image_size, image_all, truth_lable_all,
-                    hue, saturation, exposure);
+                    hue, saturation, exposure, test);
 
     int train_set_size_real = 0;
     if(train_set_size % batch_size == 0) {
@@ -126,9 +127,14 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
         train_data[i].data = calloc(batch_size * image_size, sizeof(float));
         train_data[i].truth_label_index = calloc(batch_size, sizeof(int));
         for(int j = 0; j < batch_size; ++j){
-            //printf("%d ", index[i * batch_size + j]);
-            memcpy(train_data[i].data + j * image_size, image_all + image_size * index[i * batch_size + j], image_size * sizeof(float));
-            train_data[i].truth_label_index[j] = truth_lable_all[index[i * batch_size + j]];
+            int image_index = 0;
+            if(test == 0) {      // 0: train, 1: valid, 2: test
+                image_index = index[i * batch_size + j];
+            } else {
+                image_index = i * batch_size + j;
+            }
+            memcpy(train_data[i].data + j * image_size, image_all + image_size * image_index, image_size * sizeof(float));
+            train_data[i].truth_label_index[j] = truth_lable_all[image_index];
         }
     }
     free_ptr(index);
