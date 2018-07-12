@@ -517,6 +517,11 @@ void update_network_gpu(network *net)
 
 void train_network_batch(network *net, batch b)
 {
+    if(net->correct_num_count > 1000){
+        net->correct_num_count = 0;
+        net->correct_num = 0;
+    }
+
     net->truth_label_index = b.truth_label_index;
 #ifdef GPU
     cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
@@ -531,10 +536,6 @@ void train_network_batch(network *net, batch b)
 #endif
     net->seen += net->batch;
     net->correct_num_count += net->batch;
-    if(net->correct_num_count > 50 * net->batch){
-        net->correct_num_count = 0;
-        net->correct_num = 0;
-    }
     net->batch_train += 1;
 }
 
