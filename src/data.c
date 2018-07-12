@@ -138,7 +138,8 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
 }
 
 batch *load_image_to_memory(char **paths, int batch_size, char **labels, int classes, int train_set_size,
-        int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure)
+                            int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure,
+                            int flip, float mean_value, float scale, int test)
 {
     double time = what_time_is_it_now();
     int train_set_size_real = 0;
@@ -160,13 +161,30 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
         train_data[i].data = calloc(batch_size * image_size, sizeof(float));
         train_data[i].truth_label_index = calloc(batch_size, sizeof(int));
         for(int j = 0; j < batch_size; ++j){
-            //printf("%d ", index[i * batch_size + j]);
-            image img = load_image(paths[index[i * batch_size + j]], w, h, c);
-            random_distort_image(img, hue, saturation, exposure);
+            char *image_path = NULL;
+            if(test == 0) {      // 0: train, 1: valid, 2: test
+                image_path = paths[index[i * batch_size + j]];
+            } else {
+                image_path = paths[i * batch_size + j];
+            }
+            image img = load_image(image_path, w, h, c);
+            if(test == 0) {      // 0: train, 1: valid, 2: test
+                if(flip){
+                    if(rand() % 2){
+                        flip_image(img);
+                    }
+                }
+                if(mean_value > 0.001){
+                    for(int k = 0; k < image_size; ++k){
+                        img.data[k] = (img.data[k] - mean_value) * scale;
+                    }
+                }
+                random_distort_image(img, hue, saturation, exposure);
+            }
             memcpy(train_data[i].data + j * image_size, img.data, image_size * sizeof(float));
             free_image(img);
             //normalize_array(b.data + i * image_size, image_size);
-            fill_truth(paths[index[i * batch_size + j]], labels, classes, train_data[i].truth_label_index + j);
+            fill_truth(image_path, labels, classes, train_data[i].truth_label_index + j);
         }
     }
     free_ptr(index);

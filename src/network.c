@@ -202,6 +202,14 @@ void forward_network(network *net, float *input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input, net->workspace, net->test);
             input = layer->output;
+            /*if(i == 0){
+                int num = 5;
+                for(int b = 0; b < num; ++b){
+                    printf("%d %f\n", b, input[b]);
+                }
+            }
+            */
+
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer(layer, input);
@@ -397,6 +405,17 @@ void forward_network_gpu(network *net, float *input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
             input = layer->output_gpu;
+            /*
+            if(i == 0){
+                int num = 5;
+                float *input_temp = calloc(num, sizeof(float));
+                cuda_pull_array(layer->rolling_mean_gpu, input_temp, num);
+                for(int b = 0; b < num; ++b){
+                    printf("%d %f\n", b, input_temp[b]);
+                }
+            }
+            */
+            
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer_gpu(layer, input);

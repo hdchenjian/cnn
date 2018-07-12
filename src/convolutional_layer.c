@@ -44,6 +44,12 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->batch_normalize = batch_normalize;
     layer->pad = pad;
     if(batch_normalize){
+        layer->scales = calloc(n, sizeof(float));
+        layer->scale_updates = calloc(n, sizeof(float));
+        for(int i = 0; i < n; ++i){
+            layer->scales[i] = 1;
+        }
+
         layer->mean = calloc(n, sizeof(float));
         layer->variance = calloc(n, sizeof(float));
 
@@ -53,7 +59,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         layer->rolling_mean = calloc(n, sizeof(float));
         layer->rolling_variance = calloc(n, sizeof(float));
         layer->x = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
-        //layer->x_norm = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+        layer->x_norm = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     }
     size_t workspace_size_local = (size_t)(layer->out_h*layer->out_w*size*size*c*sizeof(float));
     if (workspace_size_local > *workspace_size) *workspace_size = workspace_size_local;
@@ -69,6 +75,8 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->output_gpu = cuda_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
 
     if(batch_normalize){
+        layer->scales_gpu = cuda_make_array(layer->scales, n);
+        layer->scale_updates_gpu = cuda_make_array(layer->scale_updates, n);
         layer->mean_gpu = cuda_make_array(layer->mean, n);
         layer->mean_delta_gpu = cuda_make_array(layer->mean, n);
         layer->variance_delta_gpu = cuda_make_array(layer->variance, n);
@@ -76,6 +84,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         layer->rolling_mean_gpu = cuda_make_array(layer->mean, n);
         layer->rolling_variance_gpu = cuda_make_array(layer->variance, n);
         layer->x_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+        layer->x_norm_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
     }
 #endif
     return layer;
@@ -146,6 +155,18 @@ void col2im_cpu(float* data_col, int channels,  int height,  int width, int ksiz
     }
 }
 
+void scale_bias(float *output, float *scales, int batch, int n, int size)
+{
+    int i,j,b;
+    for(b = 0; b < batch; ++b){
+        for(i = 0; i < n; ++i){
+            for(j = 0; j < size; ++j){
+                output[(b*n + i)*size + j] *= scales[i];
+            }
+        }
+    }
+}
+
 void forward_batchnorm_layer(const convolutional_layer *layer, int test)
 {
     if(0 == test){    // 0: train, 1: valid, 2: test
@@ -159,10 +180,12 @@ void forward_batchnorm_layer(const convolutional_layer *layer, int test)
         axpy_cpu(layer->n, .01, layer->variance, 1, layer->rolling_variance, 1);
 
         normalize_cpu(layer->output, layer->mean, layer->variance, layer->batch, layer->n, layer->out_h*layer->out_w);
+        memcpy(layer->x_norm, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
     } else {
         normalize_cpu(layer->output, layer->rolling_mean, layer->rolling_variance,
-                layer->batch, layer->n, layer->out_h*layer->out_w);
+                      layer->batch, layer->n, layer->out_h*layer->out_w);
     }
+    scale_bias(layer->output, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
 }
 
 void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test)
@@ -229,6 +252,7 @@ void  variance_delta_cpu(float *x, float *delta, float *mean, float *variance, i
         variance_delta[i] *= -.5 * pow(variance[i] + .00001f, (float)(-3./2.));
     }
 }
+
 void normalize_delta_cpu(float *x, float *mean, float *variance, float *mean_delta, float *variance_delta,
                          int batch, int filters, int spatial, float *delta)
 {
@@ -244,6 +268,21 @@ void normalize_delta_cpu(float *x, float *mean, float *variance, float *mean_del
     }
 }
 
+void backward_scale_cpu(float *x_norm, float *delta, int batch, int n, int size, float *scale_updates)
+{
+    int i,b,f;
+    for(f = 0; f < n; ++f){
+        float sum = 0;
+        for(b = 0; b < batch; ++b){
+            for(i = 0; i < size; ++i){
+                int index = i + size*(f + n*b);
+                sum += delta[index] * x_norm[index];
+            }
+        }
+        scale_updates[f] += sum;
+    }
+}
+
 void backward_batchnorm_layer(const convolutional_layer *layer, int test)
 {
     if(0 != test){    // 0: train, 1: valid, 2: test
@@ -252,6 +291,9 @@ void backward_batchnorm_layer(const convolutional_layer *layer, int test)
         //layer->mean = layer->rolling_mean;
         //layer->variance = layer->rolling_variance;
     }
+    backward_scale_cpu(layer->x_norm, layer->delta, layer->batch, layer->n, layer->out_w*layer->out_h, layer->scale_updates);
+    scale_bias(layer->delta, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
+
     mean_delta_cpu(layer->delta, layer->variance, layer->batch, layer->n, layer->out_w*layer->out_h, layer->mean_delta);
     variance_delta_cpu(layer->x, layer->delta, layer->mean, layer->variance, layer->batch, layer->n,
             layer->out_w*layer->out_h, layer->variance_delta);
@@ -312,6 +354,13 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
 
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay)
 {
+    if(layer->batch_normalize){
+        for(int i = 0; i < layer->n; i ++){
+            layer->scales[i] += learning_rate / layer->batch * layer->scale_updates[i];
+            layer->scale_updates[i] *= momentum;
+        }
+    }
+
     for(int i = 0; i < layer->n; i ++){
         layer->biases[i] += learning_rate / layer->batch * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;

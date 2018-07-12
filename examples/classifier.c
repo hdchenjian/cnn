@@ -50,7 +50,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         train_set_size = plist->size;
         train_set_size = option_find_int(options, "train_num", train_set_size);
         all_train_data = load_image_to_memory(paths, net->batch, labels, net->classes, train_set_size, &batch_num,
-                                              net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+                                              net->w, net->h, net->c, net->hue, net->saturation, net->exposure,
+                                              net->flip, net->mean_value, net->scale, net->test);
     } else {
         plist = get_paths(train_list);
         paths = (char **)list_to_array(plist);
@@ -73,8 +74,15 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         batch train;
         if(0 == train_data_type) {
             int index = rand() % batch_num;
-            //index = 1;
             train = all_train_data[index];
+            /*printf("class: %d\n", train.truth_label_index[0]);
+            image tmp;
+            tmp.w = train.w;
+            tmp.h = train.h;
+            tmp.c = train.c;
+            tmp.data = train.data;
+            save_image_png(tmp, "input.jpg");
+            */
             train_network_batch(net, train);
         } else if(1 == train_data_type) {
             int index = rand() % batch_num;
@@ -149,7 +157,6 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     srand(seed);
 
     network *net = parse_network_cfg(cfgfile);
-    net->test = 1;      // 0: train, 1: valid, 2: test
     if(weightfile && weightfile[0] != 0){
         load_weights(net, weightfile);
     }
@@ -167,6 +174,9 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     char **paths = NULL;
     struct list *plist = NULL;
     int train_data_type = option_find_int(options, "train_data_type", 1);    //  0: csv, 1: load to memory
+    train_data_type = 1;
+    net->test = 1;      // 0: train, 1: valid, 2: test
+
     batch *all_valid_data = NULL;
     if(0 == train_data_type) {
         valid_set_size = option_find_int(options, "valid_num", 0);
@@ -178,7 +188,8 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         valid_set_size = plist->size;
         valid_set_size = option_find_int(options, "valid_num", valid_set_size);
         all_valid_data = load_image_to_memory(paths, net->batch, labels, net->classes, valid_set_size, &batch_num,
-                                              net->w, net->h, net->c, net->hue, net->saturation, net->exposure);
+                                              net->w, net->h, net->c, net->hue, net->saturation, net->exposure,
+                                              net->flip, net->mean_value, net->scale, net->test);
     } else {
         plist = get_paths(valid_list);
         paths = (char **)list_to_array(plist);
@@ -238,6 +249,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
                    count, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss);
         }
         count += 1;
+        //sleep(3);
     }
     fclose(fp);
     free_network(net);
