@@ -57,11 +57,8 @@ void im2col_gpu(float *im,
     int height_col = (height + 2 * pad - ksize) / stride + 1;
     int width_col = (width + 2 * pad - ksize) / stride + 1;
     int num_kernels = channels * height_col * width_col;
-    im2col_gpu_kernel<<<(num_kernels+BLOCK-1)/BLOCK,
-        BLOCK>>>(
-                num_kernels, im, height, width, ksize, pad,
-                stride, height_col,
-                width_col, data_col);
+    im2col_gpu_kernel<<<(num_kernels+BLOCK-1)/BLOCK, BLOCK>>>(num_kernels, im, height, width, ksize, pad,
+                                                              stride, height_col, width_col, data_col);
 }
 
 // src: https://github.com/BVLC/caffe/blob/master/src/caffe/util/im2col.cu
@@ -106,11 +103,8 @@ void col2im_gpu(float *data_col,
     int height_col = (height + 2 * pad - ksize) / stride + 1;
     int width_col = (width + 2 * pad - ksize) / stride + 1;
     int num_kernels = channels * height * width;
-    col2im_gpu_kernel<<<(num_kernels+BLOCK-1)/BLOCK,
-        BLOCK>>>(
-                num_kernels, data_col, height, width, ksize, pad,
-                stride, height_col,
-                width_col, data_im);
+    col2im_gpu_kernel<<<(num_kernels+BLOCK-1)/BLOCK, BLOCK>>>(num_kernels, data_col, height, width, ksize, pad,
+                                                              stride, height_col, width_col, data_im);
 }
 
 void forward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)

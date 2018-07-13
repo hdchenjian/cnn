@@ -36,7 +36,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     fprintf(
         stderr,
         "Convolutional:      %d x %d x %d inputs, %d weights size %d stride %d -> %d x %d x %d outputs %5.3f BFLOPs\n",
-		w,h,c, n, size, stride, layer->out_w, layer->out_h, n, layer->bflop);
+        w,h,c, n, size, stride, layer->out_w, layer->out_h, n, layer->bflop);
     layer->output = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     layer->delta  = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     layer->activation = activation;

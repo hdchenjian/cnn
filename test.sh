@@ -22,8 +22,14 @@
 #     ./darknet classifier train  cfg/lfw_small.data cfg/densenet201.cfg >> log_test
 # done
 
-for scale in '35' '40' '45' '50' '55' '60'; do
-    echo $scale `date` >> log_test
-    sed -i "s/margin_scale=.*/margin_scale=$scale/g" cfg/densenet201.cfg
-    ./darknet classifier train  cfg/lfw_small.data cfg/densenet201.cfg >> log_test
+# for scale in '35' '40' '45' '50' '55' '60'; do
+#     echo $scale `date` >> log_test
+#     sed -i "s/margin_scale=.*/margin_scale=$scale/g" cfg/densenet201.cfg
+#     ./darknet classifier train  cfg/lfw_small.data cfg/densenet201.cfg >> log_test
+# done
+
+for lr in '0.1' '0.05' '0.025' '0.01' '0.005' '0.001'; do
+    echo $lr `date` >> log_test
+    sed -i "s/learning_rate=.*/learning_rate=$lr/g" cfg/densenet.cfg
+    #./darknet classifier train  cfg/lfw_small.data cfg/densenet.cfg >> log_test
 done
