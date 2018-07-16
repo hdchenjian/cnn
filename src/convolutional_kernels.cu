@@ -143,6 +143,8 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         if (layer->size == 1){
             b = in + i * layer->w * layer->h * layer->c;
         } else {
+            cudaError_t status = cudaMemset(workspace, 0, sizeof(float) * n* k);
+            check_error(status);
             im2col_gpu(in + i * layer->w * layer->h * layer->c, layer->c, layer->h, layer->w, layer->size,
                        layer->stride, layer->pad, b);
         }
@@ -199,6 +201,8 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
         if(layer->size == 1){
             b = im;
         } else {
+            cudaError_t status = cudaMemset(workspace, 0, sizeof(float) * n* k);
+            check_error(status);
             im2col_gpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, layer->pad, b);
         }
         gemm_gpu(0,1,m,n,k,1,a,k,b,k,1,c,n);

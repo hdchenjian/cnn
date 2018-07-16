@@ -25,6 +25,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         nets[i] = parse_network_cfg(cfgfile);;
     }
     network *net = nets[0];
+    net->output_layer = net->n - 1;
     if(weightfile && weightfile[0] != 0){
         load_weights(net, weightfile);
     }
@@ -200,7 +201,10 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     fprintf(stderr, "valid_set_size: %d, net->classes: %d, net->batch: %d, batch_num: %d, train_data_type: %d\n",
             valid_set_size, net->classes, net->batch, batch_num, train_data_type);
     // when net->batch != 1, train.data may can not match in last batch, such as net->batch = 2, valid_set_size = 11
-    if(net->batch != 1) printf("\n\nerror: net->batch != 1\n\n");
+    if(net->batch != 1){
+        printf("\n\nerror: net->batch != 1\n\n");
+        exit(-1);
+    }
 
     float avg_loss = -1;
     int count = 0;
@@ -230,6 +234,14 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         float *network_output_gpu = get_network_layer_data(net, net->output_layer, 0, 1);
         float *network_output = malloc(network_output_size * sizeof(float));
         cuda_pull_array(network_output_gpu, network_output, network_output_size);
+
+        /*
+        char cuda_compare_error_string[128] = {0};
+        sprintf(cuda_compare_error_string, "\n%s", "validate_classifier output");
+        float *network_output_cpu = get_network_layer_data(net, net->output_layer, 0, 0);
+        cuda_compare(network_output_gpu, network_output_cpu, net->batch * network_output_size,
+                     cuda_compare_error_string);
+        */
 #endif
         for(int i = 0; i < network_output_size; i++){
             fprintf(fp, "%.19f ", network_output[i]);

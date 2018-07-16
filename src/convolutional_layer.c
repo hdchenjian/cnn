@@ -201,6 +201,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         if (layer->size == 1){
             b = in + i * layer->w * layer->h * layer->c;
         } else {
+            memset(workspace, 0, n*k*sizeof(float));
             im2col_cpu(in + i * layer->w * layer->h * layer->c,
                        layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
         }
@@ -336,6 +337,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
         if(layer->size == 1){
             b = im;
         } else {
+            memset(workspace, 0, n*k*sizeof(float));
             im2col_cpu(im, layer->c, layer->h, layer->w, layer->size, layer->stride, layer->pad, b);
         }
         gemm(0,1,m,n,k,1,a,k,b,k,1,c,n);

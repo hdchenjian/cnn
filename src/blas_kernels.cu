@@ -529,6 +529,7 @@ __global__ void specific_margin_add_kernel(int batch, int inputs, float *input, 
     if(i == truth_label_index_gpu[b]){
         if(input[b * inputs + truth_label_index_gpu[b]] > -label_specific_margin_bias){
             input[b * inputs + truth_label_index_gpu[b]] += label_specific_margin_bias;
+            //printf("exceed -label_specific_margin_bias %d", i);
         }
     }
     if(margin_scale > 0){
@@ -671,7 +672,11 @@ extern "C" void axpy_gpu_offset(int N, float ALPHA, float * X, int OFFX, int INC
 
 extern "C" void copy_gpu(int N, float * X, int INCX, float * Y, int INCY)
 {
-    copy_gpu_offset(N, X, 0, INCX, Y, 0, INCY);
+    if(INCX == 1 && INCY == 1){
+        cuda_mem_copy(Y, X, N);
+    } else {
+        copy_gpu_offset(N, X, 0, INCX, Y, 0, INCY);
+    }
 }
 
 extern "C" void mul_gpu(int N, float * X, int INCX, float * Y, int INCY)

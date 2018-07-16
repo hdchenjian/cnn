@@ -180,13 +180,14 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
                         flip_image(img);
                     }
                 }
-                if(mean_value > 0.001){
-                    for(int k = 0; k < image_size; ++k){
-                        img.data[k] = (img.data[k] - mean_value) * scale;
-                    }
-                }
                 random_distort_image(img, hue, saturation, exposure);
             }
+            if(mean_value > 0.001){
+                for(int k = 0; k < image_size; ++k){
+                    img.data[k] = (img.data[k] - mean_value) * scale;
+                }
+            }
+
             memcpy(train_data[i].data + j * image_size, img.data, image_size * sizeof(float));
             free_image(img);
             //normalize_array(b.data + i * image_size, image_size);
@@ -203,6 +204,7 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size, int w, int h, int c,
                    float hue, float saturation, float exposure, int flip, float mean_value, float scale, int test)
 {
+    static int test_index = 0;
     int image_size = h * w * c;
     batch b;
     b.w = w;
@@ -215,54 +217,35 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
 
     #pragma omp parallel for
     for(int i = 0; i < batch_size; ++i){
-        int index = rand() % train_set_size;
-        //printf("paths[index]: %s\n", paths[index]);
-        image img = load_image(paths[index], w, h, c);
+        int index = 0;
+        image img;
         if(test == 0) {      // 0: train, 1: valid, 2: test
+            index = rand() % train_set_size;
+            img = load_image(paths[index], w, h, c);
             if(flip){
                 if(rand() % 2){
                     flip_image(img);
                 }
             }
-            if(mean_value > 0.001){
-                for(int k = 0; k < image_size; ++k){
-                    img.data[k] = (img.data[k] - mean_value) * scale;
-                }
-            }
             random_distort_image(img, hue, saturation, exposure);
+        } else {
+            index = test_index;
+            //printf("index: %d %s %f %f\n", index, paths[index], mean_value, scale);
+            img = load_image(paths[index], w, h, c);
+            test_index += 1;
         }
+        if(mean_value > 0.001){
+            for(int k = 0; k < image_size; ++k){
+                img.data[k] = (img.data[k] - mean_value) * scale;
+            }
+        }
+
         memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
         free_image(img);
         //normalize_array(b.data + i * image_size, image_size);
         fill_truth(paths[index], labels, classes, b.truth_label_index + i);
     }
     return b;
-}
-
-void random_batch_in_threads(char **paths, int batch_size, char **labels, int classes, int train_set_size,
-                             int w, int h, int c, float hue, float saturation, float exposure)
-{
-    //load_args args;
-    int image_size = h * w * c;
-    batch b;
-    b.w = w;
-    b.h = h;
-    b.c = c;
-    b.n = batch_size;
-    b.data = calloc(batch_size * image_size, sizeof(float));
-    //b.truth = calloc(batch_size * classes, sizeof(float));
-    b.truth_label_index = calloc(batch_size, sizeof(int));
-
-    for(int i = 0; i < batch_size; ++i){
-        int index = rand() % train_set_size;
-        //printf("paths[index]: %s\n", paths[index]);
-        image img = load_image(paths[index], w, h, c);
-        random_distort_image(img, hue, saturation, exposure);
-        memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
-        free_image(img);
-        //normalize_array(b.data + i * image_size, image_size);
-        fill_truth(paths[index], labels, classes, b.truth_label_index + i);
-    }
 }
 
 char **get_labels(char *filename)

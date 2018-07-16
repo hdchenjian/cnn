@@ -408,7 +408,7 @@ void forward_network_gpu(network *net, float *input)
             if(i == 0){
                 int num = 5;
                 float *input_temp = calloc(num, sizeof(float));
-                cuda_pull_array(layer->rolling_mean_gpu, input_temp, num);
+                cuda_pull_array(input, input_temp, num);
                 for(int b = 0; b < num; ++b){
                     printf("%d %f\n", b, input_temp[b]);
                 }
@@ -644,6 +644,7 @@ void save_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
 #endif
     fwrite(l->biases, sizeof(float), l->n, fp);
     if (l->batch_normalize){
+        fwrite(l->scales, sizeof(float), l->n, fp);
         fwrite(l->rolling_mean, sizeof(float), l->n, fp);
         fwrite(l->rolling_variance, sizeof(float), l->n, fp);
     }
@@ -654,6 +655,7 @@ void load_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
 {
     fread(l->biases, sizeof(float), l->n, fp);
     if (l->batch_normalize){
+        fread(l->scales, sizeof(float), l->n, fp);
         fread(l->rolling_mean, sizeof(float), l->n, fp);
         fread(l->rolling_variance, sizeof(float), l->n, fp);
     }

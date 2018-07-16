@@ -1,6 +1,6 @@
 train_data_type = -1
 train  = /var/darknet/lfw_small/train.txt
-valid  = /var/darknet/lfw_small/train.txt
+valid  = /var/darknet/lfw_small/test.txt
 labels = /var/darknet/lfw_small/labels.txt
 backup = /var/darknet/weight
 top=1

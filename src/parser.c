@@ -356,7 +356,7 @@ void parse_net_options(struct list *options, network *net)
         net->steps = steps;
         net->num_steps = n;
     } else if(net->policy == POLY){
-        net->learning_rate_poly_power = option_find_int(options, "learning_rate_poly_power", 4);
+        net->learning_rate_poly_power = option_find_float(options, "learning_rate_poly_power", 4.0);
     }
     net->learning_rate_init = net->learning_rate;
 }
