@@ -2,11 +2,19 @@
 # -*- coding: utf-8 -*-
 
 import os
+import random
 
 def get_score(a, b):
     sum = 0.0
     for i in range(0, 512):
        sum += a[i] * b[i]
+    return sum
+
+def get_score(a, b, c, d):
+    sum = 0.0
+    for i in range(0, 512):
+       sum += a[i] * c[i]
+       sum += b[i] * d[i]
     return sum
 
 all_label = []
@@ -73,6 +81,14 @@ for _label in range(0, len(all_label)):
     #print negtive_paire, len(negtive_paire)
     #exit()
 
+negtive_num = 5000
+negtive_paire_sample = []
+strip_num = len(negtive_paire) / negtive_num
+for i in range(0, negtive_num):
+    negtive_paire_sample.append(negtive_paire[i * strip_num + random.randint(0, strip_num)])
+negtive_paire = negtive_paire_sample
+print negtive_paire
+
 features = []
 f = open("features.txt", 'rU')
 for line in f.readlines():
@@ -85,21 +101,29 @@ for line in f.readlines():
     features.append(line)
 f.close()
 
-threshold = -1
-while threshold < 1:
+features_r = []
+f = open("features_r.txt", 'rU')
+for line in f.readlines():
+    line = line.strip('\n')
+    line = line.split(' ')
+    line = line[:-1]
+    for i in range(0, len(line)):
+        line[i] = float(line[i])
+    #print line, len(line)
+    features_r.append(line)
+f.close()
+
+threshold = -0.86
+while threshold < 0.9:
     print "threshold: ", threshold
     right_count = 0
     max_score = None
     min_score = None
     for item in positive_paire:
-        score = get_score(features[item[0]], features[item[1]])
-        if max_score is None:
+        score = get_score(features[item[0]], features[item[1]], features_r[item[0]], features_r[item[1]])
+        if max_score is None or score > max_score:
             max_score = score
-        if min_score is None:
-            min_score = score
-        if score > max_score:
-            max_score = score
-        if score < min_score:
+        if min_score is None or score < min_score:
             min_score = score
         #print score
         if score >= threshold:
@@ -107,14 +131,10 @@ while threshold < 1:
     
     right_count_negtive = 0
     for item in negtive_paire:
-        score = get_score(features[item[0]], features[item[1]])
-        if max_score is None:
+        score = get_score(features[item[0]], features[item[1]], features_r[item[0]], features_r[item[1]])
+        if max_score is None or score > max_score:
             max_score = score
-        if min_score is None:
-            min_score = score
-        if score > max_score:
-            max_score = score
-        if score < min_score:
+        if min_score is None or score < min_score:
             min_score = score
         #print score
         if score < threshold:
@@ -123,5 +143,5 @@ while threshold < 1:
     print "negtive", right_count_negtive, len(negtive_paire), float(right_count_negtive) / len(negtive_paire)
     print "total", right_count + right_count_negtive, len(negtive_paire) + len(positive_paire), float(right_count + right_count_negtive) / (len(negtive_paire) + len(positive_paire))
     
-    threshold += 0.05
+    threshold += 0.1
     print '\n'

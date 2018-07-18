@@ -107,15 +107,17 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         }
         int epoch_old = net->epoch;
         net->epoch = net->seen / train_set_size;
-        float loss = 0;
-        if(avg_loss == -1) avg_loss = loss;
-        loss = net->loss;
+        float loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
             fprintf(stderr, "\n\nloss too large: %f, exit\n", loss);
             //continue;
             exit(-1);
         }
-        avg_loss = avg_loss*.9 + loss*.1;
+        if(avg_loss < 0){
+            avg_loss = loss;
+        } else {
+            avg_loss = avg_loss*.9 + loss*.1;
+        }
         if(net->correct_num / (net->correct_num_count + 0.00001F) > max_accuracy){
             max_accuracy = net->correct_num / (net->correct_num_count + 0.00001F);
             max_accuracy_batch = net->batch_train;
@@ -248,14 +250,16 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         }
         fprintf(fp, "\n");
 
-        float loss = 0;
-        if(avg_loss == -1) avg_loss = loss;
-        loss = net->loss;
+        float loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
             fprintf(stderr, "\n\nloss too large: %f, exit\n", loss);
             exit(-1);
         }
-        avg_loss = avg_loss*.9 + loss*.1;
+        if(avg_loss < 0){
+            avg_loss = loss;
+        } else {
+            avg_loss = avg_loss*.9 + loss*.1;
+        }
         if(1 || count == valid_set_size - 1){
             printf("count: %d, accuracy: %.3f, loss: %f, avg_loss: %f\n",
                    count, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss);
