@@ -41,6 +41,9 @@ void free_network(network *net)
             if(layer->rolling_mean) free_ptr(layer->rolling_mean);
             if(layer->rolling_variance) free_ptr(layer->rolling_variance);
             if(layer->x) free_ptr(layer->x);
+            if(layer->bottom_data) free_ptr(layer->bottom_data);
+            if(layer->slope) free_ptr(layer->slope);
+            if(layer->slope_updates) free_ptr(layer->slope_updates);
 #ifdef GPU
             if(layer->weights_gpu) cuda_free(layer->weights_gpu);
             if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
@@ -55,6 +58,9 @@ void free_network(network *net)
             if(layer->rolling_mean_gpu) cuda_free(layer->rolling_mean_gpu);
             if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
             if(layer->x_gpu) cuda_free(layer->x_gpu);
+            if(layer->bottom_data_gpu) cuda_free(layer->bottom_data_gpu);
+            if(layer->slope_gpu) cuda_free(layer->slope_gpu);
+            if(layer->slope_updates_gpu) cuda_free(layer->slope_updates_gpu);
 #endif
             free_ptr(layer);
         }else if(net->layers_type[i] == CONNECTED){
@@ -414,7 +420,6 @@ void forward_network_gpu(network *net, float *input)
                 }
             }
             */
-            
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer_gpu(layer, input);
@@ -544,6 +549,8 @@ void train_network_batch(network *net, batch b)
 #ifdef GPU
     cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
     cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
+    //forward_network(net, b.data);
+    //backward_network(net, b.data);
     forward_network_gpu(net, net->input_gpu);
     backward_network_gpu(net, net->input_gpu);
     update_network_gpu(net);
@@ -624,11 +631,14 @@ image get_network_image_layer(network *net, int i)
         shortcut_layer *layer = (shortcut_layer *)net->layers[i];
         return get_shortcut_image(layer);
     } else if(net->layers_type[i] == ROUTE){
-    	route_layer *layer = (route_layer *)net->layers[i];
+        route_layer *layer = (route_layer *)net->layers[i];
         return get_route_image(layer);
     } else if(net->layers_type[i] == AVGPOOL){
-    	avgpool_layer *layer = (avgpool_layer *)net->layers[i];
+        avgpool_layer *layer = (avgpool_layer *)net->layers[i];
         return get_avgpool_image(layer);
+    } else if(net->layers_type[i] == CONNECTED){
+        connected_layer *layer = (connected_layer *)net->layers[i];
+        return get_connected_image(layer);
     } else {
         printf("get_network_image_layer layers_type error, layer: %d\n", i);
         exit(-1);

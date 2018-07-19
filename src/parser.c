@@ -42,8 +42,24 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     }
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
     int pad = option_find_int(options, "pad", 0);
-    convolutional_layer *layer = make_convolutional_layer(
-        h, w, c, n, size, stride, net->batch, activation, &(net->workspace_size), batch_normalize, pad);
+    float lr_mult = option_find_float(options, "lr_mult", 1);
+    float lr_decay_mult = option_find_float(options, "lr_decay_mult", 0);
+    float bias_mult = option_find_float(options, "bias_mult", 1);
+    float bias_decay_mult = option_find_float(options, "bias_decay_mult", 0);
+    char *weight_filler_str = option_find_str(options, "weight_filler", "xavier");
+    int weight_filler = 1;
+    if(strcmp(weight_filler_str, "xavier") == 0){
+        weight_filler = 1;
+    } else if(strcmp(weight_filler_str, "gaussian") == 0){
+        weight_filler = 2;
+    } else{
+        weight_filler = 1;
+    }
+    float sigma = option_find_float(options, "weight_filler_std", 1);
+    convolutional_layer *layer = make_convolutional_layer(h, w, c, n, size, stride, net->batch, activation,
+                                                          &(net->workspace_size), batch_normalize, pad,
+                                                          lr_mult, lr_decay_mult, bias_mult, bias_decay_mult,
+                                                          weight_filler, sigma);
     return layer;
 }
 
@@ -60,7 +76,24 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
     }
     int weight_normalize =option_find_int(options, "weight_normalize", 0);
     int bias_term = option_find_int(options, "bias_term", 1);
-    connected_layer *layer = make_connected_layer(input, output, net->batch, activation, weight_normalize, bias_term);
+
+    float lr_mult = option_find_float(options, "lr_mult", 1);
+    float lr_decay_mult = option_find_float(options, "lr_decay_mult", 0);
+    float bias_mult = option_find_float(options, "bias_mult", 1);
+    float bias_decay_mult = option_find_float(options, "bias_decay_mult", 0);
+    char *weight_filler_str = option_find_str(options, "weight_filler", "xavier");
+    int weight_filler = 1;
+    if(strcmp(weight_filler_str, "xavier") == 0){
+        weight_filler = 1;
+    } else if(strcmp(weight_filler_str, "gaussian") == 0){
+        weight_filler = 2;
+    } else{
+        weight_filler = 1;
+    }
+    float sigma = option_find_float(options, "weight_filler_std", 1);
+    connected_layer *layer = make_connected_layer(input, output, net->batch, activation, weight_normalize, bias_term,
+                                                  lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
+                                                  sigma);
     return layer;
 }
 
@@ -315,7 +348,7 @@ void parse_net_options(struct list *options, network *net)
     net->hue = option_find_float(options, "hue", 0);
     net->flip = option_find_float(options, "flip", 0);
     net->mean_value = option_find_float(options, "mean_value", 0);
-    net->mean_value /= 255.0F;  // scale image to [0, 1] when load image
+    //net->mean_value /= 255.0F;  // scale image to [0, 1] when load image
     net->scale = option_find_float(options, "scale", 0);
 
     net->max_batches = option_find_int(options, "max_batches", 0);
@@ -410,10 +443,9 @@ network *parse_network_cfg(char *filename)
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[dropout]")==0){
             dropout_layer *layer = parse_dropout(options, net, count);
-#ifndef GPU
             layer->output = get_network_layer_data(net, count - 1, 0, 0);  // reuse previous layer output and delta
             layer->delta = get_network_layer_data(net, count - 1, 1, 0);
-#else
+#ifdef GPU
             layer->output_gpu = get_network_layer_data(net, count - 1, 0, 1);
             layer->delta_gpu = get_network_layer_data(net, count - 1, 1, 1);
 #endif

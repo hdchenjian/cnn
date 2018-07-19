@@ -51,6 +51,7 @@ void print_statistics(float *a, int n);
 int int_index(int *a, int val, int n);
 
 float rand_normal();
+float rand_normal_me(float mean, float sigma);
 float rand_uniform(float min, float max);
 
 void top_k(float *a, int n, int k, int *index);

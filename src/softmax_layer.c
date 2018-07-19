@@ -131,7 +131,7 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
             }
         }
         net->correct_num += correct_num;
-        /*printf("correct_num: %d\n", correct_num);
+        printf("correct_num: %d\n", correct_num);
 
         float *input_temp = calloc(layer->inputs*layer->batch, sizeof(float));
         cuda_pull_array(layer->output_gpu, input_temp, layer->batch*layer->inputs);
@@ -152,7 +152,7 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
         }
         printf("correct_num: %d\n", correct_num1);
         if(correct_num1 != correct_num) exit(-1);
-        */
+        
         //softmax_x_ent_gpu(layer->batch*layer->inputs, layer->output_gpu, net->truth_gpu, layer->delta_gpu, layer->loss_gpu);
         l2_gpu(layer->batch, layer->inputs, layer->output_gpu, net->truth_label_index_gpu, layer->delta_gpu, layer->loss_gpu);
         cuda_pull_array(layer->loss_gpu, layer->loss, layer->batch*layer->inputs);

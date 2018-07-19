@@ -13,6 +13,8 @@ char *get_activation_string(ACTIVATION a)
             return "loggy";
         case RELU:
             return "relu";
+        case PRELU:
+            return "prelu";
         case ELU:
             return "elu";
         case RELIE:
@@ -38,6 +40,7 @@ ACTIVATION get_activation(char *s)
     if (strcmp(s, "logistic")==0) return LOGISTIC;
     if (strcmp(s, "loggy")==0) return LOGGY;
     if (strcmp(s, "relu")==0) return RELU;
+    if (strcmp(s, "prelu")==0) return PRELU;
     if (strcmp(s, "elu")==0) return ELU;
     if (strcmp(s, "relie")==0) return RELIE;
     if (strcmp(s, "plse")==0) return PLSE;
@@ -62,6 +65,9 @@ float activate(float x, ACTIVATION a)
         case LOGGY:
             return loggy_activate(x);
         case RELU:
+            return relu_activate(x);
+        case PRELU:
+            printf("activate error: PRELU not implement, exit\n");
             return relu_activate(x);
         case ELU:
             return elu_activate(x);
@@ -103,6 +109,9 @@ float gradient(float x, ACTIVATION a)
         case LOGGY:
             return loggy_gradient(x);
         case RELU:
+            return relu_gradient(x);
+        case PRELU:
+            printf("gradient error: PRELU not implement, exit\n");
             return relu_gradient(x);
         case ELU:
             return elu_gradient(x);

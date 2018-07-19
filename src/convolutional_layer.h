@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "activations.h"
 #include "gemm.h"
@@ -20,18 +21,22 @@
 
 typedef struct {
     int h, w, c, n, size, stride, batch, out_h, out_w, batch_normalize, pad;
-    float bflop;
+    float bflop, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult;
     float *weights, *weight_updates, *biases, *bias_updates, *delta, *output;
     float *mean, *mean_delta, *variance, *variance_delta, *rolling_mean, *rolling_variance, *x, *x_norm, *scales, *scale_updates;
     float *mean_gpu, *mean_delta_gpu, *variance_gpu, *variance_delta_gpu, *rolling_mean_gpu, *rolling_variance_gpu, *x_gpu,
         *x_norm_gpu, *scales_gpu, *scale_updates_gpu;
     float *weights_gpu, *weight_updates_gpu, *biases_gpu, *bias_updates_gpu, *delta_gpu, *output_gpu;
     ACTIVATION activation;
+    float *bottom_data, *slope, *slope_updates;
+    float *bottom_data_gpu, *slope_gpu, *slope_updates_gpu;
 } convolutional_layer;
 
 image get_convolutional_image(const convolutional_layer *layer);
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
-        ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad);
+                                              ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad,
+                                              float lr_mult, float lr_decay_mult, float bias_mult, float bias_decay_mult,
+                                              int weight_filler, float sigma);
 void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test);
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace, int test);
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay);

@@ -101,9 +101,9 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             tmp.h = train.h;
             tmp.c = train.c;
             tmp.data = train.data;
-            save_image_png(tmp, "input.jpg");*/
+            save_image_png(tmp, "input.jpg");
             train_network_batch(net, train);
-            free_batch(&train);
+            free_batch(&train);*/
         }
         int epoch_old = net->epoch;
         net->epoch = net->seen / train_set_size;
@@ -138,6 +138,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
     save_weights(net, buff);
     free_network(net);
+    printf("max_accuracy_batch: %d\n", max_accuracy_batch);
     if(all_train_data){
         for(int i = 0; i < batch_num; i++){
             free_batch(all_train_data + i);

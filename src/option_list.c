@@ -41,7 +41,7 @@ char *option_find_str(struct list *l, char *key, char *def)
 {
     char *v = option_find(l, key);
     if(v) return v;
-    if(def) fprintf(stderr, "%s: Using default '%s'\n", key, def);
+    //if(def) fprintf(stderr, "%s: Using default '%s'\n", key, def);
     return def;
 }
 

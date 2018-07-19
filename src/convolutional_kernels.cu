@@ -131,6 +131,15 @@ void forward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
     scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->n, layer->out_h*layer->out_w);
 }
 
+__global__ void activate_prelu_array_kernel(float *x, float *slope_gpu, int n, int channel, int dim)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i < n){
+        int cc = (i / dim) % channel;
+        x[i] = fmaxf(x[i], 0.0F) + slope_gpu[cc] * fminf(x[i], 0.0F);
+    }
+}
+
 void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test)
 {
     int m = layer->n;
@@ -154,7 +163,15 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         forward_batchnorm_layer_gpu(layer, test);
     }
     add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
-    activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
+    if(layer->activation == PRELU){
+        copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->bottom_data_gpu, 1);
+        int size = layer->batch * layer->out_h * layer->out_w * layer->n;
+        int dim = layer->out_h * layer->out_w;
+        activate_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->output_gpu, layer->slope_gpu, size, layer->n, dim);
+        check_error(cudaPeekAtLastError());
+    } else {
+        activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
+    }
 
     /*char cuda_compare_error_string[128] = {0};
     sprintf(cuda_compare_error_string, "\n%s", "forward_convolutional_layer output");
@@ -179,11 +196,56 @@ void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
                         layer->variance_delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h, layer->delta_gpu);
 }
 
+__global__ void backward_prelu_slope_kernel(float *delta, float *bottom_data, float *slope_updates, int channel,
+                                            int dim, int batch)
+{
+    __shared__ float part[BLOCK];
+    int i,b;
+    int filter = blockIdx.x;
+    int p = threadIdx.x;
+    float sum = 0;
+    for(b = 0; b < batch; ++b){
+        for(i = 0; i < dim; i += BLOCK){
+            int index = p + i + dim*(filter + channel*b);
+            sum += (p+i < dim) ? delta[index] * bottom_data[index] * (bottom_data[index] <= 0) : 0;
+        }
+    }
+    part[p] = sum;
+    __syncthreads();
+    if (p == 0) {
+        for(i = 0; i < BLOCK; ++i){
+            slope_updates[filter] += part[i];
+        }
+    }
+}
+
+
+__global__ void gradient_prelu_array_kernel(float *delta, float *bottom_data, float *slope_gpu,
+                                            int n, int channel, int dim)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i < n){
+        int cc = (i / dim) % channel;
+        delta[i] = delta[i] * ((bottom_data[i] > 0) + slope_gpu[cc] * (bottom_data[i] <= 0));
+    }
+}
+
 void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *input, float *delta,
         float *workspace, int test)
 {
-    gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,
-                       layer->activation, layer->delta_gpu);
+    if(layer->activation == PRELU){
+        int size = layer->batch * layer->out_h * layer->out_w * layer->n;
+        int dim = layer->out_h * layer->out_w;
+        backward_prelu_slope_kernel<<<layer->n, BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu,
+                                                         layer->slope_updates_gpu, layer->n, dim, layer->batch);
+        check_error(cudaPeekAtLastError());
+        gradient_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu, layer->slope_gpu,
+                                                                    size, layer->n, dim);
+        check_error(cudaPeekAtLastError());
+    } else {
+        gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,
+                           layer->activation, layer->delta_gpu);
+    }
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     if(layer->batch_normalize){
         backward_batchnorm_layer_gpu(layer, test);
@@ -230,16 +292,22 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
 void update_convolutional_layer_gpu(const convolutional_layer *layer, float learning_rate, float momentum, float decay)
 {
     int size = layer->size*layer->size*layer->c*layer->n;
-    axpy_gpu(size, -decay*layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
-    axpy_gpu(size, learning_rate/layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
+    axpy_gpu(size, -decay * layer->lr_decay_mult *layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
+    axpy_gpu(size, learning_rate * layer->lr_mult / layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
     scal_gpu(size, momentum, layer->weight_updates_gpu, 1);
 
-    axpy_gpu(layer->n, learning_rate/layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
+    axpy_gpu(layer->n, -decay * layer->bias_decay_mult *layer->batch, layer->biases_gpu, 1, layer->bias_updates_gpu, 1);
+    axpy_gpu(layer->n, learning_rate * layer->bias_mult / layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
     scal_gpu(layer->n, momentum, layer->bias_updates_gpu, 1);
 
     if(layer->batch_normalize){
         axpy_gpu(layer->n, learning_rate/layer->batch, layer->scale_updates_gpu, 1, layer->scales_gpu, 1);
         scal_gpu(layer->n, momentum, layer->scale_updates_gpu, 1);
+    }
+
+    if(layer->activation == PRELU){
+        axpy_gpu(layer->n, learning_rate/layer->batch, layer->slope_updates_gpu, 1, layer->slope_gpu, 1);
+        scal_gpu(layer->n, momentum, layer->slope_updates_gpu, 1);
     }
 }
 

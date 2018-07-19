@@ -236,7 +236,8 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
         }
         if(mean_value > 0.001){
             for(int k = 0; k < image_size; ++k){
-                img.data[k] = (img.data[k] - mean_value) * scale;
+                // load_image_stb divide 255.0F
+                img.data[k] = (img.data[k] * 255.0F - mean_value) * scale;
             }
         }
 

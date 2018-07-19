@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "activations.h"
 #include "gemm.h"
+#include "image.h"
 
 #ifdef GPU
     #include "cuda.h"
@@ -23,13 +24,16 @@ typedef struct{
     float *weights, *weight_updates, *biases, *bias_updates;
     float *weights_gpu, *weight_updates_gpu, *biases_gpu, *bias_updates_gpu, *delta_gpu, *output_gpu;
     ACTIVATION activation;
+    float lr_mult, lr_decay_mult, bias_mult, bias_decay_mult;
 } connected_layer;
 
-connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation,
-                                      int weight_normalize, int bias_term);
+connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation, int weight_normalize,
+                                      int bias_term, float lr_mult, float lr_decay_mult, float bias_mult,
+                                      float bias_decay_mult, int weight_filler, float sigma);
 void forward_connected_layer(connected_layer *layer, float *input);
 void backward_connected_layer(connected_layer *layer, float *input, float *delta);
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay);
+image get_connected_image(const connected_layer *layer);
 
 #ifdef GPU
 void forward_connected_layer_gpu(connected_layer *layer, float *input);

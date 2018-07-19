@@ -10,9 +10,15 @@ image get_convolutional_image(const convolutional_layer *layer)
 }
 
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
-        ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad)
+                                              ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad,
+                                              float lr_mult, float lr_decay_mult, float bias_mult, float bias_decay_mult,
+                                              int weight_filler, float sigma)
 {
     convolutional_layer *layer = calloc(1, sizeof(convolutional_layer));
+    layer->lr_mult = lr_mult;
+    layer->lr_decay_mult = lr_decay_mult;
+    layer->bias_mult = bias_mult;
+    layer->bias_decay_mult = bias_decay_mult;
     layer->h = h;
     layer->w = w;
     layer->c = c;
@@ -21,10 +27,15 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->stride = stride;
     layer->batch = batch;
     layer->weights = calloc(c*n*size*size, sizeof(float));
-    float scale = sqrtf(2.0F/(size*size*c));
-    for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_normal();
-    //scale = 1.0F/(size*size*c);
-    //for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_uniform(0, 1);
+    if(weight_filler == 1){   // xavier
+        int scale = 1.0F/(size*size*c);
+        for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_uniform(-1, 1);
+    } else if(weight_filler == 2){   // gaussian
+        for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = rand_normal_me(0, sigma);
+    } else {
+        fprintf(stderr, "weight_filler not support\n");
+        exit(-1);
+    }
 
     layer->weight_updates = calloc(c*n*size*size, sizeof(float));
     layer->biases = calloc(n, sizeof(float));
@@ -40,6 +51,14 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->output = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     layer->delta  = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
     layer->activation = activation;
+    if(layer->activation == PRELU){
+        layer->bottom_data = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+        layer->slope = calloc(n, sizeof(float));
+        for(int i = 0; i < n; i++){
+            layer->slope[i] = 0.25F;
+        }
+        layer->slope_updates = calloc(n, sizeof(float));
+    }
 
     layer->batch_normalize = batch_normalize;
     layer->pad = pad;
@@ -85,6 +104,11 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         layer->rolling_variance_gpu = cuda_make_array(layer->variance, n);
         layer->x_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
         layer->x_norm_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+    }
+    if(layer->activation == PRELU){
+        layer->bottom_data_gpu = cuda_make_array(layer->bottom_data, batch * layer->out_h * layer->out_w * n);
+        layer->slope_gpu = cuda_make_array(layer->slope, n);
+        layer->slope_updates_gpu = cuda_make_array(layer->slope_updates, n);
     }
 #endif
     return layer;
@@ -188,6 +212,16 @@ void forward_batchnorm_layer(const convolutional_layer *layer, int test)
     scale_bias(layer->output, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
 }
 
+void activation_prelu(const convolutional_layer *layer){
+    memcpy(layer->bottom_data, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
+    int count = layer->batch * layer->out_h * layer->out_w * layer->n;
+    int dim = layer->out_h * layer->out_w;
+    for (int i = 0; i < count; ++i) {
+        int c = (i / dim) % layer->n;
+        layer->output[i] = fmaxf(layer->output[i], 0.0F) + layer->slope[c] * fminf(layer->output[i], 0.0F);
+      }
+}
+
 void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test)
 {
     int m = layer->n;
@@ -219,7 +253,11 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         }
     }
 
-    for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
+    if(layer->activation == PRELU){
+        activation_prelu(layer);
+    } else {
+        for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
+    }
 
     /*
     float max = -FLT_MAX, min = FLT_MAX;
@@ -314,8 +352,18 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
                                   float *workspace, int test)
 {
     int outputs = layer->batch * layer->out_h * layer->out_w * layer->n;
-    for(int i = 0; i < outputs; ++i){
-        layer->delta[i] *= gradient(layer->output[i], layer->activation);
+    if(layer->activation == PRELU){
+        int count = layer->batch * layer->out_h * layer->out_w * layer->n;
+        int dim = layer->out_h * layer->out_w;
+        for (int i = 0; i < count; ++i) {
+            int cc = (i / dim) % layer->n;
+            layer->slope_updates[cc] += layer->delta[i] * layer->bottom_data[i] * (layer->bottom_data[i] <= 0);
+            layer->delta[i] = layer->delta[i] * ((layer->bottom_data[i] > 0) + layer->slope[cc] * (layer->bottom_data[i] <= 0));
+        }
+    } else {
+        for(int i = 0; i < outputs; ++i){
+            layer->delta[i] *= gradient(layer->output[i], layer->activation);
+        }
     }
     for(int j = 0; j < layer->batch; ++j){
         for(int i = 0; i < layer->n; ++i){
@@ -371,15 +419,23 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
         }
     }
 
+    if(layer->activation == PRELU){
+        for(int i = 0; i < layer->n; i ++){
+            layer->slope[i] += learning_rate / layer->batch * layer->slope_updates[i];
+            layer->slope_updates[i] *= momentum;
+        }
+    }
+
     for(int i = 0; i < layer->n; i ++){
-        layer->biases[i] += learning_rate / layer->batch * layer->bias_updates[i];
+        layer->bias_updates[i] += -decay * layer->bias_decay_mult * layer->batch * layer->biases[i];
+        layer->biases[i] += learning_rate * layer->bias_mult / layer->batch * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->size*layer->size*layer->c*layer->n;
     for(int i = 0; i < size; i ++){
-        layer->weight_updates[i] += -decay*layer->batch*layer->weights[i];
-        layer->weights[i] += learning_rate / layer->batch * layer->weight_updates[i];
+        layer->weight_updates[i] += -decay * layer->lr_decay_mult * layer->batch * layer->weights[i];
+        layer->weights[i] += learning_rate * layer->lr_mult / layer->batch * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;
     }
 }

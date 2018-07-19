@@ -1,12 +1,26 @@
 #include "connected_layer.h"
 #include <float.h>
 
-connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation,
-                                      int weight_normalize, int bias_term)
+image get_connected_image(const connected_layer *layer)
+{
+    int h = 1;
+    int w = 1;
+    int c = layer->outputs;
+    return float_to_image(h,w,c,NULL);
+}
+
+connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation, int weight_normalize,
+                                      int bias_term, float lr_mult, float lr_decay_mult, float bias_mult,
+                                      float bias_decay_mult, int weight_filler, float sigma)
 {
     fprintf(stderr, "Connected Layer:    %d inputs, %d outputs, weight_normalize: %d, bias_term: %d\n",
             inputs, outputs, weight_normalize, bias_term);
     connected_layer *layer = calloc(1, sizeof(connected_layer));
+    layer->lr_mult = lr_mult;
+    layer->lr_decay_mult = lr_decay_mult;
+    layer->bias_mult = bias_mult;
+    layer->bias_decay_mult = bias_decay_mult;
+
     layer->weight_normalize = weight_normalize;
     layer->bias_term = bias_term;
     layer->inputs = inputs;
@@ -16,10 +30,15 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
     layer->delta = calloc(batch*outputs, sizeof(float));
 
     layer->weights = calloc(inputs*outputs, sizeof(float));  // layer->outputs is the number of rows
-    float scale = sqrtf(2.0F/inputs);
-    for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = rand_normal() * scale;
-    //scale = 1.0F/(inputs);
-    //for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = scale*rand_uniform(0, 1);
+    if(weight_filler == 1){   // xavier
+        int scale = 1.0F/(inputs);
+        for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = scale*rand_uniform(-1, 1);
+    } else if(weight_filler == 2){   // gaussian
+        for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = rand_normal_me(0, sigma);
+    } else {
+        fprintf(stderr, "weight_filler not support\n");
+        exit(-1);
+    }
     layer->weight_updates = calloc(inputs*outputs, sizeof(float));
     layer->biases = calloc(outputs, sizeof(float));
     layer->bias_updates = calloc(outputs, sizeof(float));
@@ -85,14 +104,15 @@ void forward_connected_layer(connected_layer *layer, float *input)
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
     for(int i = 0; i < layer->outputs; i ++){
-        layer->biases[i] += learning_rate / layer->batch * layer->bias_updates[i];
+        layer->bias_updates[i] += -decay * layer->bias_decay_mult * layer->batch * layer->biases[i];
+        layer->biases[i] += learning_rate * layer->bias_mult / layer->batch * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->inputs*layer->outputs;
     for(int i = 0; i < size; i ++){
-        layer->weight_updates[i] += -decay*layer->batch*layer->weights[i];
-        layer->weights[i] += learning_rate / layer->batch * layer->weight_updates[i];
+        layer->weight_updates[i] += -decay * layer->lr_decay_mult *layer->batch*layer->weights[i];
+        layer->weights[i] += learning_rate * layer->lr_mult / layer->batch * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;
     }
 }
@@ -131,11 +151,12 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
 
 void update_connected_layer_gpu(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
-    axpy_gpu(layer->outputs, learning_rate/layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
+    axpy_gpu(layer->outputs, -decay * layer->bias_decay_mult *layer->batch, layer->biases_gpu, 1, layer->bias_updates_gpu, 1);
+    axpy_gpu(layer->outputs, learning_rate * layer->bias_mult /layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
     scal_gpu(layer->outputs, momentum, layer->bias_updates_gpu, 1);
 
-    axpy_gpu(layer->inputs*layer->outputs, -decay*layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
-    axpy_gpu(layer->inputs*layer->outputs, learning_rate/layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
+    axpy_gpu(layer->inputs*layer->outputs, -decay * layer->lr_decay_mult * layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
+    axpy_gpu(layer->inputs*layer->outputs, learning_rate * layer->lr_mult / layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
     scal_gpu(layer->inputs*layer->outputs, momentum, layer->weight_updates_gpu, 1);
 
 }

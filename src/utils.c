@@ -677,6 +677,27 @@ float rand_normal()
     return sqrtf(rand1) * cos(rand2);
 }
 
+float rand_normal_me(float mean, float sigma)
+{
+    static int haveSpare = 0;
+    static double rand1, rand2;
+
+    if(haveSpare)
+    {
+        haveSpare = 0;
+        return sqrtf(rand1) * sin(rand2) * sigma + mean;
+    }
+
+    haveSpare = 1;
+
+    rand1 = rand() / ((double) RAND_MAX);
+    if(rand1 < 1e-100) rand1 = 1e-100;
+    rand1 = -2 * log(rand1);
+    rand2 = (rand() / ((double) RAND_MAX)) * TWO_PI;
+
+    return sqrtf(rand1) * cos(rand2) * sigma + mean;
+}
+
 size_t rand_size_t()
 {
     return  ((size_t)(rand()&0xff) << 56) | 
