@@ -205,15 +205,15 @@ void forward_network(network *net, float *input)
 {
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
+            //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input, net->workspace, net->test);
-            /*if(i == 0){
+            if(i == 0){
                 int num = 5;
                 for(int b = 0; b < num; ++b){
                     printf("%d %f\n", b, input[b]);
                 }
             }
-            */
             if(i == 0){
                 int num = 5;
                 for(int b = 0; b < num; ++b){
@@ -221,15 +221,16 @@ void forward_network(network *net, float *input)
                 }
             }
             
+            
             input = layer->output;
             
-            /*if(i == 0){
+            if(i == 0){
                 int num = 5;
                 for(int b = 0; b < num; ++b){
                     printf("%d %f\n", b, input[b]);
                 }
             }
-            */
+            
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer(layer, input);
@@ -379,6 +380,7 @@ void backward_network(network *net, float *input)
             prev_delta = get_network_layer_data(net, i-1, 1, 0);
         }
         if(net->layers_type[i] == CONVOLUTIONAL){
+            //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             backward_convolutional_layer(layer, prev_input, prev_delta, net->workspace, net->test);
         } else if(net->layers_type[i] == CONNECTED){
@@ -423,6 +425,8 @@ void forward_network_gpu(network *net, float *input)
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            //cudaError_t status = cudaMemset(net->workspace_gpu, 0, net->workspace_size);
+            //check_error(status);
             forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
             input = layer->output_gpu;
             /*
@@ -491,6 +495,8 @@ void backward_network_gpu(network *net, float *input)
             prev_delta = get_network_layer_data(net, i-1, 1, 1);
         }
         if(net->layers_type[i] == CONVOLUTIONAL){
+            //cudaError_t status = cudaMemset(net->workspace_gpu, 0, net->workspace_size);
+            //check_error(status);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             backward_convolutional_layer_gpu(layer, prev_input, prev_delta, net->workspace_gpu, net->test);
         } else if(net->layers_type[i] == CONNECTED){

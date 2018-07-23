@@ -138,7 +138,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             save_weights(net, buff);
         }
         //sleep(2);
-        //exit(-1);
+        exit(-1);
     }
     printf("max_accuracy_batch: %d\n", max_accuracy_batch);
     char buff[256];
