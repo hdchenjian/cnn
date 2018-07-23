@@ -27,6 +27,10 @@ void forward_normalize_layer(const normalize_layer *l, float *input)
 {
     memcpy(l->output, input, l->inputs * l->batch * sizeof(float));
     l2normalize_cpu(l->output, l->batch, l->c, l->w*l->h);
+    /*for(int j = 0; j < 100; ++j){
+        printf("forward_normalize_layer %d %f %f\n", j, input[j], l->output[j]);
+    }
+    printf("\n");*/
 }
 
 void backward_normalize_layer(const normalize_layer *l, float *delta)

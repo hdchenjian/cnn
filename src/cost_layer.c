@@ -68,7 +68,7 @@ void forward_cost_layer(const cost_layer *l, float *input, network *net)
         int max_i = net->truth_label_index[b];
         double max = input[index + net->truth_label_index[b]];
         for(int j = 0; j < net->classes; ++j){
-            printf("%d %d %f %f\n", j, j == net->truth_label_index[b], input[j], l->delta[j]);
+            //printf("%d %d %f %f\n", j, j == net->truth_label_index[b], input[j], l->delta[j]);
             if(input[j + index] >= max && j != max_i){
                 max = input[j + index];
                 max_i = j;

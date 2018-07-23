@@ -207,7 +207,22 @@ void forward_network(network *net, float *input)
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input, net->workspace, net->test);
+            /*if(i == 0){
+                int num = 5;
+                for(int b = 0; b < num; ++b){
+                    printf("%d %f\n", b, input[b]);
+                }
+            }
+            */
+            if(i == 0){
+                int num = 5;
+                for(int b = 0; b < num; ++b){
+                    printf("%d %f\n", b, layer->weights[b]);
+                }
+            }
+            
             input = layer->output;
+            
             /*if(i == 0){
                 int num = 5;
                 for(int b = 0; b < num; ++b){

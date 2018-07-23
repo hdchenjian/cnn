@@ -66,6 +66,14 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
             random_distort_image(crop, hue, saturation, exposure);
         }
         normalize_array(image_all + n * image_size, image_size);
+        /*float max = -FLT_MAX, min = FLT_MAX;
+        for(int i = 0; i < crop.w * crop.h * crop.c; ++i){
+            if(crop.data[i] > max) max = crop.data[i];
+            if(crop.data[i] < min) min = crop.data[i];
+        }
+        printf("input image max: %f, min: %f\n", max, min);
+        exit(-1);*/
+
         char name[16] = {0};
         sprintf(name, "%c.png", class);
         fill_truth(name, labels, classes, truth_lable_all + n);
@@ -184,7 +192,8 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
             }
             if(mean_value > 0.001){
                 for(int k = 0; k < image_size; ++k){
-                    img.data[k] = (img.data[k] - mean_value) * scale;
+                    // load_image_stb divide 255.0F
+                    img.data[k] = (img.data[k] * 255.0F - mean_value) * scale;
                 }
             }
 
@@ -234,6 +243,18 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
             img = load_image(paths[index], w, h, c);
             test_index += 1;
         }
+        /*for(int k = 0; k < c; ++k){
+            normalize_array(img.data + k * h * w, h * w);
+        }
+        */
+        //save_image_png(img, "input.jpg");
+        /*float max = -FLT_MAX, min = FLT_MAX;
+        for(int i = 0; i < img.w * img.h * img.c; ++i){
+            if(img.data[i] > max) max = img.data[i];
+            if(img.data[i] < min) min = img.data[i];
+        }
+        printf("input image max: %f, min: %f\n", max, min);
+        */
         if(mean_value > 0.001){
             for(int k = 0; k < image_size; ++k){
                 // load_image_stb divide 255.0F
@@ -243,8 +264,9 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
 
         memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
         free_image(img);
-        //normalize_array(b.data + i * image_size, image_size);
         fill_truth(paths[index], labels, classes, b.truth_label_index + i);
+        //printf("index: %d %s %d %f %f\n", index, paths[index], b.truth_label_index[i], mean_value, scale);
+        //exit(-1);
     }
     return b;
 }

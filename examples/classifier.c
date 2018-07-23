@@ -83,6 +83,12 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             tmp.h = train.h;
             tmp.c = train.c;
             tmp.data = train.data;
+            float max = -FLT_MAX, min = FLT_MAX;
+            for(int i = 0; i < train.w * train.h * train.c; ++i){
+                if(train.data[i] > max) max = train.data[i];
+                if(train.data[i] < min) min = train.data[i];
+            }
+            printf("input image max: %f, min: %f\n", max, min);
             save_image_png(tmp, "input.jpg");*/
             train_network_batch(net, train);
         } else if(1 == train_data_type) {
@@ -95,15 +101,15 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
                                  net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
                                  net->test);
             /*printf("train_data_type: %d, class: %d spend %f s\n",
-                   train_data_type, train.truth_label_index[0], what_time_is_it_now() - start_time);
+              train_data_type, train.truth_label_index[0], what_time_is_it_now() - start_time);
             image tmp;
             tmp.w = train.w;
             tmp.h = train.h;
             tmp.c = train.c;
             tmp.data = train.data;
-            save_image_png(tmp, "input.jpg");
+            save_image_png(tmp, "input.jpg");*/
             train_network_batch(net, train);
-            free_batch(&train);*/
+            free_batch(&train);
         }
         int epoch_old = net->epoch;
         net->epoch = net->seen / train_set_size;
@@ -122,7 +128,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             max_accuracy = net->correct_num / (net->correct_num_count + 0.00001F);
             max_accuracy_batch = net->batch_train;
         }
-        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %.2f, avg_loss: %.2f, learning_rate: %.8f, %.4f s, "
+        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %f, avg_loss: %.2f, learning_rate: %.8f, %.4f s, "
                "seen %lu images, max_accuracy: %.4f\n", net->epoch+1, net->batch_train,
                net->correct_num / (net->correct_num_count + 0.00001F),
                loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
@@ -131,7 +137,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
             save_weights(net, buff);
         }
-        //sleep(5);
+        //sleep(2);
+        //exit(-1);
     }
     printf("max_accuracy_batch: %d\n", max_accuracy_batch);
     char buff[256];

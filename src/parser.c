@@ -27,7 +27,7 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     int n = option_find_int(options, "filters", 1);
     int size = option_find_int(options, "size", 1);
     int stride = option_find_int(options, "stride", 1);
-    char *activation_s = option_find_str(options, "activation", "sigmoid");
+    char *activation_s = option_find_str(options, "activation", "linear");
     ACTIVATION activation = get_activation(activation_s);
     if (count == 0) {
         h = net->h;
@@ -44,7 +44,7 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     int pad = option_find_int(options, "pad", 0);
     float lr_mult = option_find_float(options, "lr_mult", 1);
     float lr_decay_mult = option_find_float(options, "lr_decay_mult", 0);
-    float bias_mult = option_find_float(options, "bias_mult", 1);
+    float bias_mult = option_find_float(options, "bias_mult", 2);
     float bias_decay_mult = option_find_float(options, "bias_decay_mult", 0);
     char *weight_filler_str = option_find_str(options, "weight_filler", "xavier");
     int weight_filler = 1;
@@ -65,7 +65,7 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
 
 connected_layer *parse_connected(struct list *options, network *net, int count)
 {
-    char *activation_s = option_find_str(options, "activation", "sigmoid");
+    char *activation_s = option_find_str(options, "activation", "linear");
     ACTIVATION activation = get_activation(activation_s);
     int output = option_find_int(options, "output",1);
     int input;
@@ -79,7 +79,7 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
 
     float lr_mult = option_find_float(options, "lr_mult", 1);
     float lr_decay_mult = option_find_float(options, "lr_decay_mult", 0);
-    float bias_mult = option_find_float(options, "bias_mult", 1);
+    float bias_mult = option_find_float(options, "bias_mult", 2);
     float bias_decay_mult = option_find_float(options, "bias_decay_mult", 0);
     char *weight_filler_str = option_find_str(options, "weight_filler", "xavier");
     int weight_filler = 1;
@@ -154,7 +154,7 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
         c = m.c;
         if(h == 0) error("Layer before maxpool layer must output image.");
     }
-    int size = option_find_int(options, "size",stride);
+    int size = option_find_int(options, "size", stride);
     int padding = option_find_int(options, "padding", (size-1)/2);
     maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding);
     return layer;

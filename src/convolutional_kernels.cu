@@ -169,6 +169,7 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         int dim = layer->out_h * layer->out_w;
         activate_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->output_gpu, layer->slope_gpu, size, layer->n, dim);
         check_error(cudaPeekAtLastError());
+    } else if (layer->activation == LINEAR) {
     } else {
         activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
     }
@@ -242,6 +243,7 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
         gradient_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu, layer->slope_gpu,
                                                                     size, layer->n, dim);
         check_error(cudaPeekAtLastError());
+    } else if (layer->activation == LINEAR) {
     } else {
         gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,
                            layer->activation, layer->delta_gpu);

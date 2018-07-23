@@ -28,8 +28,11 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->batch = batch;
     layer->weights = calloc(c*n*size*size, sizeof(float));
     if(weight_filler == 1){   // xavier
-        int scale = 1.0F/(size*size*c);
-        for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_uniform(-1, 1);
+        float scale = 1.0F/(size*size*c);
+        for(int i = 0; i < c*n*size*size; ++i){
+            layer->weights[i] = scale*rand_uniform(-1, 1);
+            //if(i < 5) printf("%d %f\n", i, layer->weights[i]);
+        }
     } else if(weight_filler == 2){   // gaussian
         for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = rand_normal_me(0, sigma);
     } else {
@@ -254,7 +257,13 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     }
 
     if(layer->activation == PRELU){
+        /*int num = 5;
+        for(int b = 0; b < num; ++b){
+            printf("%d %f\n", b, layer->output[b]);
+        }
+        */
         activation_prelu(layer);
+    } else if (layer->activation == LINEAR) {
     } else {
         for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
     }
@@ -360,6 +369,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             layer->slope_updates[cc] += layer->delta[i] * layer->bottom_data[i] * (layer->bottom_data[i] <= 0);
             layer->delta[i] = layer->delta[i] * ((layer->bottom_data[i] > 0) + layer->slope[cc] * (layer->bottom_data[i] <= 0));
         }
+    } else if (layer->activation == LINEAR) {
     } else {
         for(int i = 0; i < outputs; ++i){
             layer->delta[i] *= gradient(layer->output[i], layer->activation);
