@@ -31,7 +31,7 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
 
     layer->weights = calloc(inputs*outputs, sizeof(float));  // layer->outputs is the number of rows
     if(weight_filler == 1){   // xavier
-        float scale = 1.0F/(inputs);
+        float scale = sqrt(6.0F / inputs);
         for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = scale*rand_uniform(-1, 1);
     } else if(weight_filler == 2){   // gaussian
         for(int i = 0; i < inputs*outputs; ++i) layer->weights[i] = rand_normal_me(0, sigma);

@@ -208,6 +208,7 @@ void forward_network(network *net, float *input)
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             forward_convolutional_layer(layer, input, net->workspace, net->test);
+            /*
             if(i == 0){
                 int num = 5;
                 for(int b = 0; b < num; ++b){
@@ -220,16 +221,16 @@ void forward_network(network *net, float *input)
                     printf("%d %f\n", b, layer->weights[b]);
                 }
             }
-            
+            */
             
             input = layer->output;
-            
-            if(i == 0){
+            /*if(i == 0){
                 int num = 5;
                 for(int b = 0; b < num; ++b){
                     printf("%d %f\n", b, input[b]);
                 }
             }
+            */
             
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
@@ -280,6 +281,14 @@ void update_network(network *net)
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             update_convolutional_layer(layer, net->learning_rate, net->momentum, net->decay);
+            /*
+            if(i == 0){
+                int num = 5;
+                for(int b = 0; b < num; ++b){
+                    printf("weight: %d %f\n", b, layer->weight_updates[b]);
+                }
+            }
+            */
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer(layer, net->learning_rate, net->momentum, net->decay);
@@ -383,6 +392,15 @@ void backward_network(network *net, float *input)
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             backward_convolutional_layer(layer, prev_input, prev_delta, net->workspace, net->test);
+
+            /*
+            if(i == 0){
+                int num = 5;
+                for(int b = 0; b < num; ++b){
+                    printf("weight_updates: %d %.19ff\n", b, layer->weight_updates[b]);
+                }
+            }
+            */
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer(layer, prev_input, prev_delta);
