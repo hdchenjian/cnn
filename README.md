@@ -2,10 +2,11 @@
 It is fast, easy to install, and supports CPU and GPU computation.
 
 #### Compile
-
+```
 modify Makefile
 change GPU=1 if you have GPU support CUDA
 change OPENMP=1 if you want use openmp
+```
 
 #### you can train cifar data set use:
 ```
