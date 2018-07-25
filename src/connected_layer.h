@@ -30,13 +30,13 @@ typedef struct{
 connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation, int weight_normalize,
                                       int bias_term, float lr_mult, float lr_decay_mult, float bias_mult,
                                       float bias_decay_mult, int weight_filler, float sigma);
-void forward_connected_layer(connected_layer *layer, float *input);
+void forward_connected_layer(connected_layer *layer, float *input, int test);
 void backward_connected_layer(connected_layer *layer, float *input, float *delta);
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay);
 image get_connected_image(const connected_layer *layer);
 
 #ifdef GPU
-void forward_connected_layer_gpu(connected_layer *layer, float *input);
+void forward_connected_layer_gpu(connected_layer *layer, float *input, int test);
 void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta);
 void update_connected_layer_gpu(connected_layer *layer, float learning_rate, float momentum, float decay);
 void push_connected_layer(const connected_layer *layer);

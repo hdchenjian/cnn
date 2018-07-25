@@ -243,11 +243,15 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
             img = load_image(paths[index], w, h, c);
             test_index += 1;
         }
-        /*for(int k = 0; k < c; ++k){
-            normalize_array(img.data + k * h * w, h * w);
-        }
-        */
         //save_image_png(img, "input.jpg");
+        //flip_image(img);
+        if(mean_value > 0.001){
+            for(int k = 0; k < image_size; ++k){
+                // load_image_stb divide 255.0F
+                img.data[k] = (img.data[k] * 255.0F - mean_value) * scale;
+            }
+        }
+        memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
         /*float max = -FLT_MAX, min = FLT_MAX;
         for(int i = 0; i < img.w * img.h * img.c; ++i){
             if(img.data[i] > max) max = img.data[i];
@@ -255,14 +259,6 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
         }
         printf("input image max: %f, min: %f\n", max, min);
         */
-        if(mean_value > 0.001){
-            for(int k = 0; k < image_size; ++k){
-                // load_image_stb divide 255.0F
-                img.data[k] = (img.data[k] * 255.0F - mean_value) * scale;
-            }
-        }
-
-        memcpy(b.data + i * image_size, img.data, image_size * sizeof(float));
         free_image(img);
         fill_truth(paths[index], labels, classes, b.truth_label_index + i);
         //printf("index: %d %s %d %f %f\n", index, paths[index], b.truth_label_index[i], mean_value, scale);

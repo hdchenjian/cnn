@@ -234,7 +234,7 @@ void forward_network(network *net, float *input)
             
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            forward_connected_layer(layer, input);
+            forward_connected_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
@@ -459,7 +459,7 @@ void forward_network_gpu(network *net, float *input)
             */
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            forward_connected_layer_gpu(layer, input);
+            forward_connected_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];

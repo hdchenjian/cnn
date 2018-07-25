@@ -57,7 +57,7 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
     return layer;
 }
 
-void forward_connected_layer(connected_layer *layer, float *input)
+void forward_connected_layer(connected_layer *layer, float *input, int test)
 {
     if(layer->bias_term){
         for(int i = 0; i < layer->batch; ++i){
@@ -66,7 +66,7 @@ void forward_connected_layer(connected_layer *layer, float *input)
     }else{
         memset(layer->output, 0, layer->batch * layer->outputs * sizeof(float));
     }
-    if(layer->weight_normalize){
+    if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid, 2: test
         for(int i = 0; i < layer->outputs; i++){
             float sum = 1e-6;
             for(int j = 0; j < layer->inputs; j++){
@@ -161,9 +161,9 @@ void update_connected_layer_gpu(connected_layer *layer, float learning_rate, flo
 
 }
 
-void forward_connected_layer_gpu(connected_layer *layer, float *input)
+void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
 {
-    if(layer->weight_normalize){
+    if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid, 2: test
         weight_normalize_gpu(layer->inputs, layer->outputs, layer->weights_gpu);
     }
 

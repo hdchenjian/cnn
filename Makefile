@@ -9,11 +9,11 @@ ARCH= -gencode arch=compute_35,code=sm_35 \
 #ARCH= -gencode arch=compute_53,code=[sm_53,compute_53]
 
 VPATH=./src/:./examples:./test
-EXEC=darknet
-EXEC_TEST=darknet_test
+EXEC=cnn
+EXEC_TEST=cnn_test
 OBJDIR=./obj/
-SLIB = $(addprefix $(OBJDIR), libdarknet.so)
-ALIB = $(addprefix $(OBJDIR), libdarknet.a)
+SLIB = $(addprefix $(OBJDIR), libcnn.so)
+ALIB = $(addprefix $(OBJDIR), libcnn.a)
 
 CC=gcc
 NVCC=/usr/local/cuda/bin/nvcc 
@@ -52,7 +52,7 @@ LDFLAGS+= -lstdc++
 OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o maxpool_layer_kernels.o dropout_layer_kernals.o avgpool_layer_kernals.o
 endif
 
-EXECOBJA=classifier.o darknet.o
+EXECOBJA=classifier.o cnn.o
 EXECOBJ = $(addprefix $(OBJDIR), $(EXECOBJA))
 EXECOBJA_TEST=test.o
 EXECOBJ_TEST = $(addprefix $(OBJDIR), $(EXECOBJA_TEST))

@@ -3,14 +3,15 @@
 
 import os
 import random
+import math
 
 def get_score(a, b):
     sum = 0.0
-    for i in range(0, 512):
+    for i in range(0, len(a)):
        sum += a[i] * b[i]
     return sum
 
-def get_score(a, b, c, d):
+def get_scoree(a, b, c, d):
     sum = 0.0
     for i in range(0, 512):
        sum += a[i] * c[i]
@@ -89,7 +90,7 @@ for i in range(0, negtive_num):
 negtive_paire = negtive_paire_sample
 print negtive_paire
 
-features = []
+features_l = []
 f = open("features.txt", 'rU')
 for line in f.readlines():
     line = line.strip('\n')
@@ -98,7 +99,7 @@ for line in f.readlines():
     for i in range(0, len(line)):
         line[i] = float(line[i])
     #print line, len(line)
-    features.append(line)
+    features_l.append(line)
 f.close()
 
 features_r = []
@@ -113,6 +114,17 @@ for line in f.readlines():
     features_r.append(line)
 f.close()
 
+features = []
+for i in range(0, len(features_l)):
+    feature_ = features_l[i] + features_r[i]
+    sum = 0.0
+    for j in range(0, len(feature_)):
+        sum += (feature_[j] * feature_[j])
+    sum = math.sqrt(sum)
+    for j in range(0, len(feature_)):
+        feature_[j] /= sum
+    features.append(feature_)
+    
 threshold = -0.86
 while threshold < 0.9:
     print "threshold: ", threshold
@@ -120,7 +132,7 @@ while threshold < 0.9:
     max_score = None
     min_score = None
     for item in positive_paire:
-        score = get_score(features[item[0]], features[item[1]], features_r[item[0]], features_r[item[1]])
+        score = get_score(features[item[0]], features[item[1]])
         if max_score is None or score > max_score:
             max_score = score
         if min_score is None or score < min_score:
@@ -131,7 +143,7 @@ while threshold < 0.9:
     
     right_count_negtive = 0
     for item in negtive_paire:
-        score = get_score(features[item[0]], features[item[1]], features_r[item[0]], features_r[item[1]])
+        score = get_score(features[item[0]], features[item[1]])
         if max_score is None or score > max_score:
             max_score = score
         if min_score is None or score < min_score:
