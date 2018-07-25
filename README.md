@@ -1,19 +1,17 @@
 #### This is a neural network framwork for deep learning written in C and CUDA.
-#### It is fast, easy to install, and supports CPU and GPU computation.
-
+It is fast, easy to install, and supports CPU and GPU computation.
 
 #### Compile
 
-#### modify Makefile
-#### change GPU=1 if you have GPU support CUDA
-#### change OPENMP=1 if you want use openmp
+modify Makefile
+change GPU=1 if you have GPU support CUDA
+change OPENMP=1 if you want use openmp
 
 #### you can train cifar data set use:
 ```
 ./cnn classifier train  cfg/cifar.data cfg/cifar.cfg
 ```
-
-#### then you can see this:
+#### you can see this:
 
 ```
 layer     filters    size              input                output
@@ -43,6 +41,7 @@ epoch: 1, batch: 3, accuracy: 0.1042, loss: 115.342644, avg_loss: 117.75, learni
 epoch: 1, batch: 4, accuracy: 0.1152, loss: 115.435532, avg_loss: 117.52, learning_rate: 0.00498801, 2.4740 s, seen 512 images, max_accuracy: 0.1152
 
 ```
-#### the network will save to backup/cifar_final.weights
-#### and valid network accuracy:
-```./cnn classifier valid  cfg/cifar.data cfg/cifar.cfg backup/cifar_final.weights```
+#### the network will save to backup/cifar_final.weights, and valid network accuracy:
+```
+./cnn classifier valid  cfg/cifar.data cfg/cifar.cfg backup/cifar_final.weights
+```
