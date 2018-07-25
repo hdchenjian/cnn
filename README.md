@@ -1,15 +1,16 @@
-# This is a neural network framwork for deep learning written in C and CUDA.
-# It is fast, easy to install, and supports CPU and GPU computation.
+### This is a neural network framwork for deep learning written in C and CUDA.
+### It is fast, easy to install, and supports CPU and GPU computation.
 
 
-## Compile
+### Compile
 
-## modify Makefile
-## change GPU=1 if you have GPU support CUDA
-## change OPENMP=1 if you want use openmp
+### modify Makefile
+### change GPU=1 if you have GPU support CUDA
+### change OPENMP=1 if you want use openmp
 
-## you can train cifar data set use `./cnn classifier train  cfg/cifar.data cfg/cifar.cfg`
-## then you can see this:
+### you can train cifar data set use:
+```    ./cnn classifier train  cfg/cifar.data cfg/cifar.cfg```
+#### then you can see this:
 
 ```
 layer     filters    size              input                output
@@ -29,8 +30,6 @@ layer     filters    size              input                output
 13: Softmax:            10 inputs, label_specific_margin_bias: 0.000000, margin_scale: 0
 net->workspace_gpu is not null, calloc for net->workspace just for test!!!
 
-
-
 network total_bflop: 2.122 BFLOPs
 Learning Rate: 0.005, Momentum: 0.9, Decay: 0.0005
 image net has seen: 0, train_set_size: 50000, max_batches of net: 5000, net->classes: 10, net->batch: 128
@@ -40,4 +39,4 @@ epoch: 1, batch: 2, accuracy: 0.1016, loss: 115.288254, avg_loss: 118.02, learni
 epoch: 1, batch: 3, accuracy: 0.1042, loss: 115.342644, avg_loss: 117.75, learning_rate: 0.00499200, 2.4749 s, seen 384 images, max_accuracy: 0.1042
 epoch: 1, batch: 4, accuracy: 0.1152, loss: 115.435532, avg_loss: 117.52, learning_rate: 0.00498801, 2.4740 s, seen 512 images, max_accuracy: 0.1152
 ```
-
+```and valid network accuracy: ./cnn classifier valid  cfg/cifar.data cfg/cifar.cfg backup/cifar_final.weights```
