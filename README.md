@@ -1,5 +1,7 @@
 #### This is a neural network framwork for deep learning written in C and CUDA.
-It is fast, easy to install, and supports CPU and GPU computation.
+
+[Darknet](https://pjreddie.com/darknet/) is a powerful neural network framework, You can even train a Go game.
+So I reimplement a tiny neural network framework from scratch.
 
 #### Compile
 ```

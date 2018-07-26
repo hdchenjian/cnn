@@ -86,7 +86,6 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
 
 int *get_random_index(int train_set_size, int train_set_size_real)
 {
-    /* random the train image index */
     int *index = calloc(train_set_size_real, sizeof(int));
     for(int i = 0; i < train_set_size_real; i++) {
         if(i < train_set_size) {
@@ -95,6 +94,7 @@ int *get_random_index(int train_set_size, int train_set_size_real)
             index[i] = rand() % train_set_size;
         }
     }
+    /* shuffle the int array  */
     for(int j = 0; j < 5; j++){
         for(int i = 0; i < train_set_size_real; i++) {
             int index_random = rand() % train_set_size_real;
