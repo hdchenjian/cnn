@@ -91,9 +91,10 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
         weight_filler = 1;
     }
     float sigma = option_find_float(options, "weight_filler_std", 1);
+    int batch_normalize = option_find_int(options, "batch_normalize", 0);
     connected_layer *layer = make_connected_layer(input, output, net->batch, activation, weight_normalize, bias_term,
                                                   lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                                  sigma);
+                                                  sigma, batch_normalize);
     return layer;
 }
 
@@ -354,6 +355,8 @@ void parse_net_options(struct list *options, network *net)
     net->max_batches = option_find_int(options, "max_batches", 0);
     net->max_epoch = option_find_int(options, "max_epoch", 0);
     net->batch = option_find_int(options, "batch", 0);
+    net->time_steps = option_find_int(options, "time_steps", 1);
+    net->batch *= net->time_steps;
     char *policy_s = option_find_str(options, "policy", "constant");
     net->policy = get_policy(policy_s);
     if (net->policy == STEPS){

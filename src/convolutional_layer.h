@@ -41,6 +41,16 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace, int test);
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay);
 
+void scale_bias(float *output, float *scales, int batch, int n, int size);
+void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int spatial, float *mean_delta);
+void  variance_delta_cpu(float *x, float *delta, float *mean, float *variance, int batch, int filters,
+                         int spatial, float *variance_delta);
+
+void normalize_delta_cpu(float *x, float *mean, float *variance, float *mean_delta, float *variance_delta,
+                         int batch, int filters, int spatial, float *delta);
+
+void backward_scale_cpu(float *x_norm, float *delta, int batch, int n, int size, float *scale_updates);
+
 #ifdef GPU
 void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test);
 void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *input, float *delta,

@@ -34,6 +34,8 @@ void free_network(network *net)
             if(layer->bias_updates) free_ptr(layer->bias_updates);
             if(layer->output) free_ptr(layer->output);
             if(layer->delta) free_ptr(layer->delta);
+            if(layer->scales) free_ptr(layer->scales);
+            if(layer->scale_updates) free_ptr(layer->scale_updates);
             if(layer->mean) free_ptr(layer->mean);
             if(layer->mean_delta) free_ptr(layer->mean_delta);
             if(layer->variance) free_ptr(layer->variance);
@@ -41,6 +43,7 @@ void free_network(network *net)
             if(layer->rolling_mean) free_ptr(layer->rolling_mean);
             if(layer->rolling_variance) free_ptr(layer->rolling_variance);
             if(layer->x) free_ptr(layer->x);
+            if(layer->x_norm) free_ptr(layer->x_norm);
             if(layer->bottom_data) free_ptr(layer->bottom_data);
             if(layer->slope) free_ptr(layer->slope);
             if(layer->slope_updates) free_ptr(layer->slope_updates);
@@ -51,6 +54,8 @@ void free_network(network *net)
             if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            if(layer->scales_gpu) cuda_free(layer->scales_gpu);
+            if(layer->scale_updates_gpu) cuda_free(layer->scale_updates_gpu);
             if(layer->mean_gpu) cuda_free(layer->mean_gpu);
             if(layer->mean_delta_gpu) cuda_free(layer->mean_delta_gpu);
             if(layer->variance_gpu) cuda_free(layer->variance_gpu);
@@ -58,6 +63,7 @@ void free_network(network *net)
             if(layer->rolling_mean_gpu) cuda_free(layer->rolling_mean_gpu);
             if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
             if(layer->x_gpu) cuda_free(layer->x_gpu);
+            if(layer->x_norm_gpu) cuda_free(layer->x_norm_gpu);
             if(layer->bottom_data_gpu) cuda_free(layer->bottom_data_gpu);
             if(layer->slope_gpu) cuda_free(layer->slope_gpu);
             if(layer->slope_updates_gpu) cuda_free(layer->slope_updates_gpu);
@@ -71,6 +77,16 @@ void free_network(network *net)
             if(layer->bias_updates) free_ptr(layer->bias_updates);
             if(layer->output) free_ptr(layer->output);
             if(layer->delta) free_ptr(layer->delta);
+            if(layer->scales) free_ptr(layer->scales);
+            if(layer->scale_updates) free_ptr(layer->scale_updates);
+            if(layer->mean) free_ptr(layer->mean);
+            if(layer->mean_delta) free_ptr(layer->mean_delta);
+            if(layer->variance) free_ptr(layer->variance);
+            if(layer->variance_delta) free_ptr(layer->variance_delta);
+            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
+            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+            if(layer->x) free_ptr(layer->x);
+            if(layer->x_norm) free_ptr(layer->x_norm);
 #ifdef GPU
             if(layer->weights_gpu) cuda_free(layer->weights_gpu);
             if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
@@ -78,6 +94,16 @@ void free_network(network *net)
             if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            if(layer->scales_gpu) cuda_free(layer->scales_gpu);
+            if(layer->scale_updates_gpu) cuda_free(layer->scale_updates_gpu);
+            if(layer->mean_gpu) cuda_free(layer->mean_gpu);
+            if(layer->mean_delta_gpu) cuda_free(layer->mean_delta_gpu);
+            if(layer->variance_gpu) cuda_free(layer->variance_gpu);
+            if(layer->variance_delta_gpu) cuda_free(layer->variance_delta_gpu);
+            if(layer->rolling_mean_gpu) cuda_free(layer->rolling_mean_gpu);
+            if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
+            if(layer->x_gpu) cuda_free(layer->x_gpu);
+            if(layer->x_norm_gpu) cuda_free(layer->x_norm_gpu);
 #endif
             free_ptr(layer);
         } else if(net->layers_type[i] == ROUTE){
@@ -403,7 +429,7 @@ void backward_network(network *net, float *input)
             */
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            backward_connected_layer(layer, prev_input, prev_delta);
+            backward_connected_layer(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer(layer, net);

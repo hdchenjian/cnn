@@ -8,6 +8,8 @@ So I reimplement a tiny neural network framework from scratch.
 modify Makefile
 change GPU=1 if you have GPU support CUDA
 change OPENMP=1 if you want use openmp
+
+make
 ```
 
 #### you can train cifar data set use:

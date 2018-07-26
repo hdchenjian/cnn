@@ -93,6 +93,7 @@ typedef struct {
     int max_batches, max_epoch; // max iteration times of batch
     size_t seen;    // the number of image processed
     int batch;   // the number of batch processed
+    int time_steps;  // for rnn layer
     int epoch;
     int batch_train;   // the number of batch trained
     int w, h, c;  // net input data dimension
