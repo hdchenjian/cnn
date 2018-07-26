@@ -10,3 +10,12 @@ backup/
 libdarknet.a
 libdarknet.so
 results/
+cnn
+cnn_test
+features.txt
+features_r.txt
+input.jpg.png
+log
+log_test
+log_test_recognition
+obj/
