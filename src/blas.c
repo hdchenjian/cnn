@@ -178,14 +178,21 @@ float dot_cpu(int N, float *X, int INCX, float *Y, int INCY)
     return dot;
 }
 
-void softmax_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *error)
+void softmax_x_ent_cpu(int batch, int n, float *pred, int *truth, float *delta, float *error)
 {
-    int i;
-    for(i = 0; i < n; ++i){
-        float t = truth[i];
-        float p = pred[i];
-        error[i] = (t) ? -log(p) : 0;
-        delta[i] = t-p;
-        //printf("truth: %d %f %f %f\n", i, truth[i], pred[i], error[i]);
+    for(int b = 0; b < batch; ++b){
+        int index = b * n;
+        for(int i = 0; i < n; ++i){
+            float t;
+            if(i == truth[b]){
+                t = 1.0F;
+            } else {
+                t = 0.0F;
+            }
+            float p = pred[i + index];
+            error[i + index] = (t > 0.01) ? -log(p) : 0;
+            delta[i + index] = t-p;
+            //printf("truth: %d %f %f %f\n", i, truth[i], pred[i], error[i]);
+        }
     }
 }

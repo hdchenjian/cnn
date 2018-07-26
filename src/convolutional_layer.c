@@ -28,12 +28,12 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->batch = batch;
     layer->weights = calloc(c*n*size*size, sizeof(float));
     if(weight_filler == 1){   // xavier
-        float scale = sqrt(6.0F/(size*size*c));
+        float scale = sqrtf(2.0F/(size*size*c));
         for(int i = 0; i < c*n*size*size; ++i){
             layer->weights[i] = scale*rand_uniform(-1, 1);
             //if(i < 5) printf("%d %f\n", i, layer->weights[i]);
         }
-        //scale = sqrt(2./(size*size*c));
+        //scale = sqrtf(2./(size*size*c));
         //for(int i = 0; i < c*n*size*size; ++i) layer->weights[i] = scale*rand_normal();
 
     } else if(weight_filler == 2){   // gaussian

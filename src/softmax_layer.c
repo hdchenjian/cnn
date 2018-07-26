@@ -81,7 +81,7 @@ void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
             }
             if(net->truth_label_index[b] == max_i) net->correct_num += 1;
         }
-        //softmax_x_ent_cpu(layer->batch*layer->inputs, layer->output, net->truth, layer->delta, layer->loss);
+        //softmax_x_ent_cpu(layer->batch, layer->inputs, layer->output, net->truth_label_index, layer->delta, layer->loss);
         l2_cpu(layer->batch, layer->inputs, layer->output, net->truth_label_index, layer->delta, layer->loss);
         layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);
         net->loss = layer->cost[0];
@@ -141,11 +141,11 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
             int max_i = net->truth_label_index[b];
             double max = input_temp[index + net->truth_label_index[b]];
             for(int j = 0; j < net->classes; ++j){
-                //printf("%d %d %f\n", j, j == net->truth_label_index[b], input_temp[j]);
+                printf("%d %d %f\n", j, j == net->truth_label_index[b], input_temp[j]);
                 if(input_temp[j + index] >= max && j != max_i){
                     max = input_temp[j + index];
                     max_i = j;
-                    //break;
+                    break;
                 }
             }
             if(net->truth_label_index[b] == max_i) correct_num1 += 1;
@@ -153,7 +153,7 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
         printf("correct_num: %d\n", correct_num1);
         if(correct_num1 != correct_num) exit(-1);
         */
-        //softmax_x_ent_gpu(layer->batch*layer->inputs, layer->output_gpu, net->truth_gpu, layer->delta_gpu, layer->loss_gpu);
+        //softmax_x_ent_gpu(layer->batch, layer->inputs, layer->output_gpu, net->truth_label_index_gpu, layer->delta_gpu, layer->loss_gpu);
         l2_gpu(layer->batch, layer->inputs, layer->output_gpu, net->truth_label_index_gpu, layer->delta_gpu, layer->loss_gpu);
         cuda_pull_array(layer->loss_gpu, layer->loss, layer->batch*layer->inputs);
         layer->cost[0] = sum_array(layer->loss, layer->batch*layer->inputs);

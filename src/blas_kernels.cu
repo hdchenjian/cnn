@@ -788,20 +788,27 @@ extern "C" void smooth_l1_gpu(int n, float *pred, float *truth, float *delta, fl
     check_error(cudaPeekAtLastError());
 }
 
-__global__ void softmax_x_ent_kernel(int n, float *pred, float *truth, float *delta, float *error)
+__global__ void softmax_x_ent_kernel(int batch, int n, float *pred, int *truth_label_index_gpu, float *delta, float *error)
 {
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n){
-        float t = truth[i];
-        float p = pred[i];
-        error[i] = (t) ? -log(p) : 0;
-        delta[i] = t-p;
+    float diff = 0.0F;
+    int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(id < batch * n){
+        int b = id / n;
+        int i = id % n;
+        int index = b * n + i;
+        if(i == truth_label_index_gpu[b]){
+            diff = 1.0F - pred[index];
+        } else {
+            diff = 0.0F - pred[index];
+        }
+        error[index] = (i == truth_label_index_gpu[b]) ? -log(pred[index]) : 0.0F;
+        delta[index] = diff;
     }
 }
 
-extern "C" void softmax_x_ent_gpu(int n, float *pred, float *truth, float *delta, float *error)
+extern "C" void softmax_x_ent_gpu(int batch, int n, float *pred, int *truth, float *delta, float *error)
 {
-    softmax_x_ent_kernel<<<cuda_gridsize(n), BLOCK>>>(n, pred, truth, delta, error);
+    softmax_x_ent_kernel<<<cuda_gridsize(batch*n), BLOCK>>>(batch, n, pred, truth, delta, error);
     check_error(cudaPeekAtLastError());
 }
 
