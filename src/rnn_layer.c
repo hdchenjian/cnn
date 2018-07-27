@@ -81,48 +81,40 @@ rnn_layer make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVATI
     return l;
 }
 
-void update_rnn_layer(layer *l)
+void update_rnn_layer(const rnn_layer *l, float learning_rate, float momentum, float decay)
 {
-    update_connected_layer(l.input_layer, float learning_rate, float momentum, float decay);
-    update_connected_layer(l.self_layer, float learning_rate, float momentum, float decay);
-    update_connected_layer(l.output_layer, float learning_rate, float momentum, float decay);
+    update_connected_layer(l.input_layer, learning_rate, momentum, decay);
+    update_connected_layer(l.self_layer, learning_rate, momentum, decay);
+    update_connected_layer(l.output_layer, learning_rate, momentum, decay);
 }
 
-void forward_rnn_layer(layer *l)
+void forward_rnn_layer(const rnn_layer *l, int test)
 {
-    network s = net;
-    s.train = net.train;
-    int i;
-    layer input_layer = *(l.input_layer);
-    layer self_layer = *(l.self_layer);
-    layer output_layer = *(l.output_layer);
+    if(0 == test){    // 0: train, 1: valid, 2: test
+        fill_cpu(l->outputs * l->batch, 0, l->state, 1);
+    }
 
-    fill_cpu(l.outputs * l.batch * l.steps, 0, output_layer.delta, 1);
-    fill_cpu(l.outputs * l.batch * l.steps, 0, self_layer.delta, 1);
-    fill_cpu(l.outputs * l.batch * l.steps, 0, input_layer.delta, 1);
-    if(net.train) fill_cpu(l.outputs * l.batch, 0, l.state, 1);
-
-    for (i = 0; i < l.steps; ++i) {
+    for (i = 0; i < l->steps; ++i) {
         s.input = net.input;
         forward_connected_layer(input_layer, s);
 
-        s.input = l.state;
+        s.input = l->state;
         forward_connected_layer(self_layer, s);
 
-        float *old_state = l.state;
-        if(net.train) l.state += l.outputs*l.batch;
-        if(l.shortcut){
-            copy_cpu(l.outputs * l.batch, old_state, 1, l.state, 1);
+        float *old_state = l->state;
+        if(net.train) l->state += l->outputs*l->batch;
+        if(l->shortcut){
+            copy_cpu(l->outputs * l->batch, old_state, 1, l->state, 1);
         }else{
-            fill_cpu(l.outputs * l.batch, 0, l.state, 1);
+            fill_cpu(l->outputs * l->batch, 0, l->state, 1);
         }
-        axpy_cpu(l.outputs * l.batch, 1, input_layer.output, 1, l.state, 1);
-        axpy_cpu(l.outputs * l.batch, 1, self_layer.output, 1, l.state, 1);
+        axpy_cpu(l->outputs * l->batch, 1, input_layer.output, 1, l->state, 1);
+        axpy_cpu(l->outputs * l->batch, 1, self_layer.output, 1, l->state, 1);
 
-        s.input = l.state;
+        s.input = l->state;
         forward_connected_layer(output_layer, s);
 
-        net.input += l.inputs*l.batch;
+        net.input += l->inputs*l->batch;
         increment_layer(&input_layer, 1);
         increment_layer(&self_layer, 1);
         increment_layer(&output_layer, 1);
