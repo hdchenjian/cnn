@@ -63,12 +63,28 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     return layer;
 }
 
+rnn_layer *parse_rnn(struct list *options, network *net, int count)
+{
+    int outputs = option_find_int(options, "output",1);
+    char *activation_s = option_find_str(options, "activation", "logistic");
+    ACTIVATION activation = get_activation(activation_s);
+    int batch_normalize = option_find_int(options, "batch_normalize", 0);
+    int inputs = 0;
+    if(count == 0){
+        inputs = option_find_int(options, "input", 0);
+    }else{
+        inputs = get_network_output_size_layer(net, count-1);
+    }
+    rnn_layer *l = make_rnn_layer(net->batch, inputs, outputs, net->time_steps, activation, batch_normalize);
+    return l;
+}
+
 connected_layer *parse_connected(struct list *options, network *net, int count)
 {
     char *activation_s = option_find_str(options, "activation", "linear");
     ACTIVATION activation = get_activation(activation_s);
     int output = option_find_int(options, "output",1);
-    int input;
+    int input = 0;
     if(count == 0){
         input = option_find_int(options, "input",1);
     }else{
@@ -356,7 +372,6 @@ void parse_net_options(struct list *options, network *net)
     net->max_epoch = option_find_int(options, "max_epoch", 0);
     net->batch = option_find_int(options, "batch", 0);
     net->time_steps = option_find_int(options, "time_steps", 1);
-    net->batch *= net->time_steps;
     char *policy_s = option_find_str(options, "policy", "constant");
     net->policy = get_policy(policy_s);
     if (net->policy == STEPS){
@@ -423,6 +438,10 @@ network *parse_network_cfg(char *filename)
         } else if(strcmp(s->type, "[connected]")==0){
             connected_layer *layer = parse_connected(options, net, count);
             net->layers_type[count] = CONNECTED;
+            net->layers[count] = layer;
+        } else if(strcmp(s->type, "[connected]")==0){
+            rnn_layer *layer = parse_rnn(options, net, count);
+            net->layers_type[count] = RNN;
             net->layers[count] = layer;
         } else if(strcmp(s->type, "[route]")==0){
             route_layer *layer = parse_route(options, net, count);

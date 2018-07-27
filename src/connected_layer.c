@@ -92,6 +92,46 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
     return layer;
 }
 
+void free_connected_layer(void *input)
+{
+    connected_layer *layer = (connected_layer *)input;
+    if(layer->weights) free_ptr(layer->weights);
+    if(layer->weight_updates) free_ptr(layer->weight_updates);
+    if(layer->biases) free_ptr(layer->biases);
+    if(layer->bias_updates) free_ptr(layer->bias_updates);
+    if(layer->output) free_ptr(layer->output);
+    if(layer->delta) free_ptr(layer->delta);
+    if(layer->scales) free_ptr(layer->scales);
+    if(layer->scale_updates) free_ptr(layer->scale_updates);
+    if(layer->mean) free_ptr(layer->mean);
+    if(layer->mean_delta) free_ptr(layer->mean_delta);
+    if(layer->variance) free_ptr(layer->variance);
+    if(layer->variance_delta) free_ptr(layer->variance_delta);
+    if(layer->rolling_mean) free_ptr(layer->rolling_mean);
+    if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+    if(layer->x) free_ptr(layer->x);
+    if(layer->x_norm) free_ptr(layer->x_norm);
+#ifdef GPU
+    if(layer->weights_gpu) cuda_free(layer->weights_gpu);
+    if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
+    if(layer->biases_gpu) cuda_free(layer->biases_gpu);
+    if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
+    if(layer->output_gpu) cuda_free(layer->output_gpu);
+    if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+    if(layer->scales_gpu) cuda_free(layer->scales_gpu);
+    if(layer->scale_updates_gpu) cuda_free(layer->scale_updates_gpu);
+    if(layer->mean_gpu) cuda_free(layer->mean_gpu);
+    if(layer->mean_delta_gpu) cuda_free(layer->mean_delta_gpu);
+    if(layer->variance_gpu) cuda_free(layer->variance_gpu);
+    if(layer->variance_delta_gpu) cuda_free(layer->variance_delta_gpu);
+    if(layer->rolling_mean_gpu) cuda_free(layer->rolling_mean_gpu);
+    if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
+    if(layer->x_gpu) cuda_free(layer->x_gpu);
+    if(layer->x_norm_gpu) cuda_free(layer->x_norm_gpu);
+#endif
+    free_ptr(layer);
+}
+
 void forward_connected_batchnorm_layer(const connected_layer *layer, int test)
 {
     if(0 == test){    // 0: train, 1: valid

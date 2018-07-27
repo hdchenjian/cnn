@@ -7,6 +7,7 @@
 
 #include "convolutional_layer.h"
 #include "connected_layer.h"
+#include "rnn_layer.h"
 #include "maxpool_layer.h"
 #include "dropout_layer.h"
 #include "normalize_layer.h"
@@ -39,6 +40,7 @@ enum learning_rate_policy{
 enum LAYER_TYPE{
     CONVOLUTIONAL,
     CONNECTED,
+    RNN,
     ROUTE,
     SHORTCUT,
     MAXPOOL,

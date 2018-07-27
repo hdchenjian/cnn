@@ -37,6 +37,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
                                               ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad,
                                               float lr_mult, float lr_decay_mult, float bias_mult, float bias_decay_mult,
                                               int weight_filler, float sigma);
+void free_convolutional_layer(void *input);
 void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test);
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace, int test);
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay);

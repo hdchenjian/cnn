@@ -2,6 +2,7 @@
 #include "math.h"
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 void shortcut_cpu(int batch, int w1, int h1, int c1, float *add, int w2, int h2, int c2, float s1, float s2, float *out)
 {
@@ -112,8 +113,7 @@ void pow_cpu(int N, float ALPHA, float *X, int INCX, float *Y, int INCY)
 
 void axpy_cpu(int N, float ALPHA, float *X, int INCX, float *Y, int INCY)
 {
-    int i;
-    for(i = 0; i < N; ++i) Y[i*INCY] += ALPHA*X[i*INCX];
+    for(int i = 0; i < N; ++i) Y[i*INCY] += ALPHA*X[i*INCX];
 }
 
 void scal_cpu(int N, float ALPHA, float *X, int INCX)
@@ -133,8 +133,11 @@ void fill_cpu(int N, float ALPHA, float *X, int INCX)
 
 void copy_cpu(int N, float *X, int INCX, float *Y, int INCY)
 {
-    int i;
-    for(i = 0; i < N; ++i) Y[i*INCY] = X[i*INCX];
+    if(INCX == 1 && INCY == 1){
+        memcpy(Y, X, N * sizeof(float));
+    } else {
+        for(int i = 0; i < N; ++i) Y[i*INCY] = X[i*INCX];
+    }
 }
 
 void smooth_l1_cpu(int n, float *pred, float *truth, float *delta, float *error)

@@ -1,7 +1,7 @@
 #### This is a neural network framwork for deep learning written in C and CUDA.
 
 [Darknet](https://pjreddie.com/darknet/) is a powerful neural network framework, You can even train a Go game.
-So I reimplement a tiny neural network framework from scratch.
+I reimplement a tiny neural network(CNN, RNN) framework from scratch.
 
 #### Compile
 ```
@@ -12,7 +12,7 @@ change OPENMP=1 if you want use openmp
 make
 ```
 
-#### you can train cifar data set use:
+#### you can train cifar dataset use:
 ```
 ./cnn classifier train  cfg/cifar.data cfg/cifar.cfg
 ```
