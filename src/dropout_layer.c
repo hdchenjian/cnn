@@ -40,7 +40,7 @@ void resize_dropout_layer(dropout_layer *l, int inputs)
 
 void forward_dropout_layer(const dropout_layer *l, float *input, int test)
 {
-    if (0 != test) return;  // 0: train, 1: valid, 2: test
+    if (0 != test) return;  // 0: train, 1: valid
     for(int i = 0; i < l->batch * l->inputs; ++i){
         float r = rand_uniform(0, 1);
         l->rand[i] = r;

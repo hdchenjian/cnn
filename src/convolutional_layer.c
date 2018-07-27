@@ -199,7 +199,7 @@ void scale_bias(float *output, float *scales, int batch, int n, int size)
 
 void forward_batchnorm_layer(const convolutional_layer *layer, int test)
 {
-    if(0 == test){    // 0: train, 1: valid, 2: test
+    if(0 == test){    // 0: train, 1: valid
         memcpy(layer->x, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
         mean_cpu(layer->output, layer->batch, layer->n, layer->out_h*layer->out_w, layer->mean);
         variance_cpu(layer->output, layer->mean, layer->batch, layer->n, layer->out_h*layer->out_w, layer->variance);
@@ -344,7 +344,7 @@ void backward_scale_cpu(float *x_norm, float *delta, int batch, int n, int size,
 
 void backward_batchnorm_layer(const convolutional_layer *layer, int test)
 {
-    if(0 != test){    // 0: train, 1: valid, 2: test
+    if(0 != test){    // 0: train, 1: valid
         fprintf(stderr, "backward_batchnorm_layer: use no used!\n");
         exit(-1);
         //layer->mean = layer->rolling_mean;

@@ -90,7 +90,7 @@ void update_rnn_layer(const rnn_layer *l, float learning_rate, float momentum, f
 
 void forward_rnn_layer(const rnn_layer *l, int test)
 {
-    if(0 == test){    // 0: train, 1: valid, 2: test
+    if(0 == test){    // 0: train, 1: valid
         fill_cpu(l->outputs * l->batch, 0, l->state, 1);
     }
 

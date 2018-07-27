@@ -97,7 +97,7 @@ typedef struct {
     int epoch;
     int batch_train;   // the number of batch trained
     int w, h, c;  // net input data dimension
-    int test;    // 0: train, 1: valid, 2: test
+    int test;    // 0: train, 1: valid
     int classes;    // train data classes
     int *truth_label_index;
 

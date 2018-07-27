@@ -30,7 +30,7 @@ softmax_layer *make_softmax_layer(int inputs, int batch, int is_last_layer,
 
 void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
 {
-    if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid, 2: test
+    if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid
         // float *input is the output of previous layer, we can not modify
         memcpy(layer->input_backup, input, layer->batch * layer->inputs * sizeof(float));
     } else {
@@ -38,7 +38,7 @@ void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
     }
     for(int b = 0; b < layer->batch; b++){
         int index = b * layer->inputs;
-        if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid, 2: test
+        if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid
             if(layer->input_backup[index + net->truth_label_index[b]] > -layer->label_specific_margin_bias){
                 layer->input_backup[index + net->truth_label_index[b]] += layer->label_specific_margin_bias;
             }
@@ -105,7 +105,7 @@ void backward_softmax_layer(const softmax_layer *layer, float *delta)
 
 void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *net)
 {
-    if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid, 2: test
+    if(layer->label_specific_margin_bias < -0.01 && net->test == 0){    // 0: train, 1: valid
         cuda_mem_copy(layer->input_backup_gpu, input_gpu, layer->batch * layer->inputs);
         specific_margin_add_gpu(layer->batch, layer->inputs, layer->input_backup_gpu, layer->label_specific_margin_bias,
                                 layer->margin_scale, net->truth_label_index_gpu);

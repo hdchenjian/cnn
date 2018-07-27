@@ -62,7 +62,7 @@ void load_csv_images(char *filename, char **labels, int classes, int train_set_s
         crop.h = h;
         crop.c = 1;
         crop.data = image_all + n * image_size;
-        if(crop.c == 3 && test == 0) {      // 0: train, 1: valid, 2: test
+        if(crop.c == 3 && test == 0) {      // 0: train, 1: valid
             random_distort_image(crop, hue, saturation, exposure);
         }
         normalize_array(image_all + n * image_size, image_size);
@@ -136,7 +136,7 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
         train_data[i].truth_label_index = calloc(batch_size, sizeof(int));
         for(int j = 0; j < batch_size; ++j){
             int image_index = 0;
-            if(test == 0) {      // 0: train, 1: valid, 2: test
+            if(test == 0) {      // 0: train, 1: valid
                 image_index = index[i * batch_size + j];
             } else {
                 image_index = i * batch_size + j;
@@ -176,13 +176,13 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
         train_data[i].truth_label_index = calloc(batch_size, sizeof(int));
         for(int j = 0; j < batch_size; ++j){
             char *image_path = NULL;
-            if(test == 0) {      // 0: train, 1: valid, 2: test
+            if(test == 0) {      // 0: train, 1: valid
                 image_path = paths[index[i * batch_size + j]];
             } else {
                 image_path = paths[i * batch_size + j];
             }
             image img = load_image(image_path, w, h, c);
-            if(test == 0) {      // 0: train, 1: valid, 2: test
+            if(test == 0) {      // 0: train, 1: valid
                 if(flip){
                     if(rand() % 2){
                         flip_image(img);
@@ -228,7 +228,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
     for(int i = 0; i < batch_size; ++i){
         int index = 0;
         image img;
-        if(test == 0) {      // 0: train, 1: valid, 2: test
+        if(test == 0) {      // 0: train, 1: valid
             index = rand() % train_set_size;
             img = load_image(paths[index], w, h, c);
             if(flip){

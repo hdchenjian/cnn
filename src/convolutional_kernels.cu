@@ -109,7 +109,7 @@ void col2im_gpu(float *data_col,
 
 void forward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
 {
-    if(0 == test){    // 0: train, 1: valid, 2: test
+    if(0 == test){    // 0: train, 1: valid
         copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->x_gpu, 1);
         fast_mean_gpu(layer->output_gpu, layer->batch, layer->n, layer->out_h*layer->out_w, layer->mean_gpu);
         fast_variance_gpu(layer->output_gpu, layer->mean_gpu, layer->batch, layer->n, layer->out_h*layer->out_w,
@@ -181,7 +181,7 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
 
 void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
 {
-    if(0 != test){    // 0: train, 1: valid, 2: test
+    if(0 != test){    // 0: train, 1: valid
         fprintf(stderr, "backward_batchnorm_layer: use no used!\n");
         exit(-1);
     }

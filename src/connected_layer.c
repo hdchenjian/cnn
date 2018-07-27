@@ -94,7 +94,7 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
 
 void forward_connected_batchnorm_layer(const connected_layer *layer, int test)
 {
-    if(0 == test){    // 0: train, 1: valid, 2: test
+    if(0 == test){    // 0: train, 1: valid
         memcpy(layer->x, layer->output, layer->batch * layer->outputs * sizeof(float));
         mean_cpu(layer->output, layer->batch, layer->outputs, 1, layer->mean);
         variance_cpu(layer->output, layer->mean, layer->batch, layer->outputs, 1, layer->variance);
@@ -114,7 +114,7 @@ void forward_connected_batchnorm_layer(const connected_layer *layer, int test)
 
 void forward_connected_layer(connected_layer *layer, float *input, int test)
 {
-    if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid, 2: test
+    if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid
         for(int i = 0; i < layer->outputs; i++){
             float sum = 1e-6;
             for(int j = 0; j < layer->inputs; j++){
@@ -185,7 +185,7 @@ void update_connected_layer(connected_layer *layer, float learning_rate, float m
 
 void backward_connected_batchnorm_layer(const connected_layer *layer, int test)
 {
-    if(0 != test){    // 0: train, 1: valid, 2: test
+    if(0 != test){    // 0: train, 1: valid
         fprintf(stderr, "backward_connected_batchnorm_layer: use no used!\n");
         exit(-1);
         //layer->mean = layer->rolling_mean;
@@ -251,7 +251,7 @@ void update_connected_layer_gpu(connected_layer *layer, float learning_rate, flo
 
 void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
 {
-    if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid, 2: test
+    if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid
         weight_normalize_gpu(layer->inputs, layer->outputs, layer->weights_gpu);
     }
 
