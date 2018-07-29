@@ -1,8 +1,6 @@
 #ifndef SHORTCUT_LAYER_H
 #define SHORTCUT_LAYER_H
 
-#include <assert.h>
-
 #include "network.h"
 #include "cuda.h"
 #include "blas.h"

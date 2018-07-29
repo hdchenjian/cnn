@@ -52,7 +52,7 @@ LDFLAGS+= -lstdc++
 OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o maxpool_layer_kernels.o dropout_layer_kernals.o avgpool_layer_kernals.o
 endif
 
-EXECOBJA=classifier.o cnn.o
+EXECOBJA=classifier.o cnn.o rnn.o
 EXECOBJ = $(addprefix $(OBJDIR), $(EXECOBJA))
 EXECOBJA_TEST=test.o
 EXECOBJ_TEST = $(addprefix $(OBJDIR), $(EXECOBJA_TEST))

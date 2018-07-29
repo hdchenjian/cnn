@@ -9,13 +9,14 @@ image get_connected_image(const connected_layer *layer)
     return float_to_image(h,w,c,NULL);
 }
 
-connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation, int weight_normalize,
-                                      int bias_term, float lr_mult, float lr_decay_mult, float bias_mult,
-                                      float bias_decay_mult, int weight_filler, float sigma, int batch_normalize)
+connected_layer *make_connected_layer(int inputs, int outputs, int batch, int steps, ACTIVATION activation,
+                                      int weight_normalize, int bias_term, float lr_mult, float lr_decay_mult,
+                                      float bias_mult, float bias_decay_mult, int weight_filler, float sigma,
+                                      int batch_normalize)
 {
-    fprintf(stderr, "Connected Layer:    %d inputs, %d outputs, weight_normalize: %d, bias_term: %d\n",
-            inputs, outputs, weight_normalize, bias_term);
     connected_layer *layer = calloc(1, sizeof(connected_layer));
+    layer->bflop = (2.0F * inputs * outputs) / 1000000000.0F;
+    fprintf(stderr, "Connected Layer:    %d inputs, %d outputs, %f BFLOPs\n", inputs, outputs, layer->bflop);
     layer->batch_normalize = batch_normalize;
     layer->lr_mult = lr_mult;
     layer->lr_decay_mult = lr_decay_mult;
@@ -27,6 +28,7 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVA
     layer->inputs = inputs;
     layer->outputs = outputs;
     layer->batch = batch;
+    layer->steps = steps;
     layer->output = calloc(batch*outputs, sizeof(float));
     layer->delta = calloc(batch*outputs, sizeof(float));
 
@@ -203,15 +205,15 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
     for(int i = 0; i < layer->outputs; i ++){
-        layer->bias_updates[i] += -decay * layer->bias_decay_mult * layer->batch * layer->biases[i];
-        layer->biases[i] += learning_rate * layer->bias_mult / layer->batch * layer->bias_updates[i];
+        layer->bias_updates[i] += -decay * layer->bias_decay_mult * (layer->batch * layer->steps) * layer->biases[i];
+        layer->biases[i] += learning_rate * layer->bias_mult / (layer->batch * layer->steps) * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->inputs*layer->outputs;
     for(int i = 0; i < size; i ++){
-        layer->weight_updates[i] += -decay * layer->lr_decay_mult *layer->batch*layer->weights[i];
-        layer->weights[i] += learning_rate * layer->lr_mult / layer->batch * layer->weight_updates[i];
+        layer->weight_updates[i] += -decay * layer->lr_decay_mult *(layer->batch * layer->steps)*layer->weights[i];
+        layer->weights[i] += learning_rate * layer->lr_mult / (layer->batch * layer->steps) * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;
     }
 

@@ -71,12 +71,12 @@ void forward_softmax_layer(softmax_layer *layer, float *input, network *net)
             int max_i = net->truth_label_index[b];
             double max = layer->input_backup[index + net->truth_label_index[b]];
             for(int j = 0; j < net->classes; ++j){
-                //printf("forward_softmax_layer: %d %d %f %f %f\n",
+                //printf("forward_softmax_layer: %d truth_index %d %f %f %f\n",
                 //       j, j == net->truth_label_index[b], input[j], layer->input_backup[j], layer->output[j]);
                 if(layer->input_backup[j + index] >= max && j != max_i){
                     max = layer->input_backup[j + index];
                     max_i = j;
-                    //break;
+                    break;
                 }
             }
             if(net->truth_label_index[b] == max_i) net->correct_num += 1;

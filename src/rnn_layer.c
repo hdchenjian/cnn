@@ -1,5 +1,13 @@
 #include "rnn_layer.h"
 
+image get_rnn_image(const rnn_layer *layer)
+{
+    int h = 1;
+    int w = 1;
+    int c = layer->outputs;
+    return float_to_image(h,w,c,NULL);
+}
+
 rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVATION activation, int batch_normalize)
 {
     fprintf(stderr, "RNN Layer: %d inputs, %d outputs\n", inputs, outputs);
@@ -17,24 +25,21 @@ rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVAT
     int weight_filler = 1;
     float sigma = 0;
     int connected_layer_batch = batch * steps;
-    l->input_layer = malloc(sizeof(connected_layer));
-    fprintf(stderr, "\t\t");
-    l->input_layer = make_connected_layer(inputs, outputs, connected_layer_batch, activation, weight_normalize, bias_term,
-                                          lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
+    fprintf(stderr, "\t");
+    l->input_layer = make_connected_layer(inputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
+                                          bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
                                           sigma, batch_normalize);
     l->input_layer->batch = batch;
 
-    l->self_layer = malloc(sizeof(connected_layer));
-    fprintf(stderr, "\t\t");
-    l->self_layer = make_connected_layer(inputs, outputs, connected_layer_batch, activation, weight_normalize, bias_term,
-                                          lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                          sigma, batch_normalize);
+    fprintf(stderr, "\t");
+    l->self_layer = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
+                                         bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
+                                         sigma, batch_normalize);
     l->self_layer->batch = batch;
 
-    l->output_layer = malloc(sizeof(connected_layer));
-    fprintf(stderr, "\t\t");
-    l->output_layer = make_connected_layer(inputs, outputs, connected_layer_batch, activation, weight_normalize, bias_term,
-                                          lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
+    fprintf(stderr, "\t");
+    l->output_layer = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
+                                           bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
                                           sigma, batch_normalize);
     l->output_layer->batch = batch;
 
@@ -44,7 +49,6 @@ rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVAT
 
     l->state = calloc(batch*outputs, sizeof(float));
     l->prev_state = calloc(batch*outputs, sizeof(float));
-
 #ifdef GPU
     l->state_gpu = cuda_make_array(0, batch*outputs*steps);
     l->prev_state_gpu = cuda_make_array(0, batch*outputs*steps);
@@ -95,6 +99,7 @@ void increment_layer(connected_layer *l, int steps)
 
 void forward_rnn_layer(const rnn_layer *l, float *input, int test)
 {
+    //printf("forward_rnn_layer %p\n", l->input_layer->output);
     if(0 == test){    // 0: train, 1: valid
         copy_cpu(l->outputs*l->batch, l->state, 1, l->prev_state, 1);
     }
@@ -110,16 +115,35 @@ void forward_rnn_layer(const rnn_layer *l, float *input, int test)
         increment_layer(l->self_layer, 1);
         increment_layer(l->output_layer, 1);
     }
+    increment_layer(l->input_layer, -l->steps);  // restore the l->input_layer->output modify
+    increment_layer(l->self_layer,  -l->steps);
+    increment_layer(l->output_layer,  -l->steps);
+    //printf("forward_rnn_layer %p\n", l->input_layer->output);
 }
 
 void backward_rnn_layer(const rnn_layer *l, float *input, float *delta, int test)
 {
-    increment_layer(l->input_layer, l->steps-1);
-    increment_layer(l->self_layer, l->steps-1);
-    increment_layer(l->output_layer, l->steps-1);
-    float *last_input = l->input_layer->output_gpu;
-    float *last_self = l->self_layer->output_gpu;
+    //printf("backward_rnn_layer: %p %p\n", input, delta);
+    //printf("backward_rnn_layer %p\n", l->input_layer->output);
+    float *input_bak = input + l->inputs*l->batch*l->steps;
+    float *delta_bak = 0;
+    if(delta){
+        delta_bak = delta + l->inputs*l->batch*l->steps;
+    }
+    
+    increment_layer(l->input_layer, l->steps);
+    increment_layer(l->self_layer, l->steps);
+    increment_layer(l->output_layer, l->steps);
+    float *last_input = l->input_layer->output - l->outputs*l->batch;
+    float *last_self = l->self_layer->output - l->outputs*l->batch;
     for(int i = l->steps-1; i >= 0; --i) {
+        increment_layer(l->input_layer, -1);
+        increment_layer(l->self_layer, -1);
+        increment_layer(l->output_layer, -1);
+        input_bak -= l->inputs*l->batch;
+        if(delta){
+            delta_bak -= l->inputs*l->batch;
+        }
         copy_cpu(l->outputs * l->batch, l->input_layer->output, 1, l->state, 1);
         axpy_cpu(l->outputs * l->batch, 1, l->self_layer->output, 1, l->state, 1);
         backward_connected_layer(l->output_layer, l->state, l->self_layer->delta, test);
@@ -130,24 +154,17 @@ void backward_rnn_layer(const rnn_layer *l, float *input, float *delta, int test
         }else {
             copy_cpu(l->outputs*l->batch, l->prev_state, 1, l->state, 1);
         }
-
         float *delta_self_layer = NULL;
         if(i == 0) delta_self_layer = 0;
         else delta_self_layer = l->self_layer->delta - l->outputs*l->batch;
         backward_connected_layer(l->self_layer, l->state, delta_self_layer, test);
 
         copy_cpu(l->outputs*l->batch, l->self_layer->delta, 1, l->input_layer->delta, 1);
-        float *delta_input_layer = NULL;
-        if(delta) delta_input_layer = delta + i*l->inputs*l->batch;
-        else delta_input_layer = 0;
-        backward_connected_layer(l->input_layer, input + i*l->inputs*l->batch, delta_input_layer, test);
-
-        increment_layer(l->input_layer, -1);
-        increment_layer(l->self_layer, -1);
-        increment_layer(l->output_layer, -1);
+        backward_connected_layer(l->input_layer, input_bak, delta_bak, test);
     }
     copy_cpu(l->outputs * l->batch, last_input, 1, l->state, 1);
     axpy_cpu(l->outputs * l->batch, 1, last_self, 1, l->state, 1);
+    //printf("backward_rnn_layer %p\n", l->input_layer->output);
 }
 
 #ifdef GPU

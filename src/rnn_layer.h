@@ -16,9 +16,11 @@
 typedef struct{
     int inputs, outputs, batch, steps;
     float *output, *delta, *state, *prev_state;
+    float *output_gpu, *delta_gpu, *state_gpu, *prev_state_gpu;
     connected_layer *input_layer, *self_layer, *output_layer;
 } rnn_layer;
 
+image get_rnn_image(const rnn_layer *layer);
 rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVATION activation, int batch_normalize);
 void free_rnn_layer(void *input);
 void forward_rnn_layer(const rnn_layer *l, float *input, int test);

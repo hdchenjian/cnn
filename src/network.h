@@ -96,6 +96,7 @@ typedef struct {
     size_t seen;    // the number of image processed
     int batch;   // the number of batch processed
     int time_steps;  // for rnn layer
+    int inputs;  // for rnn layer, the inputs num of network
     int epoch;
     int batch_train;   // the number of batch trained
     int w, h, c;  // net input data dimension
@@ -156,11 +157,13 @@ void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, netw
 #endif
 
 float *get_network_layer_data(network *net, int i, int data_type, int is_gpu);
-
+void reset_rnn_state(network *net, int b);
 network *make_network(int n);
+network *load_network(char *cfg, char *weights);
 void free_network(network *net);
-void train_network_batch(network *net, batch b);
-void valid_network(network *net, batch b);
+void train_network(network *net, float *input, int *truth_label_index);
+void valid_network(network *net, float *input, int *truth_label_index);
+float *forward_network_test(network *net, float *input);
 int get_network_output_size_layer(network *net, int i);
 image get_network_image_layer(network *net, int i);
 float update_current_learning_rate(network * net);

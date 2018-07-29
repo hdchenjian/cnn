@@ -8,27 +8,14 @@
 #include "option_list.h"
 #include "network.h"
 
-void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear)
+void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
 {
     char *base = basecfg(cfgfile);   // get projetc name by cfgfile, cifar.cfg -> cifar
     //fprintf(stderr, "train data base name: %s\n", base);
     //fprintf(stderr, "the number of GPU: %d\n", ngpus);
-    network **nets = calloc(ngpus, sizeof(struct network*));  // todo: free
-
     srand(time(0));
-    int seed = rand();
-    for(int i = 0; i < ngpus; ++i){
-        srand(seed);
-#ifdef GPU
-        cuda_set_device(gpus[i]);
-#endif
-        nets[i] = parse_network_cfg(cfgfile);;
-    }
-    network *net = nets[0];
+    network *net = load_network(cfgfile, weightfile);
     net->output_layer = net->n - 1;
-    if(weightfile && weightfile[0] != 0){
-        load_weights(net, weightfile);
-    }
     struct list *options = read_data_cfg(datacfg);
     char *backup_directory = option_find_str(options, "backup", "/backup/");
     char *label_list = option_find_str(options, "labels", "data/labels.list");
@@ -90,11 +77,11 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             }
             printf("input image max: %f, min: %f\n", max, min);
             save_image_png(tmp, "input.jpg");*/
-            train_network_batch(net, train);
+            train_network(net, train.data, train.truth_label_index);
         } else if(1 == train_data_type) {
             int index = rand() % batch_num;
             train = all_train_data[index];
-            train_network_batch(net, train);
+            train_network(net, train.data, train.truth_label_index);
         } else {
             //double start_time = what_time_is_it_now();
             train = random_batch(paths, net->batch, labels, net->classes, train_set_size, net->w, net->h, net->c,
@@ -108,7 +95,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
             tmp.c = train.c;
             tmp.data = train.data;
             save_image_png(tmp, "input.jpg");*/
-            train_network_batch(net, train);
+            train_network(net, train.data, train.truth_label_index);
             free_batch(&train);
         }
         int epoch_old = net->epoch;
@@ -116,7 +103,6 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         float loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
             fprintf(stderr, "\n\nloss too large: %f, exit\n", loss);
-            //continue;
             exit(-1);
         }
         if(avg_loss < 0){
@@ -164,17 +150,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
 void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 {
     srand(time(0));
-    int seed = rand();
-    srand(seed);
-
-    network *net = parse_network_cfg(cfgfile);
-    if(weightfile && weightfile[0] != 0){
-        load_weights(net, weightfile);
-    }
-#ifdef GPU
-    cuda_set_device(net->gpu_index);
-#endif
-
+    network *net = load_network(cfgfile, weightfile);
     struct list *options = read_data_cfg(datacfg);
     char *label_list = option_find_str(options, "labels", "data/labels.list");
     char **labels = get_labels(label_list);
@@ -225,15 +201,15 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         batch train;
         if(0 == train_data_type) {
             train = all_valid_data[count];
-            valid_network(net, train);
+            valid_network(net, train.data, train.truth_label_index);
         } else if(1 == train_data_type) {
             train = all_valid_data[count];
-            valid_network(net, train);
+            valid_network(net, train.data, train.truth_label_index);
         } else {
             train = random_batch(paths, net->batch, labels, net->classes, valid_set_size, net->w, net->h, net->c,
                                  net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
                                  net->test);
-            valid_network(net, train);
+            valid_network(net, train.data, train.truth_label_index);
             free_batch(&train);
         }
 
@@ -295,20 +271,18 @@ void run_classifier(int argc, char **argv)
 {
     double time_start = what_time_is_it_now();;
     if(argc < 4){
-        fprintf(stderr, "usage: %s %s [train/predict/valid] [data cfg] [cfg] [weights (optional)]\n", argv[0], argv[1]);
+        fprintf(stderr, "usage: %s %s [train/valid] [data cfg] [cfg] [weights (optional)]\n", argv[0], argv[1]);
         return;
     }
-    char *gpu_list = find_char_arg(argc, argv, "-gpus", 0);
-    int ngpus;
-    int *gpus = read_intlist(gpu_list, &ngpus, 0);
-    int clear = find_arg(argc, argv, "-clear");
     char *data = argv[3];
     char *cfg = argv[4];
     char *weights = (argc > 5) ? argv[5] : 0;
     if(0==strcmp(argv[2], "train")){
-        train_classifier(data, cfg, weights, gpus, ngpus, clear);
+        train_classifier(data, cfg, weights);
     } else if(0==strcmp(argv[2], "valid")){
         validate_classifier(data, cfg, weights);
+    } else {
+        fprintf(stderr, "usage: %s %s [train/valid] [data cfg] [cfg] [weights (optional)]\n", argv[0], argv[1]);
     }
     fprintf(stderr, "\n\ntotal %.2lf seconds\n\n\n", what_time_is_it_now() - time_start);
 }

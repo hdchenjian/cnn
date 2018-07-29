@@ -1,4 +1,5 @@
 #include "network.h"
+network *parse_network_cfg(char *filename);
 
 network *make_network(int n)
 {
@@ -20,6 +21,15 @@ network *make_network(int n)
     net->workspace_gpu = NULL;
     net->input_gpu = NULL;
 #endif
+    return net;
+}
+
+network *load_network(char *cfg, char *weights)
+{
+    network *net = parse_network_cfg(cfg);
+    if(weights && weights[0] != 0){
+        load_weights(net, weights);
+    }
     return net;
 }
 
@@ -188,6 +198,10 @@ void forward_network(network *net, float *input)
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer(layer, input, net->test);
             input = layer->output;
+        }else if(net->layers_type[i] == RNN){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            forward_rnn_layer(layer, input, net->test);
+            input = layer->output;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             forward_route_layer(layer, net);
@@ -244,6 +258,9 @@ void update_network(network *net)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == RNN){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            update_rnn_layer(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
@@ -270,6 +287,12 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
             return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == RNN){
+        rnn_layer *layer = (rnn_layer *)net->layers[i];
         if(is_gpu)
             return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
@@ -356,6 +379,9 @@ void backward_network(network *net, float *input)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer(layer, prev_input, prev_delta, net->test);
+        } else if(net->layers_type[i] == RNN){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            backward_rnn_layer(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer(layer, net);
@@ -412,6 +438,10 @@ void forward_network_gpu(network *net, float *input)
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             forward_connected_layer_gpu(layer, input, net->test);
+            input = layer->output_gpu;
+        }else if(net->layers_type[i] == RNN){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            forward_rnn_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
@@ -472,6 +502,9 @@ void backward_network_gpu(network *net, float *input)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer_gpu(layer, prev_input, prev_delta);
+        } else if(net->layers_type[i] == RNN){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            backward_rnn_layer_gpu(layer, prev_input, prev_delta);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer_gpu(layer, net);
@@ -512,6 +545,9 @@ void update_network_gpu(network *net)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == RNN){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            update_rnn_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
@@ -529,43 +565,63 @@ void update_network_gpu(network *net)
 
 #endif
 
-void train_network_batch(network *net, batch b)
+void train_network(network *net, float *input, int *truth_label_index)
 {
     if(net->correct_num_count > 2000){
         net->correct_num_count = 0;
         net->correct_num = 0;
     }
 
-    net->truth_label_index = b.truth_label_index;
+    net->truth_label_index = truth_label_index;
 #ifdef GPU
-    cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
+    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
     cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
-    //forward_network(net, b.data);
-    //backward_network(net, b.data);
+    //forward_network(net, input);
+    //backward_network(net, input);
     forward_network_gpu(net, net->input_gpu);
     backward_network_gpu(net, net->input_gpu);
     update_network_gpu(net);
 #else
-    forward_network(net, b.data);
-    backward_network(net, b.data);
+    forward_network(net, input);
+    backward_network(net, input);
     update_network(net);
 #endif
-    net->seen += net->batch;
+    net->seen += net->batch * net->time_steps;
     net->correct_num_count += net->batch;
     net->batch_train += 1;
 }
 
-void valid_network(network *net, batch b)
+void valid_network(network *net, float *input, int *truth_label_index)
 {
-    net->truth_label_index = b.truth_label_index;
+    net->truth_label_index = truth_label_index;
 #ifdef GPU
-    cuda_push_array(net->input_gpu, b.data, net->h * net->w * net->c * net->batch);
+    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
     cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
     forward_network_gpu(net, net->input_gpu);
 #else
-    forward_network(net, b.data);
+    forward_network(net, input);
 #endif
     net->correct_num_count += net->batch;
+}
+
+float *forward_network_test(network *net, float *input)
+{
+#ifdef GPU
+    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    forward_network_gpu(net, net->input_gpu);
+#else
+    forward_network(net, input);
+#endif
+
+#ifndef GPU
+    float *network_output = get_network_layer_data(net, net->output_layer, 0, 0);
+#else
+    int network_output_size = get_network_output_size_layer(net, net->output_layer);
+    float *network_output_gpu = get_network_layer_data(net, net->output_layer, 0, 1);
+    float *network_output = malloc(network_output_size * sizeof(float));
+    cuda_pull_array(network_output_gpu, network_output, network_output_size);
+#endif
+    return network_output;
 }
 
 int get_network_output_size_layer(network *net, int i)
@@ -633,6 +689,9 @@ image get_network_image_layer(network *net, int i)
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
         return get_connected_image(layer);
+    } else if(net->layers_type[i] == RNN){
+        rnn_layer *layer = (rnn_layer *)net->layers[i];
+        return get_rnn_image(layer);
     } else {
         printf("get_network_image_layer layers_type error, layer: %d\n", i);
         exit(-1);
@@ -717,8 +776,12 @@ void save_weights(network *net, char *filename)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             save_convolutional_weights((convolutional_layer *)net->layers[i], fp, net->gpu_index);
-        } if(net->layers_type[i] == CONNECTED){
+        } else if(net->layers_type[i] == CONNECTED){
             save_connected_weights((connected_layer *)net->layers[i], fp, net->gpu_index);
+        } else if(net->layers_type[i] == RNN){
+            save_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->input_layer, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->self_layer, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->output_layer, fp, net->gpu_index);
         }
     }
     fprintf(stderr, "Saving weights Done!\n\n");
@@ -749,11 +812,27 @@ void load_weights(network *net, char *filename)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             load_convolutional_weights((convolutional_layer *)net->layers[i], fp, net->gpu_index);
-        } if(net->layers_type[i] == CONNECTED){
+        } else if(net->layers_type[i] == CONNECTED){
             load_connected_weights((connected_layer *)net->layers[i], fp, net->gpu_index);
+        } else if(net->layers_type[i] == RNN){
+            load_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->input_layer, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->self_layer, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->output_layer, fp, net->gpu_index);
         }
     }
     fprintf(stderr, "Loading weights Done!\n");
     fclose(fp);
 }
 
+void reset_rnn_state(network *net, int b)
+{
+    for(int i = 0; i < net->n; ++i){
+        if(net->layers_type[i] == RNN){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            fill_cpu(layer->outputs, 0, layer->state + layer->outputs*b, 1);
+#ifdef GPU
+            fill_gpu(layer->outputs, 0, layer->state_gpu + layer->outputs*b, 1);
+#endif
+        }
+    }
+}

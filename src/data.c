@@ -224,7 +224,7 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
     //b.truth = calloc(batch_size * classes, sizeof(float));
     b.truth_label_index = calloc(batch_size, sizeof(int));
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for(int i = 0; i < batch_size; ++i){
         int index = 0;
         image img;

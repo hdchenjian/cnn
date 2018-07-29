@@ -72,5 +72,7 @@ float mean_array(float *a, int n);
 float sum_array(float *a, int n);
 void normalize_array(float *a, int n);
 int *read_intlist(char *s, int *n, int d);
+unsigned char *read_file(char *filename);
+size_t rand_size_t();
 #endif
 

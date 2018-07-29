@@ -71,7 +71,7 @@ rnn_layer *parse_rnn(struct list *options, network *net, int count)
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
     int inputs = 0;
     if(count == 0){
-        inputs = option_find_int(options, "input", 0);
+        inputs = net->inputs;
     }else{
         inputs = get_network_output_size_layer(net, count-1);
     }
@@ -108,7 +108,7 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
     }
     float sigma = option_find_float(options, "weight_filler_std", 1);
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
-    connected_layer *layer = make_connected_layer(input, output, net->batch, activation, weight_normalize, bias_term,
+    connected_layer *layer = make_connected_layer(input, output, net->batch, 1, activation, weight_normalize, bias_term,
                                                   lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
                                                   sigma, batch_normalize);
     return layer;
@@ -356,10 +356,12 @@ void parse_net_options(struct list *options, network *net)
     net->w = option_find_int(options, "width", 0);
     net->h = option_find_int(options, "height", 0);
     net->c = option_find_int(options, "channels", 0);
-    if(net->w == 0 || net->h == 0 || net->c == 0) {
-        fprintf(stderr, "Input image size error!\n");
+    net->inputs = option_find_int(options, "inputs", 0);    // for rnn layer
+    if((net->w == 0 || net->h == 0 || net->c == 0) && net->inputs == 0) {
+        fprintf(stderr, "parse_net_options: network input size error!\n");
         exit(-1);
     }
+
     net->saturation = option_find_float(options, "saturation", 1);
     net->exposure = option_find_float(options, "exposure", 1);
     net->hue = option_find_float(options, "hue", 0);
@@ -425,7 +427,7 @@ network *parse_network_cfg(char *filename)
     float total_bflop = 0;
     n = n->next;
     int count = 0;
-    fprintf(stderr, "layer     filters    size              input                output\n");
+    fprintf(stderr, "layer                    input                 filters                          output\n");
     while(n){
         struct section *s = (struct section *)n->val;
         struct list *options = s->options;
@@ -439,7 +441,7 @@ network *parse_network_cfg(char *filename)
             connected_layer *layer = parse_connected(options, net, count);
             net->layers_type[count] = CONNECTED;
             net->layers[count] = layer;
-        } else if(strcmp(s->type, "[connected]")==0){
+        } else if(strcmp(s->type, "[rnn]")==0){
             rnn_layer *layer = parse_rnn(options, net, count);
             net->layers_type[count] = RNN;
             net->layers[count] = layer;
@@ -482,7 +484,7 @@ network *parse_network_cfg(char *filename)
             net->layers_type[count] = AVGPOOL;
             net->layers[count] = layer;
         }else{
-            fprintf(stderr, "layer type not recognized: %s\n", s->type);
+            fprintf(stderr, "parse_network_cfg: layer type not recognized: %s\n", s->type);
             exit(-1);
         }
         option_unused(options);
