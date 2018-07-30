@@ -73,13 +73,14 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
         } else {
             avg_loss = avg_loss*.9 + loss*.1;
         }
+        int epoch_old = net->epoch;
         net->epoch = net->seen / train_set_size;
         if(net->correct_num / (net->correct_num_count + 0.00001F) > max_accuracy){
             max_accuracy = net->correct_num / (net->correct_num_count + 0.00001F);
             max_accuracy_batch = net->batch_train;
         }
 
-        fprintf(stderr, "epoch: %d, batch: %d: accuracy: %.4f loss: %f, avg_loss: %f, "
+        printf("epoch: %d, batch: %d: accuracy: %.4f loss: %f, avg_loss: %f, "
                 "learning_rate: %.8f, %lf s, seen: %lu, max_accuracy: %.4f\n",
                 net->epoch+1, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
                 loss, avg_loss, net->learning_rate, sec(clock()-time), net->seen, max_accuracy);
@@ -90,7 +91,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
                 reset_rnn_state(net, j);
             }
         }
-        if((net->epoch + 1) % 100 == 0){
+        if(epoch_old != net->epoch && (net->epoch + 1) % 100 == 0){
             char buff[256];
             sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
             save_weights(net, buff);
@@ -132,26 +133,22 @@ char **read_tokens(char *filename, size_t *read)
     return d;
 }
 
-void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed, float temp, char *token_file)
+void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed, char *token_file)
 {
     char **tokens = 0;
     if(token_file){
         size_t n;
         tokens = read_tokens(token_file, &n);
     }
-
     srand(time(0));
-    char *base = basecfg(cfgfile);
-    fprintf(stderr, "%s\n", base);
-
     network *net = load_network(cfgfile, weightfile);
-    int inputs = net->inputs;
 
     int i, j;
     int c = 0;
     int len = strlen(seed);
-    float *input = calloc(inputs, sizeof(float));
+    float *input = calloc(net->inputs, sizeof(float));
 
+    printf("seed string:");
     for(i = 0; i < len-1; ++i){
         c = seed[i];
         input[c] = 1;
@@ -161,17 +158,26 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed, float t
     }
     if(len) c = seed[len-1];
     print_symbol(c, tokens);
+    printf("\nseed string over, generate start:\n\n");
     for(i = 0; i < num; ++i){
         input[c] = 1;
         float *out = forward_network_test(net, input);
         input[c] = 0;
-        for(j = 32; j < 127; ++j){
-            //printf("%d %c %f\n",j, j, out[j]);
-        }
-        for(j = 0; j < inputs; ++j){
+        /*
+        for(j = 0; j < net->inputs; ++j){
             if (out[j] < .0001) out[j] = 0;
         }
-        c = sample_array(out, inputs);
+        c = sample_array(out, net->inputs);
+        */
+        float max = -FLT_MAX;
+        int max_index = -1;
+        for(j = 0; j < net->inputs; ++j){
+            if (out[j] > max){
+                max = out[j];
+                max_index = j;
+            }
+        }
+        c = max_index;
         print_symbol(c, tokens);
     }
     printf("\n");
@@ -186,8 +192,7 @@ void run_char_rnn(int argc, char **argv)
     }
     char *filename = find_char_arg(argc, argv, "-data", "data/shakespeare.txt");
     char *seed = find_char_arg(argc, argv, "-seed", "\n\n");
-    int len = find_int_arg(argc, argv, "-len", 1000);
-    float temp = find_float_arg(argc, argv, "-temp", .7);
+    int len = find_int_arg(argc, argv, "-len", 20);
 
     char *cfg = argv[3];
     char *weights = (argc > 4) ? argv[4] : 0;
@@ -195,7 +200,7 @@ void run_char_rnn(int argc, char **argv)
         train_char_rnn(cfg, weights, filename);
     } else if(0==strcmp(argv[2], "generate")){
         char *tokens = find_char_arg(argc, argv, "-tokens", 0);
-        test_char_rnn(cfg, weights, len, seed, temp, tokens);
+        test_char_rnn(cfg, weights, len, seed, tokens);
     } else {
         fprintf(stderr, "usage: %s %s [train/generate] [cfg] [weights (optional)]\n", argv[0], argv[1]);
     }

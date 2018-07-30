@@ -504,7 +504,7 @@ void backward_network_gpu(network *net, float *input)
             backward_connected_layer_gpu(layer, prev_input, prev_delta);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
-            backward_rnn_layer_gpu(layer, prev_input, prev_delta);
+            backward_rnn_layer_gpu(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer_gpu(layer, net);
@@ -574,7 +574,11 @@ void train_network(network *net, float *input, int *truth_label_index)
 
     net->truth_label_index = truth_label_index;
 #ifdef GPU
-    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        cuda_push_array(net->input_gpu, input, net->time_steps * net->batch * net->inputs);
+    } else {
+        cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    }
     cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
     //forward_network(net, input);
     //backward_network(net, input);
@@ -595,7 +599,11 @@ void valid_network(network *net, float *input, int *truth_label_index)
 {
     net->truth_label_index = truth_label_index;
 #ifdef GPU
-    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        cuda_push_array(net->input_gpu, input, net->time_steps * net->batch * net->inputs);
+    } else {
+        cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    }
     cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
     forward_network_gpu(net, net->input_gpu);
 #else
@@ -607,7 +615,11 @@ void valid_network(network *net, float *input, int *truth_label_index)
 float *forward_network_test(network *net, float *input)
 {
 #ifdef GPU
-    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        cuda_push_array(net->input_gpu, input, net->time_steps * net->batch * net->inputs);
+    } else {
+        cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    }
     forward_network_gpu(net, net->input_gpu);
 #else
     forward_network(net, input);

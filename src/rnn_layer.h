@@ -31,8 +31,8 @@ void update_rnn_layer(const rnn_layer *l, float learning_rate, float momentum, f
 void forward_rnn_layer_gpu(const rnn_layer *l, float *input, int test);
 void backward_rnn_layer_gpu(const rnn_layer *l, float *input, float *delta, int test);
 void update_rnn_layer_gpu(const rnn_layer *l, float learning_rate, float momentum, float decay);
-void push_rnn_layer(rnn_layer *l);
-void pull_rnn_layer(rnn_layer *l);
+void push_rnn_layer(const rnn_layer *l);
+void pull_rnn_layer(const rnn_layer *l);
 #endif
 
 #endif

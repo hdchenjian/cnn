@@ -493,7 +493,11 @@ network *parse_network_cfg(char *filename)
         n = n->next;
     }
 #ifdef GPU
-    net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        net->input_gpu = cuda_make_array(0, net->time_steps * net->batch * net->inputs);
+    } else {
+        net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
+    }
     net->truth_label_index_gpu = cuda_make_int_array(0, net->batch);
     net->is_not_max_gpu = cuda_make_int_array(0, net->batch);
     net->gpu_index = cuda_get_device();
