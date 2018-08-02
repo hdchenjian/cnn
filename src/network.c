@@ -10,7 +10,7 @@ network *make_network(int n)
     net->batch_train = 0;
     net->epoch = 0;
     net->correct_num = 0;
-    net->correct_num_count = 0;
+    net->accuracy_count_max = 0;
     net->gpu_index = -1;
 
     net->layers = calloc(net->n, sizeof(void *));
@@ -501,7 +501,7 @@ void backward_network_gpu(network *net, float *input)
             backward_convolutional_layer_gpu(layer, prev_input, prev_delta, net->workspace_gpu, net->test);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            backward_connected_layer_gpu(layer, prev_input, prev_delta);
+            backward_connected_layer_gpu(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             backward_rnn_layer_gpu(layer, prev_input, prev_delta, net->test);
@@ -567,8 +567,8 @@ void update_network_gpu(network *net)
 
 void train_network(network *net, float *input, int *truth_label_index)
 {
-    if(net->correct_num_count > 2000){
-        net->correct_num_count = 0;
+    if(net->accuracy_count > net->accuracy_count_max){
+        net->accuracy_count = 0;
         net->correct_num = 0;
     }
 
@@ -591,7 +591,7 @@ void train_network(network *net, float *input, int *truth_label_index)
     update_network(net);
 #endif
     net->seen += net->batch * net->time_steps;
-    net->correct_num_count += net->batch;
+    net->accuracy_count += net->batch;
     net->batch_train += 1;
 }
 
@@ -609,7 +609,7 @@ void valid_network(network *net, float *input, int *truth_label_index)
 #else
     forward_network(net, input);
 #endif
-    net->correct_num_count += net->batch;
+    net->accuracy_count += net->batch;
 }
 
 float *forward_network_test(network *net, float *input)
@@ -751,12 +751,22 @@ void save_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
 #endif
     fwrite(l->biases, sizeof(float), l->outputs, fp);
     fwrite(l->weights, sizeof(float), l->outputs*l->inputs, fp);
+    if(l->batch_normalize){
+        fwrite(l->scales, sizeof(float), l->outputs, fp);
+        fwrite(l->rolling_mean, sizeof(float), l->outputs, fp);
+        fwrite(l->rolling_variance, sizeof(float), l->outputs, fp);
+    }
 }
 
 void load_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
 {
     fread(l->biases, sizeof(float), l->outputs, fp);
     fread(l->weights, sizeof(float), l->outputs*l->inputs, fp);
+    if(l->batch_normalize){
+        fread(l->scales, sizeof(float), l->outputs, fp);
+        fread(l->rolling_mean, sizeof(float), l->outputs, fp);
+        fread(l->rolling_variance, sizeof(float), l->outputs, fp);
+    }
 #ifdef GPU
     if(gpu_index >= 0){
         push_connected_layer(l);

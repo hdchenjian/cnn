@@ -105,7 +105,7 @@ typedef struct {
     int *truth_label_index;
 
     int correct_num;  // train correct number
-    int correct_num_count;  // all trained data size, train accuracy = correct_num / correct_num_count
+    int accuracy_count, accuracy_count_max;  // all trained data size, train accuracy = correct_num / accuracy_count
     float *workspace;  // for convolutional_layer image reorder
     float *workspace_gpu;  // for convolutional_layer image reorder
     size_t workspace_size;

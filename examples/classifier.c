@@ -110,13 +110,13 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
         } else {
             avg_loss = avg_loss*.9 + loss*.1;
         }
-        if(net->correct_num / (net->correct_num_count + 0.00001F) > max_accuracy){
-            max_accuracy = net->correct_num / (net->correct_num_count + 0.00001F);
+        if(net->correct_num / (net->accuracy_count + 0.00001F) > max_accuracy){
+            max_accuracy = net->correct_num / (net->accuracy_count + 0.00001F);
             max_accuracy_batch = net->batch_train;
         }
         printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %f, avg_loss: %.2f, learning_rate: %.8f, %.4f s, "
                "seen %lu images, max_accuracy: %.4f\n", net->epoch+1, net->batch_train,
-               net->correct_num / (net->correct_num_count + 0.00001F),
+               net->correct_num / (net->accuracy_count + 0.00001F),
                loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
         if(epoch_old != net->epoch){
             char buff[256];
@@ -161,7 +161,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     char **paths = NULL;
     struct list *plist = NULL;
     int train_data_type = option_find_int(options, "train_data_type", 1);    //  0: csv, 1: load to memory
-    net->test = 1;      // 0: train, 1: valid, 2: test
+    net->test = 1;      // 0: train, 1: valid
 
     batch *all_valid_data = NULL;
     if(0 == train_data_type) {
@@ -246,7 +246,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         }
         if(1 || count == valid_set_size - 1){
             printf("count: %d, accuracy: %.3f, loss: %f, avg_loss: %f\n",
-                   count, net->correct_num / (net->correct_num_count + 0.00001F), loss, avg_loss);
+                   count, net->correct_num / (net->accuracy_count + 0.00001F), loss, avg_loss);
         }
         count += 1;
         //sleep(3);

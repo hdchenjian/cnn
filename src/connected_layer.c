@@ -76,18 +76,18 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
 
     if(layer->batch_normalize){
         layer->scales_gpu = cuda_make_array(layer->scales, outputs);
-        layer->scale_updates = cuda_make_array(layer->scale_updates, outputs);
+        layer->scale_updates_gpu = cuda_make_array(layer->scale_updates, outputs);
 
-        layer->mean = cuda_make_array(layer->mean, outputs);
-        layer->variance = cuda_make_array(layer->variance, outputs);
+        layer->mean_gpu = cuda_make_array(layer->mean, outputs);
+        layer->variance_gpu = cuda_make_array(layer->variance, outputs);
 
-        layer->mean_delta = cuda_make_array(layer->mean_delta, outputs);
-        layer->variance_delta = cuda_make_array(layer->variance_delta, outputs);
+        layer->mean_delta_gpu = cuda_make_array(layer->mean_delta, outputs);
+        layer->variance_delta_gpu = cuda_make_array(layer->variance_delta, outputs);
 
-        layer->rolling_mean = cuda_make_array(layer->rolling_mean, outputs);
-        layer->rolling_variance = cuda_make_array(layer->rolling_variance, outputs);
-        layer->x = cuda_make_array(layer->output, batch * outputs);
-        layer->x_norm = cuda_make_array(layer->output, batch * outputs);
+        layer->rolling_mean_gpu = cuda_make_array(layer->rolling_mean, outputs);
+        layer->rolling_variance_gpu = cuda_make_array(layer->rolling_variance, outputs);
+        layer->x_gpu = cuda_make_array(layer->output, batch * outputs);
+        layer->x_norm_gpu = cuda_make_array(layer->output, batch * outputs);
     }
 #endif
 
@@ -291,6 +291,28 @@ void update_connected_layer_gpu(connected_layer *layer, float learning_rate, flo
 
 }
 
+void forward_connected_batchnorm_layer_gpu(const connected_layer *layer, int test)
+{
+    if(0 == test){    // 0: train, 1: valid
+        copy_gpu(layer->batch * layer->outputs, layer->output_gpu, 1, layer->x_gpu, 1);
+        fast_mean_gpu(layer->output_gpu, layer->batch, layer->outputs, 1, layer->mean_gpu);
+        fast_variance_gpu(layer->output_gpu, layer->mean_gpu, layer->batch, layer->outputs, 1,
+                          layer->variance_gpu);
+
+        scal_gpu(layer->outputs, .99, layer->rolling_mean_gpu, 1);
+        axpy_gpu(layer->outputs, .01, layer->mean_gpu, 1, layer->rolling_mean_gpu, 1);
+        scal_gpu(layer->outputs, .99, layer->rolling_variance_gpu, 1);
+        axpy_gpu(layer->outputs, .01, layer->variance_gpu, 1, layer->rolling_variance_gpu, 1);
+
+        normalize_gpu(layer->output_gpu, layer->mean_gpu, layer->variance_gpu, layer->batch, layer->outputs, 1);
+        copy_gpu(layer->batch * layer->outputs, layer->output_gpu, 1, layer->x_norm_gpu, 1);
+    } else {
+        normalize_gpu(layer->output_gpu, layer->rolling_mean_gpu, layer->rolling_variance_gpu,
+                      layer->batch, layer->outputs, 1);
+    }
+    scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->outputs, 1);
+}
+
 void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
 {
     if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid
@@ -307,7 +329,9 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
     if(layer->bias_term){
         add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
     }
-
+    if(layer->batch_normalize){
+        forward_connected_batchnorm_layer_gpu(layer, test);
+    }
     activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
 
     /*
@@ -316,11 +340,31 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
     cuda_compare(layer->output_gpu, layer->output, layer->batch * layer->outputs, cuda_compare_error_string); */
 }
 
-void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta)
+void backward_connected_batchnorm_layer_gpu(const connected_layer *layer, int test)
+{
+    if(0 != test){    // 0: train, 1: valid
+        fprintf(stderr, "backward_connected_batchnorm_layer_gpu: use no used!\n");
+        exit(-1);
+    }
+    backward_scale_gpu(layer->x_norm_gpu, layer->delta_gpu, layer->batch, layer->outputs, 1,
+                       layer->scale_updates_gpu);
+    scale_bias_gpu(layer->delta_gpu, layer->scales_gpu, layer->batch, layer->outputs, 1);
+
+    fast_mean_delta_gpu(layer->delta_gpu, layer->variance_gpu, layer->batch, layer->outputs, 1,
+                        layer->mean_delta_gpu);
+    fast_variance_delta_gpu(layer->x_gpu, layer->delta_gpu, layer->mean_gpu, layer->variance_gpu,
+                            layer->batch, layer->outputs, 1, layer->variance_delta_gpu);
+    normalize_delta_gpu(layer->x_gpu, layer->mean_gpu, layer->variance_gpu, layer->mean_delta_gpu,
+                        layer->variance_delta_gpu, layer->batch, layer->outputs, 1, layer->delta_gpu);
+}
+
+void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta, int test)
 {
     gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->outputs, 1);
-
+    if(layer->batch_normalize){
+        backward_connected_batchnorm_layer_gpu(layer, test);
+    }
     int m = layer->outputs;
     int n = layer->inputs;
     int k = layer->batch;
@@ -350,7 +394,11 @@ void pull_connected_layer(const connected_layer *layer)
     cuda_pull_array(layer->biases_gpu, layer->biases, layer->outputs);
     cuda_pull_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
     cuda_pull_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
-
+    if (layer->batch_normalize){
+        cuda_pull_array(layer->scales_gpu, layer->scales, layer->outputs);
+        cuda_pull_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->outputs);
+        cuda_pull_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->outputs);
+    }
 }
 
 void push_connected_layer(const connected_layer *layer)
@@ -359,7 +407,11 @@ void push_connected_layer(const connected_layer *layer)
     cuda_push_array(layer->biases_gpu, layer->biases, layer->outputs);
     cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
     cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
-
+    if (layer->batch_normalize){
+        cuda_push_array(layer->scales_gpu, layer->scales, layer->outputs);
+        cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->outputs);
+        cuda_push_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->outputs);
+    }
 }
 
 #endif

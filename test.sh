@@ -14,7 +14,7 @@
 # done
 
 #./cnn rnn train cfg/rnn.cfg -data shakespear.txt
-./cnn rnn generate cfg/rnn.cfg backup/rnn_final.weights
+./cnn rnn generate cfg/rnn.cfg backup/rnn_000699.weights -seed Chapter -len 1000
 
 # for i in range(0,12): print "'" + str(a-i*0.005) + "'"
 

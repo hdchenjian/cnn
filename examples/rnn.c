@@ -2,6 +2,10 @@
 #include <sys/time.h>
 #include <assert.h>
 
+#include <locale.h>
+#include <wchar.h>
+#include <stdio.h>
+
 #include "utils.h"
 #include "parser.h"
 #include "data.h"
@@ -13,15 +17,15 @@ typedef struct {
     int *y;
 } float_pair;
 
-float_pair get_rnn_data(unsigned char *text, size_t *offsets, int inputs, size_t len, int batch, int steps)
+float_pair get_rnn_data(wint_t *text, size_t *offsets, int inputs, size_t len, int batch, int steps)
 {
     float *x = calloc(batch * steps * inputs, sizeof(float));
     int *y = calloc(batch * steps, sizeof(int));
-#pragma omp parallel for
+//#pragma omp parallel for
     for(int j = 0; j < steps; ++j){
         for(int i = 0; i < batch; ++i){
-            unsigned char curr = text[offsets[i] % len];
-            unsigned char next = text[(offsets[i] + 1) % len];
+            int curr = (int)text[offsets[i] % len];
+            int next = (int)text[(offsets[i] + 1) % len];
             x[(j*batch + i)*inputs + curr] = 1;
             y[j*batch + i] = next;
             offsets[i] = (offsets[i] + 1) % len;
@@ -33,24 +37,60 @@ float_pair get_rnn_data(unsigned char *text, size_t *offsets, int inputs, size_t
     return p;
 }
 
+wint_t *parse_tokens(char *filename, size_t *n)
+{
+    size_t count = 0;
+    setlocale(LC_ALL, "");
+    FILE *fp = fopen(filename, "r");
+    wint_t c;
+    int min = 99999999;
+    int max = -1;
+    while((c = fgetwc(fp)) != WEOF){
+        //int temp = c;
+        //if((int)c < min) min = c;
+        //if((int)c > max) max = c;
+        //if(c == '\n') break;
+        //printf("%lc %d %d %d\n",c, c, temp, max);
+        ++count;
+    }
+    printf("min %d, max %d\n", min, max);
+    fclose(fp);
+    *n = count;
+
+    wint_t *text = malloc(sizeof(wint_t) * count);
+    int index = 0;
+    fp = fopen(filename, "r");
+    while((c = fgetwc(fp)) != WEOF){
+        text[index] = (int)c;
+        index += 1;
+    }
+    fclose(fp);
+    return text;
+}
+
 void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
 {
     srand(time(0));
-    unsigned char *text = read_file(filename);
-    size_t train_set_size = strlen((const char*)text);
+    size_t train_set_size = 0;
+    wint_t *text = parse_tokens(filename, &train_set_size);
     char *backup_directory = "backup/";
     char *base = basecfg(cfgfile);
     network *net = load_network(cfgfile, weightfile);
     net->output_layer = net->n - 1;
-    fprintf(stderr, "Learning Rate: %g, Momentum: %g, Decay: %g, Inputs: %d batch: %d, time_steps: %d, classes: %d\n",
+    fprintf(stderr, "Learning Rate: %g, Momentum: %g, Decay: %g, Inputs: %d, batch: %d, time_steps: %d, classes: %d\n",
             net->learning_rate, net->momentum, net->decay, net->inputs, net->batch, net->time_steps, net->classes);
-    fprintf(stderr, "%s: train data size %lu\n", base, train_set_size);
-
+    int max_epoch = (int)net->max_batches * net->batch / train_set_size;
+    int save_epoch = 1;
+    if(max_epoch / 20 > 1) save_epoch = max_epoch / 20;
+    fprintf(stderr, "%s: train data size %lu, max_batches: %d, max epoch: %d\n",
+            base, train_set_size, net->max_batches, max_epoch);
     size_t *offsets = calloc(net->batch, sizeof(size_t));
     for(int j = 0; j < net->batch; ++j){
         offsets[j] = rand_size_t() % train_set_size;
     }
 
+    net->batch_train = net->seen / (net->batch * net->time_steps);
+    net->epoch = net->seen / train_set_size;
     clock_t time;
     float avg_loss = -1;
     float max_accuracy = -1;
@@ -75,14 +115,14 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
         }
         int epoch_old = net->epoch;
         net->epoch = net->seen / train_set_size;
-        if(net->correct_num / (net->correct_num_count + 0.00001F) > max_accuracy){
-            max_accuracy = net->correct_num / (net->correct_num_count + 0.00001F);
+        if(net->correct_num / (net->accuracy_count + 0.00001F) > max_accuracy){
+            max_accuracy = net->correct_num / (net->accuracy_count + 0.00001F);
             max_accuracy_batch = net->batch_train;
         }
 
-        printf("epoch: %d, batch: %d: accuracy: %.4f loss: %f, avg_loss: %f, "
-                "learning_rate: %.8f, %lf s, seen: %lu, max_accuracy: %.4f\n",
-                net->epoch+1, net->batch_train, net->correct_num / (net->correct_num_count + 0.00001F),
+        printf("epoch: %d, batch: %d: accuracy: %.4f loss: %.4f, avg_loss: %.4f, "
+                "learning_rate: %.8f, %lfs, seen: %lu, max_accuracy: %.4f\n",
+                net->epoch+1, net->batch_train, net->correct_num / (net->accuracy_count + 0.00001F),
                 loss, avg_loss, net->learning_rate, sec(clock()-time), net->seen, max_accuracy);
 
         for(int j = 0; j < net->batch; ++j){
@@ -91,7 +131,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
                 reset_rnn_state(net, j);
             }
         }
-        if(epoch_old != net->epoch && (net->epoch + 1) % 100 == 0){
+        if(epoch_old != net->epoch && (net->epoch) % save_epoch == 0){
             char buff[256];
             sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
             save_weights(net, buff);
@@ -101,86 +141,68 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
     save_weights(net, buff);
+    free_ptr(offsets);
+    free_ptr(text);
 }
 
-void print_symbol(int n, char **tokens){
-    if(tokens){
-        printf("%s ", tokens[n]);
-    } else {
-        printf("%c", n);
-    }
-}
-
-char **read_tokens(char *filename, size_t *read)
+void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
 {
-    size_t size = 512;
-    size_t count = 0;
-    FILE *fp = fopen(filename, "r");
-    char **d = calloc(size, sizeof(char *));
-    char *line;
-    while((line=fgetl(fp)) != 0){
-        ++count;
-        if(count > size){
-            size = size*2;
-            d = realloc(d, size*sizeof(char *));
-        }
-        if(0==strcmp(line, "<NEWLINE>")) line = "\n";
-        d[count-1] = line;
-    }
-    fclose(fp);
-    d = realloc(d, count*sizeof(char *));
-    *read = count;
-    return d;
-}
-
-void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed, char *token_file)
-{
-    char **tokens = 0;
-    if(token_file){
-        size_t n;
-        tokens = read_tokens(token_file, &n);
-    }
     srand(time(0));
     network *net = load_network(cfgfile, weightfile);
+    net->test = 1;      // 0: train, 1: valid
 
-    int i, j;
     int c = 0;
     int len = strlen(seed);
     float *input = calloc(net->inputs, sizeof(float));
 
     printf("seed string:");
-    for(i = 0; i < len-1; ++i){
+    for(int i = 0; i < len-1; ++i){
         c = seed[i];
         input[c] = 1;
         forward_network_test(net, input);
         input[c] = 0;
-        print_symbol(c, tokens);
+        printf("%c", c);
     }
     if(len) c = seed[len-1];
-    print_symbol(c, tokens);
+    printf("%c", c);
     printf("\nseed string over, generate start:\n\n");
-    for(i = 0; i < num; ++i){
+    for(int i = 0; i < num; ++i){
         input[c] = 1;
         float *out = forward_network_test(net, input);
+        for(int j = 32; j < 127; ++j){
+            //printf("%d %c %f\n",j, j, out[j]);
+        }
+
         input[c] = 0;
-        /*
-        for(j = 0; j < net->inputs; ++j){
-            if (out[j] < .0001) out[j] = 0;
-        }
-        c = sample_array(out, net->inputs);
-        */
-        float max = -FLT_MAX;
-        int max_index = -1;
-        for(j = 0; j < net->inputs; ++j){
-            if (out[j] > max){
-                max = out[j];
-                max_index = j;
+        if(0){
+            for(int j = 0; j < net->inputs; ++j){
+                if (out[j] < .0005) out[j] = 0;
             }
+            c = sample_array(out, net->inputs);
+        } else {
+            float max = -FLT_MAX;
+            int max_index = -1;
+            for(int j = 0; j < net->inputs; ++j){
+                if (out[j] > max){
+                    max = out[j];
+                    max_index = j;
+                }
+            }
+            c = max_index;
         }
-        c = max_index;
-        print_symbol(c, tokens);
+        printf("%c", c);
     }
     printf("\n");
+    free_ptr(input);
+}
+
+void generate_token(char *token_file)
+{
+    size_t n = 0;
+    if(token_file){
+        parse_tokens(token_file, &n);
+    }
+    printf("%lu\n", n);
 }
 
 void run_char_rnn(int argc, char **argv)
@@ -199,8 +221,9 @@ void run_char_rnn(int argc, char **argv)
     if(0==strcmp(argv[2], "train")){
         train_char_rnn(cfg, weights, filename);
     } else if(0==strcmp(argv[2], "generate")){
-        char *tokens = find_char_arg(argc, argv, "-tokens", 0);
-        test_char_rnn(cfg, weights, len, seed, tokens);
+        test_char_rnn(cfg, weights, len, seed);
+    } else if(0==strcmp(argv[2], "generate_token")){
+        generate_token(filename);
     } else {
         fprintf(stderr, "usage: %s %s [train/generate] [cfg] [weights (optional)]\n", argv[0], argv[1]);
     }
