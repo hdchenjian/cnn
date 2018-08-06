@@ -347,7 +347,6 @@ enum learning_rate_policy get_policy(char *s)
 
 void parse_net_options(struct list *options, network *net)
 {
-    // get output from the net->output_layer layer
     net->output_layer = option_find_float(options, "output_layer", net->n - 1);
     net->classes = option_find_int(options, "classes", 0);
     net->learning_rate = option_find_float(options, "learning_rate", .001);
@@ -361,7 +360,6 @@ void parse_net_options(struct list *options, network *net)
         fprintf(stderr, "parse_net_options: network input size error!\n");
         exit(-1);
     }
-
     net->saturation = option_find_float(options, "saturation", 1);
     net->exposure = option_find_float(options, "exposure", 1);
     net->hue = option_find_float(options, "hue", 0);

@@ -24,10 +24,12 @@ float_pair get_rnn_data(wint_t *text, size_t *offsets, int inputs, size_t len, i
 //#pragma omp parallel for
     for(int j = 0; j < steps; ++j){
         for(int i = 0; i < batch; ++i){
+            //offsets[i] = 0;
             int curr = (int)text[offsets[i] % len];
             int next = (int)text[(offsets[i] + 1) % len];
             x[(j*batch + i)*inputs + curr] = 1;
             y[j*batch + i] = next;
+            //printf("%d %d %lc %d %lc", i, curr, curr, next, next);
             offsets[i] = (offsets[i] + 1) % len;
         }
     }
@@ -43,8 +45,8 @@ wint_t *parse_tokens(char *filename, size_t *n)
     setlocale(LC_ALL, "");
     FILE *fp = fopen(filename, "r");
     wint_t c;
-    int min = 99999999;
-    int max = -1;
+    //int min = 99999999;
+    //int max = -1;
     while((c = fgetwc(fp)) != WEOF){
         //int temp = c;
         //if((int)c < min) min = c;
@@ -53,7 +55,7 @@ wint_t *parse_tokens(char *filename, size_t *n)
         //printf("%lc %d %d %d\n",c, c, temp, max);
         ++count;
     }
-    printf("min %d, max %d\n", min, max);
+    //printf("min %d, max %d\n", min, max);
     fclose(fp);
     *n = count;
 
@@ -73,7 +75,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
     srand(time(0));
     size_t train_set_size = 0;
     wint_t *text = parse_tokens(filename, &train_set_size);
-    char *backup_directory = "backup/";
+    char *backup_directory = "/var/darknet/weight/";
     char *base = basecfg(cfgfile);
     network *net = load_network(cfgfile, weightfile);
     net->output_layer = net->n - 1;
@@ -81,7 +83,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
             net->learning_rate, net->momentum, net->decay, net->inputs, net->batch, net->time_steps, net->classes);
     int max_epoch = (int)net->max_batches * net->batch / train_set_size;
     int save_epoch = 1;
-    if(max_epoch / 20 > 1) save_epoch = max_epoch / 20;
+    if(max_epoch / 10 > 1) save_epoch = max_epoch / 20;
     fprintf(stderr, "%s: train data size %lu, max_batches: %d, max epoch: %d\n",
             base, train_set_size, net->max_batches, max_epoch);
     size_t *offsets = calloc(net->batch, sizeof(size_t));
@@ -147,6 +149,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
 
 void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
 {
+    setlocale(LC_ALL, "");
     srand(time(0));
     network *net = load_network(cfgfile, weightfile);
     net->test = 1;      // 0: train, 1: valid
@@ -161,22 +164,27 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
         input[c] = 1;
         forward_network_test(net, input);
         input[c] = 0;
-        printf("%c", c);
+        printf("%lc", c);
     }
     if(len) c = seed[len-1];
-    printf("%c", c);
+    printf("%lc", c);
     printf("\nseed string over, generate start:\n\n");
     for(int i = 0; i < num; ++i){
         input[c] = 1;
         float *out = forward_network_test(net, input);
-        for(int j = 32; j < 127; ++j){
-            //printf("%d %c %f\n",j, j, out[j]);
+        float max = -FLT_MAX;
+        float min = FLT_MAX;
+        for(int j = 0; j < net->classes; ++j){
+            if(out[j] > max) max = out[j];
+            if(out[j] < min) min = out[j];
+            //printf("%d %lc %f\n",j, j, out[j]);
         }
+        //printf("test_char_rnn max: %.10f, min: %.10f\n", max, min);
 
         input[c] = 0;
-        if(0){
+        if(1){
             for(int j = 0; j < net->inputs; ++j){
-                if (out[j] < .0005) out[j] = 0;
+                if (out[j] < .001) out[j] = 0;
             }
             c = sample_array(out, net->inputs);
         } else {
@@ -190,7 +198,7 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
             }
             c = max_index;
         }
-        printf("%c", c);
+        printf("%lc", c);
     }
     printf("\n");
     free_ptr(input);
