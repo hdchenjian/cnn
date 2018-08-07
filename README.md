@@ -12,11 +12,45 @@ change OPENMP=1 if you want use openmp
 make
 ```
 
-#### you can train cifar dataset use:
+#### train RNN network that generate Tang Poems, you can find dataset [here](https://pan.baidu.com/s/1KdCGJmLfQIuyA1E946o2mQ)
+```
+$ ./cnn rnn train   cfg/rnn_poetry.cfg -data poetry_small.txt
+```
+
+#### you will see:
+```
+layer                    input                 filters                          output
+  0: RNN Layer: 65536 inputs, 2048 outputs
+        Connected Layer:    65536 inputs, 2048 outputs, 0.268435 BFLOPs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+  1: RNN Layer: 2048 inputs, 2048 outputs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+  2: RNN Layer: 2048 inputs, 2048 outputs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+        Connected Layer:    2048 inputs, 2048 outputs, 0.008389 BFLOPs
+  3: Connected Layer:    2048 inputs, 65536 outputs, 0.268435 BFLOPs
+  4: Softmax:            65536 inputs, label_specific_margin_bias: 0.000000, margin_scale: 0
+```
+
+#### get Tang Poems:
+```
+./cnn rnn generate   cfg/rnn_poetry.cfg /var/darknet/weight/rnn_poetry_final.weights -len 2000
+```
+
+```
+            王昭君怨                                梦中
+汉皇宫殿锁楼台，珠箔迎秋上槛看。       三月天涯三十六，夜深犹见月轮圆。
+欲识平津倚阑槛，几时容貌在双幢。       玉关恩后三山雨，道傍朱阑有白鸥。
+```
+
+#### train cifar dataset:
 ```
 ./cnn classifier train  cfg/cifar.data cfg/cifar.cfg
 ```
-#### you can see this:
 
 ```
 layer     filters    size              input                output

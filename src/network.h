@@ -41,6 +41,7 @@ enum LAYER_TYPE{
     CONVOLUTIONAL,
     CONNECTED,
     RNN,
+    LSTM,
     ROUTE,
     SHORTCUT,
     MAXPOOL,

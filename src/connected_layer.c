@@ -273,7 +273,7 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
         a = layer->delta;
         b = layer->weights;
         c = delta;
-        gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
+        gemm(0,0,m,n,k,1,a,k,b,n,1,c,n);
     }
 }
 
@@ -380,7 +380,7 @@ void backward_connected_layer_gpu(connected_layer *layer, float *input, float *d
     b = layer->weights_gpu;
     c = delta;
     if(c) {
-        gemm_gpu(0,0,m,n,k,1,a,k,b,n,0,c,n);
+        gemm_gpu(0,0,m,n,k,1,a,k,b,n,1,c,n);
     }
 
     /*char cuda_compare_error_string[128] = {0};

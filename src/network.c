@@ -378,9 +378,14 @@ void backward_network(network *net, float *input)
             */
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
+            memset(prev_delta, 0, layer->batch * layer->inputs * sizeof(float));
             backward_connected_layer(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
+            backward_rnn_layer(layer, prev_input, prev_delta, net->test);
+        } else if(net->layers_type[i] == LSTM){
+            rnn_layer *layer = (rnn_layer *)net->layers[i];
+            memset(prev_delta, 0, layer->batch * layer->inputs * sizeof(float));  // todo
             backward_rnn_layer(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];

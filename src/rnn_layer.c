@@ -50,8 +50,8 @@ rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVAT
     l->state = calloc(batch*outputs, sizeof(float));
     l->prev_state = calloc(batch*outputs, sizeof(float));
 #ifdef GPU
-    l->state_gpu = cuda_make_array(0, batch*outputs*steps);
-    l->prev_state_gpu = cuda_make_array(0, batch*outputs*steps);
+    l->state_gpu = cuda_make_array(0, batch*outputs);
+    l->prev_state_gpu = cuda_make_array(0, batch*outputs);
     l->output_gpu = l->output_layer->output_gpu;
     l->delta_gpu = l->output_layer->delta_gpu;
 #endif

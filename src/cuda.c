@@ -149,6 +149,7 @@ float cuda_compare(float *x_gpu, float *x, size_t n, char *s)
 void cuda_free(void *x_gpu)
 {
     cudaError_t status = cudaFree(x_gpu);
+    x_gpu = NULL;
     check_error(status);
 }
 
