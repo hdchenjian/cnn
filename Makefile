@@ -1,5 +1,5 @@
 GPU=1
-DEBUG=0
+DEBUG=1
 CUDNN=0
 OPENMP=1
 ARCH= -gencode arch=compute_35,code=sm_35 \
@@ -28,8 +28,10 @@ CFLAGS+= -fopenmp
 endif
 
 OPTS=-Ofast
+NVCC_OPTS="-Wall -fPIC"
 ifeq ($(DEBUG), 1) 
 OPTS=-O0 -g
+NVCC_OPTS="-Wall -fPIC -lineinfo"
 endif
 CFLAGS+=$(OPTS)
 
@@ -45,7 +47,7 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -L/opt/ego/cudnn-v7 -lcudnn
 endif
 
-OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o normalize_layer.o rnn_layer.o #lstm_layer.o
+OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o normalize_layer.o rnn_layer.o lstm_layer.o gru_layer.o
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 
@@ -79,7 +81,7 @@ $(OBJDIR)%.o: %.c $(DEPS)
 	$(CC) $(COMMON) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)%.o: %.cu $(DEPS)
-	$(NVCC) $(ARCH) $(COMMON) --compiler-options "-Wall -fPIC" -c $< -o $@
+	$(NVCC) $(ARCH) $(COMMON) --compiler-options $(NVCC_OPTS) -c $< -o $@
 
 obj:
 	mkdir -p obj

@@ -37,13 +37,13 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
                                       float bias_decay_mult, int weight_filler, float sigma, int batch_normalize);
 void free_connected_layer(void *input);
 void forward_connected_layer(connected_layer *layer, float *input, int test);
-void backward_connected_layer(connected_layer *layer, float *input, float *delta, int test);
+void backward_connected_layer(connected_layer *layer, float *input, float *delta, int test, int keep_delta);
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay);
 image get_connected_image(const connected_layer *layer);
 
 #ifdef GPU
 void forward_connected_layer_gpu(connected_layer *layer, float *input, int test);
-void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta, int test);
+void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta, int test, int keep_delta);
 void update_connected_layer_gpu(connected_layer *layer, float learning_rate, float momentum, float decay);
 void push_connected_layer(const connected_layer *layer);
 void pull_connected_layer(const connected_layer *layer);

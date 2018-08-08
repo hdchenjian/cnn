@@ -75,13 +75,13 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
     srand(time(0));
     size_t train_set_size = 0;
     wint_t *text = parse_tokens(filename, &train_set_size);
-    char *backup_directory = "/var/darknet/weight/";
+    char *backup_directory = "/var/darknet/weight";
     char *base = basecfg(cfgfile);
     network *net = load_network(cfgfile, weightfile);
     net->output_layer = net->n - 1;
     fprintf(stderr, "Learning Rate: %g, Momentum: %g, Decay: %g, Inputs: %d, batch: %d, time_steps: %d, classes: %d\n",
             net->learning_rate, net->momentum, net->decay, net->inputs, net->batch, net->time_steps, net->classes);
-    int max_epoch = (int)net->max_batches * net->batch / train_set_size;
+    int max_epoch = (int)net->max_batches * net->batch * net->time_steps / train_set_size;
     int save_epoch = 1;
     if(max_epoch / 10 > 1) save_epoch = max_epoch / 20;
     fprintf(stderr, "%s: train data size %lu, max_batches: %d, max epoch: %d\n",
@@ -101,7 +101,6 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
         update_current_learning_rate(net);
         time=clock();
         float_pair p = get_rnn_data(text, offsets, net->inputs, train_set_size, net->batch, net->time_steps);
-
         train_network(net, p.x, p.y);
         free(p.x);
         free(p.y);
@@ -123,7 +122,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
         }
 
         printf("epoch: %d, batch: %d: accuracy: %.4f loss: %.4f, avg_loss: %.4f, "
-                "learning_rate: %.8f, %lfs, seen: %lu, max_accuracy: %.4f\n",
+                "learning_rate: %.8f, %.3lfs, seen: %lu, max_accuracy: %.4f\n",
                 net->epoch+1, net->batch_train, net->correct_num / (net->accuracy_count + 0.00001F),
                 loss, avg_loss, net->learning_rate, sec(clock()-time), net->seen, max_accuracy);
 
@@ -131,6 +130,8 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
             if(rand()%64 == 0){
                 offsets[j] = rand_size_t() % train_set_size;
                 reset_rnn_state(net, j);
+                reset_lstm_state(net, j);
+                reset_gru_state(net, j);
             }
         }
         if(epoch_old != net->epoch && (net->epoch) % save_epoch == 0){

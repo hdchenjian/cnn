@@ -42,6 +42,10 @@ void free_network(network *net)
             free_connected_layer(net->layers[i]);
         } else if(net->layers_type[i] == RNN){
             free_rnn_layer(net->layers[i]);
+        } else if(net->layers_type[i] == LSTM){
+            free_lstm_layer(net->layers[i]);
+        } else if(net->layers_type[i] == GRU){
+            free_gru_layer(net->layers[i]);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             if(layer->output) free_ptr(layer->output);
@@ -202,6 +206,14 @@ void forward_network(network *net, float *input)
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             forward_rnn_layer(layer, input, net->test);
             input = layer->output;
+        }else if(net->layers_type[i] == LSTM){
+            lstm_layer *layer = (lstm_layer *)net->layers[i];
+            forward_lstm_layer(layer, input, net->test);
+            input = layer->output;
+        }else if(net->layers_type[i] == GRU){
+            gru_layer *layer = (gru_layer *)net->layers[i];
+            forward_gru_layer(layer, input, net->test);
+            input = layer->output;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             forward_route_layer(layer, net);
@@ -261,6 +273,12 @@ void update_network(network *net)
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             update_rnn_layer(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == LSTM){
+            lstm_layer *layer = (lstm_layer *)net->layers[i];
+            update_lstm_layer(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == GRU){
+            gru_layer *layer = (gru_layer *)net->layers[i];
+            update_gru_layer(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
@@ -293,6 +311,18 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
             return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == RNN){
         rnn_layer *layer = (rnn_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == LSTM){
+        lstm_layer *layer = (lstm_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == GRU){
+        gru_layer *layer = (gru_layer *)net->layers[i];
         if(is_gpu)
             return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
@@ -378,15 +408,17 @@ void backward_network(network *net, float *input)
             */
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            memset(prev_delta, 0, layer->batch * layer->inputs * sizeof(float));
-            backward_connected_layer(layer, prev_input, prev_delta, net->test);
+            int keep_delta = 0;
+            backward_connected_layer(layer, prev_input, prev_delta, net->test, keep_delta);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             backward_rnn_layer(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == LSTM){
-            rnn_layer *layer = (rnn_layer *)net->layers[i];
-            memset(prev_delta, 0, layer->batch * layer->inputs * sizeof(float));  // todo
-            backward_rnn_layer(layer, prev_input, prev_delta, net->test);
+            lstm_layer *layer = (lstm_layer *)net->layers[i];
+            backward_lstm_layer(layer, prev_input, prev_delta, net->test);
+        } else if(net->layers_type[i] == GRU){
+            gru_layer *layer = (gru_layer *)net->layers[i];
+            backward_gru_layer(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer(layer, net);
@@ -442,11 +474,19 @@ void forward_network_gpu(network *net, float *input)
             */
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            forward_connected_layer_gpu(layer, input, net->test);
+            //forward_connected_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             forward_rnn_layer_gpu(layer, input, net->test);
+            input = layer->output_gpu;
+        }else if(net->layers_type[i] == LSTM){
+            lstm_layer *layer = (lstm_layer *)net->layers[i];
+            forward_lstm_layer_gpu(layer, input, net->test);
+            input = layer->output_gpu;
+        }else if(net->layers_type[i] == GRU){
+            gru_layer *layer = (gru_layer *)net->layers[i];
+            forward_gru_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
@@ -474,7 +514,7 @@ void forward_network_gpu(network *net, float *input)
             input = layer->output_gpu;
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
-            forward_softmax_layer_gpu(layer, input, net);
+            //forward_softmax_layer_gpu(layer, input, net);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
@@ -506,10 +546,16 @@ void backward_network_gpu(network *net, float *input)
             backward_convolutional_layer_gpu(layer, prev_input, prev_delta, net->workspace_gpu, net->test);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            backward_connected_layer_gpu(layer, prev_input, prev_delta, net->test);
+            backward_connected_layer_gpu(layer, prev_input, prev_delta, net->test, 0);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             backward_rnn_layer_gpu(layer, prev_input, prev_delta, net->test);
+        } else if(net->layers_type[i] == LSTM){
+            lstm_layer *layer = (lstm_layer *)net->layers[i];
+            backward_lstm_layer_gpu(layer, prev_input, prev_delta, net->test);
+        } else if(net->layers_type[i] == GRU){
+            gru_layer *layer = (gru_layer *)net->layers[i];
+            backward_gru_layer_gpu(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             backward_route_layer_gpu(layer, net);
@@ -553,6 +599,12 @@ void update_network_gpu(network *net)
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             update_rnn_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == LSTM){
+            lstm_layer *layer = (lstm_layer *)net->layers[i];
+            update_lstm_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == GRU){
+            gru_layer *layer = (gru_layer *)net->layers[i];
+            update_gru_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
@@ -588,8 +640,9 @@ void train_network(network *net, float *input, int *truth_label_index)
     //forward_network(net, input);
     //backward_network(net, input);
     forward_network_gpu(net, net->input_gpu);
-    backward_network_gpu(net, net->input_gpu);
-    update_network_gpu(net);
+
+    //backward_network_gpu(net, net->input_gpu);
+    //update_network_gpu(net);
 #else
     forward_network(net, input);
     backward_network(net, input);
@@ -652,6 +705,12 @@ int get_network_output_size_layer(network *net, int i)
     } else if(net->layers_type[i] == RNN){
         rnn_layer *layer = (rnn_layer *)net->layers[i];
         return layer->outputs;
+    } else if(net->layers_type[i] == LSTM){
+        lstm_layer *layer = (lstm_layer *)net->layers[i];
+        return layer->outputs;
+    } else if(net->layers_type[i] == GRU){
+        gru_layer *layer = (gru_layer *)net->layers[i];
+        return layer->outputs;
     } else if(net->layers_type[i] == ROUTE){
         route_layer *layer = (route_layer *)net->layers[i];
         return layer->outputs;
@@ -709,6 +768,12 @@ image get_network_image_layer(network *net, int i)
     } else if(net->layers_type[i] == RNN){
         rnn_layer *layer = (rnn_layer *)net->layers[i];
         return get_rnn_image(layer);
+    } else if(net->layers_type[i] == LSTM){
+        lstm_layer *layer = (lstm_layer *)net->layers[i];
+        return get_lstm_image(layer);
+    } else if(net->layers_type[i] == GRU){
+        gru_layer *layer = (gru_layer *)net->layers[i];
+        return get_gru_image(layer);
     } else {
         printf("get_network_image_layer layers_type error, layer: %d\n", i);
         exit(-1);
@@ -809,6 +874,22 @@ void save_weights(network *net, char *filename)
             save_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->input_layer, fp, net->gpu_index);
             save_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->self_layer, fp, net->gpu_index);
             save_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->output_layer, fp, net->gpu_index);
+        } else if(net->layers_type[i] == LSTM){
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wi, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wf, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wo, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wg, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->ui, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->uf, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->uo, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->ug, fp, net->gpu_index);
+        } else if(net->layers_type[i] == GRU){
+            save_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->wr, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->wz, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->wh, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->ur, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->uz, fp, net->gpu_index);
+            save_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->uh, fp, net->gpu_index);
         }
     }
     fprintf(stderr, "Saving weights Done!\n\n");
@@ -845,6 +926,22 @@ void load_weights(network *net, char *filename)
             load_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->input_layer, fp, net->gpu_index);
             load_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->self_layer, fp, net->gpu_index);
             load_connected_weights((connected_layer *)((rnn_layer *)net->layers[i])->output_layer, fp, net->gpu_index);
+        } else if(net->layers_type[i] == LSTM){
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wi, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wf, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wo, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->wg, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->ui, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->uf, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->uo, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((lstm_layer *)net->layers[i])->ug, fp, net->gpu_index);
+        } else if(net->layers_type[i] == GRU){
+            load_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->wr, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->wz, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->wh, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->ur, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->uz, fp, net->gpu_index);
+            load_connected_weights((connected_layer *)((gru_layer *)net->layers[i])->uh, fp, net->gpu_index);
         }
     }
     fprintf(stderr, "Loading weights Done!\n");
@@ -856,6 +953,34 @@ void reset_rnn_state(network *net, int b)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
+            fill_cpu(layer->outputs, 0, layer->state + layer->outputs*b, 1);
+#ifdef GPU
+            fill_gpu(layer->outputs, 0, layer->state_gpu + layer->outputs*b, 1);
+#endif
+        }
+    }
+}
+
+void reset_lstm_state(network *net, int b)
+{
+    for(int i = 0; i < net->n; ++i){
+        if(net->layers_type[i] == LSTM){
+            lstm_layer *layer = (lstm_layer *)net->layers[i];
+            fill_cpu(layer->outputs, 0, layer->c_cpu + layer->outputs*b, 1);
+            fill_cpu(layer->outputs, 0, layer->h_cpu + layer->outputs*b, 1);
+#ifdef GPU
+            fill_gpu(layer->outputs, 0, layer->c_gpu + layer->outputs*b, 1);
+            fill_gpu(layer->outputs, 0, layer->h_gpu + layer->outputs*b, 1);
+#endif
+        }
+    }
+}
+
+void reset_gru_state(network *net, int b)
+{
+    for(int i = 0; i < net->n; ++i){
+        if(net->layers_type[i] == GRU){
+            gru_layer *layer = (gru_layer *)net->layers[i];
             fill_cpu(layer->outputs, 0, layer->state + layer->outputs*b, 1);
 #ifdef GPU
             fill_gpu(layer->outputs, 0, layer->state_gpu + layer->outputs*b, 1);

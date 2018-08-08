@@ -79,6 +79,34 @@ rnn_layer *parse_rnn(struct list *options, network *net, int count)
     return l;
 }
 
+lstm_layer *parse_lstm(struct list *options, network *net, int count)
+{
+    int outputs = option_find_int(options, "output",1);
+    int batch_normalize = option_find_int(options, "batch_normalize", 0);
+    int inputs = 0;
+    if(count == 0){
+        inputs = net->inputs;
+    }else{
+        inputs = get_network_output_size_layer(net, count-1);
+    }
+    lstm_layer *l = make_lstm_layer(net->batch, inputs, outputs, net->time_steps, batch_normalize);
+    return l;
+}
+
+gru_layer *parse_gru(struct list *options, network *net, int count)
+{
+    int outputs = option_find_int(options, "output",1);
+    int batch_normalize = option_find_int(options, "batch_normalize", 0);
+    int inputs = 0;
+    if(count == 0){
+        inputs = net->inputs;
+    }else{
+        inputs = get_network_output_size_layer(net, count-1);
+    }
+    gru_layer *l = make_gru_layer(net->batch, inputs, outputs, net->time_steps, batch_normalize);
+    return l;
+}
+
 connected_layer *parse_connected(struct list *options, network *net, int count)
 {
     char *activation_s = option_find_str(options, "activation", "linear");
@@ -443,6 +471,14 @@ network *parse_network_cfg(char *filename)
         } else if(strcmp(s->type, "[rnn]")==0){
             rnn_layer *layer = parse_rnn(options, net, count);
             net->layers_type[count] = RNN;
+            net->layers[count] = layer;
+        } else if(strcmp(s->type, "[lstm]")==0){
+            lstm_layer *layer = parse_lstm(options, net, count);
+            net->layers_type[count] = LSTM;
+            net->layers[count] = layer;
+        } else if(strcmp(s->type, "[gru]")==0){
+            gru_layer *layer = parse_gru(options, net, count);
+            net->layers_type[count] = GRU;
             net->layers[count] = layer;
         } else if(strcmp(s->type, "[route]")==0){
             route_layer *layer = parse_route(options, net, count);

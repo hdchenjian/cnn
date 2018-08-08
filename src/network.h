@@ -8,6 +8,8 @@
 #include "convolutional_layer.h"
 #include "connected_layer.h"
 #include "rnn_layer.h"
+#include "lstm_layer.h"
+#include "gru_layer.h"
 #include "maxpool_layer.h"
 #include "dropout_layer.h"
 #include "normalize_layer.h"
@@ -18,8 +20,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <time.h>
-
-#define SECRET_NUM -1234
 
 #ifdef GPU
     #include "cuda.h"
@@ -42,6 +42,7 @@ enum LAYER_TYPE{
     CONNECTED,
     RNN,
     LSTM,
+    GRU,
     ROUTE,
     SHORTCUT,
     MAXPOOL,
@@ -159,6 +160,8 @@ void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, netw
 
 float *get_network_layer_data(network *net, int i, int data_type, int is_gpu);
 void reset_rnn_state(network *net, int b);
+void reset_lstm_state(network *net, int b);
+void reset_gru_state(network *net, int b);
 network *make_network(int n);
 network *load_network(char *cfg, char *weights);
 void free_network(network *net);

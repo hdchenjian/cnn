@@ -12,9 +12,9 @@ change OPENMP=1 if you want use openmp
 make
 ```
 
-#### train RNN network that generate Tang Poems, you can find dataset [here](https://pan.baidu.com/s/1KdCGJmLfQIuyA1E946o2mQ)
+#### train RNN network that generate Tang Poems, you can find train dataset [here](https://pan.baidu.com/s/1KdCGJmLfQIuyA1E946o2mQ)
 ```
-$ ./cnn rnn train   cfg/rnn_poetry.cfg -data poetry_small.txt
+./cnn rnn train cfg/rnn_poetry.cfg -data poetry_small.txt
 ```
 
 #### you will see:
@@ -38,11 +38,11 @@ layer                    input                 filters                          
 
 #### get Tang Poems:
 ```
-./cnn rnn generate   cfg/rnn_poetry.cfg /var/darknet/weight/rnn_poetry_final.weights -len 2000
+./cnn rnn generate cfg/rnn_poetry.cfg rnn_poetry_final.weights -len 2000
 ```
 
 ```
-            王昭君怨                                梦中
+         王昭君怨                                梦中
 汉皇宫殿锁楼台，珠箔迎秋上槛看。       三月天涯三十六，夜深犹见月轮圆。
 欲识平津倚阑槛，几时容貌在双幢。       玉关恩后三山雨，道傍朱阑有白鸥。
 ```

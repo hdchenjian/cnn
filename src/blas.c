@@ -202,3 +202,20 @@ void softmax_x_ent_cpu(int batch, int n, float *pred, int *truth, float *delta, 
         }
     }
 }
+
+void weighted_delta_cpu(int num, float *state, float *h, float *z, float *delta_state, float *delta_h, float *delta_z, float *delta)
+{
+    for(int i = 0; i < num; ++i){
+        if(delta_state) delta_state[i] = delta[i] * (1 - z[i]);
+        delta_h[i] = delta[i] * z[i];
+        delta_z[i] = delta[i] * (h[i] - state[i]);
+    }
+}
+
+void mult_add_into_cpu(int num, float *a, float *b, float *c)
+{
+    for(int i = 0; i < num; ++i){
+        c[i] += a[i]*b[i];
+    }
+}
+

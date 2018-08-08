@@ -884,17 +884,6 @@ extern "C" void wgan_gpu(int n, float *pred, float *truth, float *delta, float *
     check_error(cudaPeekAtLastError());
 }
 
-
-
-
-__global__ void weighted_sum_kernel(int n, float *a, float *b, float *s, float *c)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n){
-        c[i] = s[i]*a[i] + (1-s[i])*(b ? b[i] : 0);
-    }
-}
-
 __global__ void deinter_kernel(int NX, float *X, int NY, float *Y, int B, float *OUT)
 {
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
@@ -935,25 +924,33 @@ extern "C" void inter_gpu(int NX, float *X, int NY, float *Y, int B, float *OUT)
     check_error(cudaPeekAtLastError());
 }
 
+__global__ void weighted_sum_kernel(int n, float *a, float *b, float *s, float *c)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i < n){
+        c[i] = s[i]*b[i] + (1-s[i])*a[i];
+    }
+}
+
 extern "C" void weighted_sum_gpu(float *a, float *b, float *s, int num, float *c)
 {
     weighted_sum_kernel<<<cuda_gridsize(num), BLOCK>>>(num, a, b, s, c);
     check_error(cudaPeekAtLastError());
 }
 
-__global__ void weighted_delta_kernel(int n, float *a, float *b, float *s, float *da, float *db, float *ds, float *dc)
+__global__ void weighted_delta_kernel(int num, float *state, float *h, float *z, float *delta_state, float *delta_h, float *delta_z, float *delta)
 {
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n){
-        if(da) da[i] += dc[i] * s[i];
-        if(db) db[i] += dc[i] * (1-s[i]);
-        ds[i] += dc[i] * (a[i] - b[i]);
+    if(i < num){
+        if(delta_state) delta_state[i] = delta[i] * (1 - z[i]);
+        delta_h[i] = delta[i] * z[i];
+        delta_z[i] = delta[i] * (h[i] - state[i]);
     }
 }
 
-extern "C" void weighted_delta_gpu(float *a, float *b, float *s, float *da, float *db, float *ds, int num, float *dc)
+extern "C" void weighted_delta_gpu(int num, float *state, float *h, float *z, float *delta_state, float *delta_h, float *delta_z, float *delta)
 {
-    weighted_delta_kernel<<<cuda_gridsize(num), BLOCK>>>(num, a, b, s, da, db, ds, dc);
+    weighted_delta_kernel<<<cuda_gridsize(num), BLOCK>>>(num, state, h, z, delta_state, delta_h, delta_z, delta);
     check_error(cudaPeekAtLastError());
 }
 
@@ -970,7 +967,6 @@ extern "C" void mult_add_into_gpu(int num, float *a, float *b, float *c)
     mult_add_into_kernel<<<cuda_gridsize(num), BLOCK>>>(num, a, b, c);
     check_error(cudaPeekAtLastError());
 }
-
 
 __device__ void softmax_device(float *input, int n, float temp, int stride, float *output)
 {
