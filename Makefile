@@ -1,12 +1,12 @@
 GPU=1
-DEBUG=1
+DEBUG=0
 CUDNN=0
 OPENMP=1
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
       -gencode arch=compute_61,code=[sm_61,compute_61]
 
-#ARCH= -gencode arch=compute_53,code=[sm_53,compute_53]
+ARCH= -gencode arch=compute_53,code=[sm_53,compute_53]
 
 VPATH=./src/:./examples:./test
 EXEC=cnn

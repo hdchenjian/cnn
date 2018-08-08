@@ -474,7 +474,7 @@ void forward_network_gpu(network *net, float *input)
             */
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            //forward_connected_layer_gpu(layer, input, net->test);
+            forward_connected_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
@@ -514,7 +514,7 @@ void forward_network_gpu(network *net, float *input)
             input = layer->output_gpu;
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
-            //forward_softmax_layer_gpu(layer, input, net);
+            forward_softmax_layer_gpu(layer, input, net);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
@@ -640,9 +640,8 @@ void train_network(network *net, float *input, int *truth_label_index)
     //forward_network(net, input);
     //backward_network(net, input);
     forward_network_gpu(net, net->input_gpu);
-
-    //backward_network_gpu(net, net->input_gpu);
-    //update_network_gpu(net);
+    backward_network_gpu(net, net->input_gpu);
+    update_network_gpu(net);
 #else
     forward_network(net, input);
     backward_network(net, input);

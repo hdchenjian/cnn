@@ -138,7 +138,6 @@ void forward_gru_layer(gru_layer *l, float *input, int test)
     if(0 == test){    // 0: train, 1: valid
         copy_cpu(l->outputs*l->batch, l->state, 1, l->prev_state, 1);
     }
-
     for(int i = 0; i < l->steps; ++i) {
         forward_connected_layer(l->wz, l->state, test);
         forward_connected_layer(l->wr, l->state, test);
@@ -264,11 +263,9 @@ void update_gru_layer_gpu(const gru_layer *l, float learning_rate, float momentu
 
 void forward_gru_layer_gpu(gru_layer *l, float *input, int test)
 {
-    printf("0, %p\n", input);
     if(0 == test){    // 0: train, 1: valid
         copy_gpu(l->outputs*l->batch, l->state_gpu, 1, l->prev_state_gpu, 1);
     }
-    printf("1, %p\n", input);
     for(int i = 0; i < l->steps; ++i) {
         forward_connected_layer_gpu(l->wz, l->state_gpu, test);
         forward_connected_layer_gpu(l->wr, l->state_gpu, test);
@@ -282,18 +279,16 @@ void forward_gru_layer_gpu(gru_layer *l, float *input, int test)
         axpy_gpu(l->outputs*l->batch, 1, l->wr->output_gpu, 1, l->r_gpu, 1);
         activate_array_gpu(l->z_gpu, l->outputs*l->batch, LOGISTIC);
         activate_array_gpu(l->r_gpu, l->outputs*l->batch, LOGISTIC);
-            printf("2, %p\n", input);
 
 
         copy_gpu(l->outputs*l->batch, l->state_gpu, 1, l->forgot_state_gpu, 1);
         mul_gpu(l->outputs*l->batch, l->r_gpu, 1, l->forgot_state_gpu, 1);
         forward_connected_layer_gpu(l->wh, l->forgot_state_gpu, test);
         copy_gpu(l->outputs*l->batch, l->uh->output_gpu, 1, l->h_gpu, 1);
-        axpy_gpu(l->outputs*l->batch, 1, l->wh->output, 1, l->h_gpu, 1);
+        axpy_gpu(l->outputs*l->batch, 1, l->wh->output_gpu, 1, l->h_gpu, 1);
         activate_array_gpu(l->h_gpu, l->outputs*l->batch, TANH);
         //activate_array(l->h_gpu, l->outputs*l->batch, LOGISTIC);
 
-        printf("3, %p\n", input);
         weighted_sum_gpu(l->state_gpu, l->h_gpu, l->z_gpu, l->outputs*l->batch, l->output_gpu);
         copy_gpu(l->outputs*l->batch, l->output_gpu, 1, l->state_gpu, 1);
 
@@ -306,7 +301,6 @@ void forward_gru_layer_gpu(gru_layer *l, float *input, int test)
         increment_layer(l->wr, 1);
         increment_layer(l->wh, 1);
     }
-    printf("4, %p\n", input);
     l->output_gpu -= l->outputs*l->batch*l->steps;
     increment_layer(l->uz, -l->steps);
     increment_layer(l->ur, -l->steps);
@@ -314,7 +308,6 @@ void forward_gru_layer_gpu(gru_layer *l, float *input, int test)
     increment_layer(l->wz, -l->steps);
     increment_layer(l->wr, -l->steps);
     increment_layer(l->wh, -l->steps);
-    printf("5, %p\n", input);
 }
 
 void backward_gru_layer_gpu(gru_layer *l, float *input, float *delta, int test)
@@ -342,7 +335,6 @@ void backward_gru_layer_gpu(gru_layer *l, float *input, float *delta, int test)
         if (delta) delta -= l->inputs*l->batch;
         l->output_gpu -= l->outputs*l->batch;
         l->delta_gpu -= l->outputs*l->batch;
-    printf("welll\n");
 
         if(i != 0) copy_gpu(l->outputs*l->batch, l->output_gpu - l->outputs*l->batch, 1, l->state_gpu, 1);
         else copy_gpu(l->outputs*l->batch, l->prev_state_gpu, 1, l->state_gpu, 1);
