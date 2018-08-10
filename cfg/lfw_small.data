@@ -1,6 +1,6 @@
 train_data_type = -1
-train  = /var/darknet/lfw-112X96/train.txt
-valid  = /var/darknet/lfw-112X96/test.txt
-labels = /var/darknet/lfw-112X96/labels.txt
+train  = /var/darknet/face_train_data_small/train.txt
+valid  = /var/darknet/face_train_data_small/test.txt
+labels = /var/darknet/face_train_data_small/labels.txt
 backup = /var/darknet/weight
 top=1
