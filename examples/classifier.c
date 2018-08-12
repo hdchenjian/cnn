@@ -49,8 +49,10 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
     }
     double time;
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
-    printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d, net->batch: %d\n\n",
-            net->seen, train_set_size, net->max_batches, net->classes, net->batch);
+    int max_epoch = (int)net->max_batches * net->batch / train_set_size;
+    printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d,"
+           "net->batch: %d, max_epoch: %d\n\n",
+           net->seen, train_set_size, net->max_batches, net->classes, net->batch, max_epoch);
 
     net->batch_train = net->seen / net->batch;
     net->epoch = net->seen / train_set_size;
