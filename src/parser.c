@@ -43,8 +43,8 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
     int pad = option_find_int(options, "pad", 0);
     float lr_mult = option_find_float(options, "lr_mult", 1);
-    float lr_decay_mult = option_find_float(options, "lr_decay_mult", 0);
-    float bias_mult = option_find_float(options, "bias_mult", 2);
+    float lr_decay_mult = option_find_float(options, "lr_decay_mult", 1);
+    float bias_mult = option_find_float(options, "bias_mult", 1);
     float bias_decay_mult = option_find_float(options, "bias_decay_mult", 0);
     char *weight_filler_str = option_find_str(options, "weight_filler", "xavier");
     int weight_filler = 1;
@@ -391,6 +391,7 @@ void parse_net_options(struct list *options, network *net)
     net->saturation = option_find_float(options, "saturation", 1);
     net->exposure = option_find_float(options, "exposure", 1);
     net->hue = option_find_float(options, "hue", 0);
+    net->jitter = option_find_float(options, "jitter", 0);
     net->flip = option_find_float(options, "flip", 0);
     net->mean_value = option_find_float(options, "mean_value", 0);
     //net->mean_value /= 255.0F;  // scale image to [0, 1] when load image

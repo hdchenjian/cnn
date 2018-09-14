@@ -77,6 +77,6 @@ void copy_image_into(image src, image dest);
 
 image get_image_layer(image m, int l);
 void flip_image(image a);
-
+void fill_image(image m, float s);
 #endif
 

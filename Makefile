@@ -1,7 +1,7 @@
-GPU=1
-DEBUG=0
+GPU=0
+DEBUG=1
 CUDNN=0
-OPENMP=1
+OPENMP=0
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
       -gencode arch=compute_61,code=[sm_61,compute_61]
@@ -54,7 +54,7 @@ LDFLAGS+= -lstdc++
 OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o maxpool_layer_kernels.o dropout_layer_kernals.o avgpool_layer_kernals.o
 endif
 
-EXECOBJA=classifier.o cnn.o rnn.o
+EXECOBJA=classifier.o cnn.o rnn.o detector.o
 EXECOBJ = $(addprefix $(OBJDIR), $(EXECOBJA))
 EXECOBJA_TEST=test.o
 EXECOBJ_TEST = $(addprefix $(OBJDIR), $(EXECOBJA_TEST))

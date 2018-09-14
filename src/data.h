@@ -3,28 +3,29 @@
 
 #include "image.h"
 
-typedef struct {
-    char **paths;
-    int train_set_size;
-    int h;
-    int w;
-    int c;
-    int n;
-    char **labels;
-    int classes;
-    float saturation;
-    float exposure;
-    float hue;
-} load_args;
-
 typedef struct{
     int n;  // number of image
-    int h;
-    int w;
-    int c;
+    int h, w, c;
     float *data;
     int *truth_label_index;
 } batch;
+
+typedef struct matrix{
+    int rows, cols;
+    float **vals;
+} matrix;
+
+typedef struct{
+    int id;
+    float x,y,w,h;
+    float left, right, top, bottom;
+} box_label;
+
+typedef struct{
+    int w, h;
+    matrix X;
+    matrix y;
+} batch_detect;
 
 batch random_batch(char **paths, int batch_size, char **labels, int classes, int train_set_size, int w, int h, int c,
                    float hue, float saturation, float exposure, int flip, float mean_value, float scale, int test);
@@ -36,4 +37,10 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
 batch *load_image_to_memory(char **paths, int batch_size, char **labels, int classes, int train_set_size,
                             int *batch_num_return, int w, int h, int c, float hue, float saturation, float exposure,
                             int flip, float mean_value, float scale, int test);
+
+void free_matrix(matrix m);
+matrix make_matrix(int rows, int cols);
+batch_detect load_data_detection(int n, char **paths, int train_set_size, int w, int h, int boxes, int classes,
+                                 float jitter, float hue, float saturation, float exposure, int test);
+void free_batch_detect(batch_detect d);
 #endif

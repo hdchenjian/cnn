@@ -6,6 +6,7 @@
 
 void run_classifier(int argc, char **argv);
 void run_char_rnn(int argc, char **argv);
+void run_detector(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
@@ -28,6 +29,8 @@ int main(int argc, char **argv)
 
     if (0 == strcmp(argv[1], "classifier")){
         run_classifier(argc, argv);
+    } else if (0 == strcmp(argv[1], "detector")){
+        run_detector(argc, argv);
     } else if (0 == strcmp(argv[1], "rnn")){
         run_char_rnn(argc, argv);
     } else {

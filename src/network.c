@@ -622,6 +622,32 @@ void update_network_gpu(network *net)
 
 #endif
 
+void train_network_detect(network *net, batch_detect d)
+{
+    if(net->input == 0){
+        net->input = (float *)malloc(net->h * net->w * net->c * net->batch * sizeof(float));
+        net->truth = (float *)malloc(net->h * net->w * net->c * net->batch * sizeof(float));
+    }
+    memset(net->truth, 0, sizeof(net->truth) * sizeof(float));
+    for(int j = 0; j < net->batch; ++j){
+        memcpy(net->input + j * d.X.cols, d.X.vals[j], d.X.cols * sizeof(float));
+        memcpy(net->truth + j * d.y.cols, d.y.vals[j], d.y.cols * sizeof(float));
+    }
+#ifdef GPU
+    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
+    forward_network_gpu(net, net->input_gpu);
+    backward_network_gpu(net, net->input_gpu);
+    update_network_gpu(net);
+#else
+    forward_network(net, net->input);
+    backward_network(net, net->input);
+    update_network(net);
+#endif
+    net->seen += net->batch * net->time_steps;
+    net->batch_train += 1;
+}
+
 void train_network(network *net, float *input, int *truth_label_index)
 {
     if(net->accuracy_count > net->accuracy_count_max){

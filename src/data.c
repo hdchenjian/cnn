@@ -274,3 +274,198 @@ char **get_labels(char *filename)
     free_list(plist);
     return labels;
 }
+
+void free_matrix(matrix m)
+{
+    for(int i = 0; i < m.rows; ++i) free(m.vals[i]);
+    free(m.vals);
+}
+
+matrix make_matrix(int rows, int cols)
+{
+    matrix m;
+    m.rows = rows;
+    m.cols = cols;
+    m.vals = calloc(m.rows, sizeof(float *));
+    for(int i = 0; i < m.rows; ++i){
+        m.vals[i] = calloc(m.cols, sizeof(float));
+    }
+    return m;
+}
+
+char **get_random_paths(char **paths, int n, int train_set_size)
+{
+    char **random_paths = calloc(n, sizeof(char*));
+    for(int i = 0; i < n; ++i){
+        int index = rand()%train_set_size;
+        random_paths[i] = paths[index];
+    }
+    return random_paths;
+}
+
+box_label *read_boxes(char *filename, int *n)
+{
+    FILE *file = fopen(filename, "r");
+    if(!file) file_error(filename);
+    float x, y, h, w;
+    int id;
+    int count = 0;
+    int size = 64;
+    box_label *boxes = calloc(size, sizeof(box_label));
+    while(fscanf(file, "%d %f %f %f %f", &id, &x, &y, &w, &h) == 5){
+        if(count == size) {
+            size = size * 2;
+            boxes = realloc(boxes, size*sizeof(box_label));
+        }
+        boxes[count].id = id;
+        boxes[count].x = x;
+        boxes[count].y = y;
+        boxes[count].h = h;
+        boxes[count].w = w;
+        boxes[count].left   = x - w/2;
+        boxes[count].right  = x + w/2;
+        boxes[count].top    = y - h/2;
+        boxes[count].bottom = y + h/2;
+        ++count;
+    }
+    fclose(file);
+    *n = count;
+    return boxes;
+}
+
+void randomize_boxes(box_label *b, int n)
+{
+    int i;
+    for(i = 0; i < n; ++i){
+        box_label swap = b[i];
+        int index = rand()%n;
+        b[i] = b[index];
+        b[index] = swap;
+    }
+}
+
+void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float sy, int flip)
+{
+    int i;
+    for(i = 0; i < n; ++i){
+        if(boxes[i].x == 0 && boxes[i].y == 0) {
+            boxes[i].x = 999999;
+            boxes[i].y = 999999;
+            boxes[i].w = 999999;
+            boxes[i].h = 999999;
+            continue;
+        }
+        boxes[i].left   = boxes[i].left  * sx - dx;
+        boxes[i].right  = boxes[i].right * sx - dx;
+        boxes[i].top    = boxes[i].top   * sy - dy;
+        boxes[i].bottom = boxes[i].bottom* sy - dy;
+
+        if(flip){
+            float swap = boxes[i].left;
+            boxes[i].left = 1. - boxes[i].right;
+            boxes[i].right = 1. - swap;
+        }
+
+        boxes[i].left =  constrain(0, 1, boxes[i].left);
+        boxes[i].right = constrain(0, 1, boxes[i].right);
+        boxes[i].top =   constrain(0, 1, boxes[i].top);
+        boxes[i].bottom =   constrain(0, 1, boxes[i].bottom);
+
+        boxes[i].x = (boxes[i].left+boxes[i].right)/2;
+        boxes[i].y = (boxes[i].top+boxes[i].bottom)/2;
+        boxes[i].w = (boxes[i].right - boxes[i].left);
+        boxes[i].h = (boxes[i].bottom - boxes[i].top);
+
+        boxes[i].w = constrain(0, 1, boxes[i].w);
+        boxes[i].h = constrain(0, 1, boxes[i].h);
+    }
+}
+
+void fill_truth_detection(char *path, int num_boxes, float *truth, int classes, int flip, float dx, float dy, float sx, float sy)
+{
+    char labelpath[4096];
+    find_replace(path, "train_image", "labels", labelpath);
+    find_replace(labelpath, ".jpg", ".txt", labelpath);
+    find_replace(labelpath, ".png", ".txt", labelpath);
+    find_replace(labelpath, ".JPG", ".txt", labelpath);
+    find_replace(labelpath, ".JPEG", ".txt", labelpath);
+    int count = 0;
+    box_label *boxes = read_boxes(labelpath, &count);
+    randomize_boxes(boxes, count);
+    correct_boxes(boxes, count, dx, dy, sx, sy, flip);
+    if(count > num_boxes) count = num_boxes;
+    float x,y,w,h;
+    int id;
+    int i;
+    int sub = 0;
+
+    for (i = 0; i < count; ++i) {
+        x =  boxes[i].x;
+        y =  boxes[i].y;
+        w =  boxes[i].w;
+        h =  boxes[i].h;
+        id = boxes[i].id;
+
+        if ((w < .001 || h < .001)) {
+            ++sub;
+            continue;
+        }
+
+        truth[(i-sub)*5+0] = x;
+        truth[(i-sub)*5+1] = y;
+        truth[(i-sub)*5+2] = w;
+        truth[(i-sub)*5+3] = h;
+        truth[(i-sub)*5+4] = id;
+    }
+    free(boxes);
+}
+
+void free_batch_detect(batch_detect d)
+{
+    free_matrix(d.X);
+    free_matrix(d.y);
+}
+
+batch_detect load_data_detection(int n, char **paths, int train_set_size, int w, int h, int boxes, int classes,
+                         float jitter, float hue, float saturation, float exposure, int test)
+{
+    char **random_paths = get_random_paths(paths, n, train_set_size);
+    batch_detect d = {0};
+    d.X.rows = n;
+    d.X.vals = calloc(d.X.rows, sizeof(float*));
+    d.X.cols = h*w*3;
+    d.y = make_matrix(n, 5*boxes);
+    for(int i = 0; i < n; ++i){
+        image orig = load_image_color(random_paths[i], 0, 0);
+        image sized = make_image(w, h, orig.c);
+        fill_image(sized, .5);
+
+        float dw = jitter * orig.w;
+        float dh = jitter * orig.h;
+        float new_ar = (orig.w + rand_uniform(-dw, dw)) / (orig.h + rand_uniform(-dh, dh));
+        float scale = 1;
+        float nw, nh;
+        if(new_ar < 1){
+            nh = scale * h;
+            nw = nh * new_ar;
+        } else {
+            nw = scale * w;
+            nh = nw / new_ar;
+        }
+        float dx = rand_uniform(0, w - nw);
+        float dy = rand_uniform(0, h - nh);
+        place_image(orig, nw, nh, dx, dy, sized);
+        random_distort_image(sized, hue, saturation, exposure);
+
+        int flip = 0;
+        if(test == 0) {      // 0: train, 1: valid
+            flip = rand()%2;
+            if(flip) flip_image(sized);
+        }
+        d.X.vals[i] = sized.data;
+        fill_truth_detection(random_paths[i], boxes, d.y.vals[i], classes, flip, -dx/w, -dy/h, nw/w, nh/h);
+        free_image(orig);
+    }
+    free(random_paths);
+    return d;
+}

@@ -105,6 +105,7 @@ typedef struct {
     int test;    // 0: train, 1: valid
     int classes;    // train data classes
     int *truth_label_index;
+    float *input, *truth;
 
     int correct_num;  // train correct number
     int accuracy_count, accuracy_count_max;  // all trained data size, train accuracy = correct_num / accuracy_count
@@ -112,7 +113,7 @@ typedef struct {
     float *workspace_gpu;  // for convolutional_layer image reorder
     size_t workspace_size;
     float loss;
-    float hue, saturation, exposure;  // random_distort_image
+    float hue, saturation, exposure, jitter;  // random_distort_image
     float mean_value, scale;   // use when load image
     int flip;
 
@@ -166,6 +167,7 @@ network *make_network(int n);
 network *load_network(char *cfg, char *weights);
 void free_network(network *net);
 void train_network(network *net, float *input, int *truth_label_index);
+void train_network_detect(network *net, batch_detect d);
 void valid_network(network *net, float *input, int *truth_label_index);
 float *forward_network_test(network *net, float *input);
 int get_network_output_size_layer(network *net, int i);
