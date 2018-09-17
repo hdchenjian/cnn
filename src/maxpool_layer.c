@@ -9,14 +9,6 @@ image get_maxpool_image(const maxpool_layer *layer)
     return float_to_image(h,w,c,NULL);
 }
 
-image get_maxpool_delta(const maxpool_layer *layer, int batch)
-{
-    int h = layer->out_h;
-    int w = layer->out_w;
-    int c = layer->c;
-    return float_to_image(h,w,c,NULL);
-}
-
 maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int batch, int padding)
 {
     fprintf(stderr, "Maxpool:            %d x %d x %d inputs, size: %d, %d stride\n", w,h,c,size,stride);
@@ -86,7 +78,7 @@ void forward_maxpool_layer(const maxpool_layer *layer, float *in)
     printf("forward_maxpool_layer max: %f, min: %f\n", max, min);*/
 }
 
-void backward_maxpool_layer(const maxpool_layer *layer, float *in, float *delta)
+void backward_maxpool_layer(const maxpool_layer *layer, float *delta)
 {
     int i;
     int h = layer->out_h;

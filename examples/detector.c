@@ -38,52 +38,32 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
     float avg_loss = -1;
     float max_accuracy = -1;
     int max_accuracy_batch = 0;
+    int max_boxes = 30;
     while(net->batch_train < net->max_batches){
         time = what_time_is_it_now();
         update_current_learning_rate(net);
         batch_detect train;
-        train = load_data_detection(net->batch, paths, train_set_size, net->w, net->h, 30, net->classes,
+        train = load_data_detection(net->batch, paths, train_set_size, net->w, net->h, max_boxes, net->classes,
                                     net->jitter, net->hue, net->saturation, net->exposure, net->test);
+        printf("Loaded: %lf seconds\n", what_time_is_it_now() - time);
         /*
-           int k;
-           for(k = 0; k < l.max_boxes; ++k){
-           box b = float_to_box(train.y.vals[10] + 1 + k*5);
-           if(!b.x) break;
-           printf("loaded: %f %f %f %f\n", b.x, b.y, b.w, b.h);
-           }
-         */
-        /*
-           int zz;
-           for(zz = 0; zz < train.X.cols; ++zz){
-           image im = float_to_image(net->w, net->h, 3, train.X.vals[zz]);
-           int k;
-           for(k = 0; k < l.max_boxes; ++k){
-           box b = float_to_box(train.y.vals[zz] + k*5, 1);
-           printf("%f %f %f %f\n", b.x, b.y, b.w, b.h);
-           draw_bbox(im, b, 1, 1,0,0);
-           }
-           show_image(im, "truth11");
-           cvWaitKey(0);
-           save_image(im, "truth11");
-           }
-
-        printf("Loaded: %lf seconds\n", what_time_is_it_now()-time);
-
-        for(int zz = 0; zz < train.X.rows; ++zz){
+        int zz;
+        for(zz = 0; zz < train.X.rows; ++zz){
             image im = float_to_image(net->w, net->h, 3, train.X.vals[zz]);
-            for(int k = 0; k < l.max_boxes; ++k){
+            int k;
+            for(k = 0; k < max_boxes; ++k){
                 box b = float_to_box(train.y.vals[zz] + k*5, 1);
                 if(!b.x) break;
-                //printf("box value: %f %f %f %f\n", b.x, b.y, b.w, b.h);
-                draw_bbox(im, b, 1, 1,1,1);
+                printf("%f %f %f %f\n", b.x, b.y, b.w, b.h);
+                draw_bbox(im, b, 1, 1, 0, 0);
             }
-            //show_image(im, "truth11");
-            //cvWaitKey(0);
-            save_image(im, "truth11");
+            save_image_png(im, "truth11");
         }
         */
-        //train_network_detect(net, train);
+
+        train_network_detect(net, train);
         free_batch_detect(train);
+        //sleep(1.5);
 
         int epoch_old = net->epoch;
         net->epoch = net->seen / train_set_size;

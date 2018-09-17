@@ -1,0 +1,4 @@
+classes= 1
+train  = /home/luyao/database/FDDB_reorder/train.txt
+valid  = /home/luyao/database/FDDB_reorder/test.txt
+names = /home/luyao/database/FDDB_reorder/face.names

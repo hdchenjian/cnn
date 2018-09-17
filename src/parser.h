@@ -10,6 +10,7 @@
 #include "route_layer.h"
 #include "shortcut_layer.h"
 #include "maxpool_layer.h"
+#include "upsample_layer.h"
 #include "avgpool_layer.h"
 #include "normalize_layer.h"
 #include "dropout_layer.h"
@@ -21,14 +22,8 @@
 
 #ifdef GPU
     #include "cuda.h"
-
-    #ifdef CUDNN
-    #include "cudnn.h"
-    #endif
 #endif
 
 struct list *read_data_cfg(char *filename);
 network *parse_network_cfg(char *filename);
-struct list *read_data_cfg(char *filename);
-
 #endif

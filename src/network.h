@@ -11,6 +11,7 @@
 #include "lstm_layer.h"
 #include "gru_layer.h"
 #include "maxpool_layer.h"
+#include "upsample_layer.h"
 #include "dropout_layer.h"
 #include "normalize_layer.h"
 #include "avgpool_layer.h"
@@ -51,6 +52,8 @@ enum LAYER_TYPE{
     DROPOUT,
     SOFTMAX,
     COST,
+    UPSAMPLE,
+    YOLO,
 };
 
 typedef struct {
@@ -134,7 +137,27 @@ typedef struct {
     int *truth_label_index_gpu;
     int *is_not_max_gpu; // for counting correct rate in forward_softmax_layer_gpu
 #endif
-}network;
+} network;
+
+typedef struct {
+    int h,w,c, out_h, out_w, out_c, n, batch, total, classes, inputs, outputs, truths, max_boxes;
+    int *mask;
+    float ignore_thresh, truth_thresh, *cost;
+    float *biases, *bias_updates, *delta, *output;
+    float *output_gpu, *delta_gpu;
+} yolo_layer;
+
+image get_yolo_image(const yolo_layer *layer);
+yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask, int classes);
+void free_yolo_layer(void *input);
+void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int test);
+void backward_yolo_layer(const yolo_layer *l, float *delta);
+int yolo_num_detections(const yolo_layer *l, float thresh);
+
+#ifdef GPU
+void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input, int test);
+void backward_yolo_layer_gpu(const yolo_layer *l, float *delta);
+#endif
 
 image get_avgpool_image(const avgpool_layer *l);
 void forward_cost_layer(const cost_layer *l, float *input, network *net);

@@ -16,7 +16,7 @@ typedef struct {
 image get_maxpool_image(const maxpool_layer *layer);
 maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int batch, int padding);
 void forward_maxpool_layer(const maxpool_layer *layer, float *in);
-void backward_maxpool_layer(const maxpool_layer *layer, float *in, float *delta);
+void backward_maxpool_layer(const maxpool_layer *layer, float *delta);
 
 #ifdef GPU
 void forward_maxpool_layer_gpu(const maxpool_layer *layer, float *in_gpu);

@@ -31,6 +31,7 @@ void softmax_x_ent_cpu(int batch, int n, float *pred, int *truth, float *delta, 
 void l2normalize_cpu(float *x, int batch, int filters, int spatial);
 void weighted_delta_cpu(int num, float *state, float *h, float *z, float *delta_state, float *delta_h, float *delta_z, float *delta);
 void mult_add_into_cpu(int num, float *a, float *b, float *c);
+void upsample_cpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
 
 #ifdef GPU
 void axpy_gpu(int N, float ALPHA, float * X, int INCX, float * Y, int INCY);
@@ -76,5 +77,6 @@ void weight_normalize_gpu(int inputs, int outputs, float *x);
 void weighted_delta_gpu(int num, float *state, float *h, float *z, float *delta_state, float *delta_h, float *delta_z, float *delta);
 void weighted_sum_gpu(float *a, float *b, float *s, int num, float *c);
 void mult_add_into_gpu(int num, float *a, float *b, float *c);
+void upsample_gpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
 #endif
 #endif

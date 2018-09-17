@@ -75,6 +75,10 @@ void free_network(network *net)
             if(layer->indexes_gpu) cuda_free(layer->indexes_gpu);
 #endif
             free_ptr(layer);
+        } else if(net->layers_type[i] == UPSAMPLE){
+            free_upsample_layer(net->layers[i]);
+        } else if(net->layers_type[i] == YOLO){
+            free_yolo_layer(net->layers[i]);
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             if(layer->output) free_ptr(layer->output);
@@ -226,6 +230,14 @@ void forward_network(network *net, float *input)
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             forward_maxpool_layer(layer, input);
             input = layer->output;
+        } else if(net->layers_type[i] == UPSAMPLE){
+            upsample_layer *layer = (upsample_layer *)net->layers[i];
+            forward_upsample_layer(layer, input);
+            input = layer->output;
+        } else if(net->layers_type[i] == YOLO){
+            yolo_layer *layer = (yolo_layer *)net->layers[i];
+            forward_yolo_layer(layer, net, input, net->test);
+            input = layer->output;
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             forward_avgpool_layer(layer, input);
@@ -282,6 +294,8 @@ void update_network(network *net)
         } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
+        } else if(net->layers_type[i] == UPSAMPLE){
+        } else if(net->layers_type[i] == YOLO){
         } else if(net->layers_type[i] == DROPOUT){
         } else if(net->layers_type[i] == AVGPOOL){
         } else if(net->layers_type[i] == NORMALIZE){
@@ -341,6 +355,18 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
             return data_type == 0 ? layer->output : layer->delta;
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == UPSAMPLE){
+        upsample_layer *layer = (upsample_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == YOLO){
+        yolo_layer *layer = (yolo_layer *)net->layers[i];
         if(is_gpu)
             return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
@@ -427,7 +453,13 @@ void backward_network(network *net, float *input)
             backward_shortcut_layer(layer, prev_delta, net);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-            if(i != 0) backward_maxpool_layer(layer, prev_input, prev_delta);
+            if(i != 0) backward_maxpool_layer(layer, prev_delta);
+        } else if(net->layers_type[i] == UPSAMPLE){
+            upsample_layer *layer = (upsample_layer *)net->layers[i];
+            if(i != 0) backward_upsample_layer(layer, prev_delta);
+        } else if(net->layers_type[i] == YOLO){
+            yolo_layer *layer = (yolo_layer *)net->layers[i];
+            if(i != 0) backward_yolo_layer(layer, prev_delta);
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             if(i != 0) backward_avgpool_layer(layer, prev_delta);
@@ -500,6 +532,14 @@ void forward_network_gpu(network *net, float *input)
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             forward_maxpool_layer_gpu(layer, input);
             input = layer->output_gpu;
+        } else if(net->layers_type[i] == UPSAMPLE){
+            upsample_layer *layer = (upsample_layer *)net->layers[i];
+            forward_upsample_layer_gpu(layer, input);
+            input = layer->output_gpu;
+        } else if(net->layers_type[i] == YOLO){
+            yolo_layer *layer = (yolo_layer *)net->layers[i];
+            forward_yolo_layer_gpu(layer, net, input, net->test);
+            input = layer->output_gpu;
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             forward_avgpool_layer_gpu(layer, input);
@@ -565,6 +605,12 @@ void backward_network_gpu(network *net, float *input)
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(i != 0) backward_maxpool_layer_gpu(layer, prev_delta);
+        } else if(net->layers_type[i] == UPSAMPLE){
+            upsample_layer *layer = (upsample_layer *)net->layers[i];
+            if(i != 0) backward_upsample_layer_gpu(layer, prev_delta);
+        } else if(net->layers_type[i] == YOLO){
+            yolo_layer *layer = (yolo_layer *)net->layers[i];
+            if(i != 0) backward_yolo_layer_gpu(layer, prev_delta);
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
             if(i != 0) backward_avgpool_layer_gpu(layer, prev_delta);
@@ -608,6 +654,8 @@ void update_network_gpu(network *net)
         } else if(net->layers_type[i] == ROUTE){
         } else if(net->layers_type[i] == SHORTCUT){
         } else if(net->layers_type[i] == MAXPOOL){
+        } else if(net->layers_type[i] == UPSAMPLE){
+        } else if(net->layers_type[i] == YOLO){
         } else if(net->layers_type[i] == DROPOUT){
         } else if(net->layers_type[i] == AVGPOOL){
         } else if(net->layers_type[i] == NORMALIZE){
@@ -746,6 +794,14 @@ int get_network_output_size_layer(network *net, int i)
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         image output = get_maxpool_image(layer);
         return output.h*output.w*output.c;
+    } else if(net->layers_type[i] == UPSAMPLE){
+        upsample_layer *layer = (upsample_layer *)net->layers[i];
+        image output = get_upsample_image(layer);
+        return output.h*output.w*output.c;
+    } else if(net->layers_type[i] == YOLO){
+        yolo_layer *layer = (yolo_layer *)net->layers[i];
+        image output = get_yolo_image(layer);
+        return output.h*output.w*output.c;
     }else if(net->layers_type[i] == AVGPOOL){
         avgpool_layer *layer = (avgpool_layer *)net->layers[i];
         return layer->c;
@@ -775,6 +831,12 @@ image get_network_image_layer(network *net, int i)
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         return get_maxpool_image(layer);
+    } else if(net->layers_type[i] == UPSAMPLE){
+        upsample_layer *layer = (upsample_layer *)net->layers[i];
+        return get_upsample_image(layer);
+    } else if(net->layers_type[i] == YOLO){
+        yolo_layer *layer = (yolo_layer *)net->layers[i];
+        return get_yolo_image(layer);
     } else if(net->layers_type[i] == DROPOUT){
         dropout_layer *layer = (dropout_layer *)net->layers[i];
         return get_dropout_image(layer);

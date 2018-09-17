@@ -1,4 +1,5 @@
 #include "parser.h"
+#include <assert.h>
 
 struct section{
     char *type;
@@ -203,6 +204,88 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
     int padding = option_find_int(options, "padding", (size-1)/2);
     maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding);
     return layer;
+}
+
+upsample_layer *parse_upsample(struct list *options, network *net, int count)
+{
+    int h,w,c;
+    int stride = option_find_int(options, "stride",1);
+    if(count == 0){
+        h = net->h;
+        w = net->w;
+        c = net->c;
+    }else{
+        image m =  get_network_image_layer(net, count-1);
+        h = m.h;
+        w = m.w;
+        c = m.c;
+        if(h == 0) error("Layer before upsample layer must output image.");
+    }
+    upsample_layer *layer = make_upsample_layer(net->batch, w, h, c, stride);
+    return layer;
+}
+
+int *parse_yolo_mask(char *a, int *num)
+{
+    int *mask = 0;
+    if(a){
+        int len = strlen(a);
+        int n = 1;
+        int i;
+        for(i = 0; i < len; ++i){
+            if (a[i] == ',') ++n;
+        }
+        mask = calloc(n, sizeof(int));
+        for(i = 0; i < n; ++i){
+            int val = atoi(a);
+            mask[i] = val;
+            a = strchr(a, ',')+1;
+        }
+        *num = n;
+    }
+    return mask;
+}
+
+yolo_layer *parse_yolo(struct list *options, network *net, int count)
+{
+    int h,w,c;
+    if(count == 0){
+        h = net->h;
+        w = net->w;
+        c = net->c;
+    }else{
+        image m =  get_network_image_layer(net, count-1);
+        h = m.h;
+        w = m.w;
+        c = m.c;
+        if(h == 0) error("Layer before yolo layer must output image.");
+    }
+    int classes = option_find_int(options, "classes", 20);
+    int total = option_find_int(options, "total", 1);
+    int num = 0;
+    char *mask_str = option_find_str(options, "mask", 0);
+    int *mask = parse_yolo_mask(mask_str, &num);
+    yolo_layer *l = make_yolo_layer(net->batch, w, h, num, total, mask, classes);
+    assert(l->outputs == w * h * c);
+
+    l->max_boxes = option_find_int(options, "max_boxes", 30);
+    l->ignore_thresh = option_find_float(options, "ignore_thresh", .5);
+    l->truth_thresh = option_find_float(options, "truth_thresh", 1);
+    char *a = option_find_str(options, "anchors", 0);
+    if(a){
+        int len = strlen(a);
+        int n = 1;
+        int i;
+        for(i = 0; i < len; ++i){
+            if (a[i] == ',') ++n;
+        }
+        for(i = 0; i < n; ++i){
+            float bias = atof(a);
+            l->biases[i] = bias;
+            a = strchr(a, ',')+1;
+        }
+    }
+    return l;
 }
 
 normalize_layer *parse_normalize(struct list *options, network *net, int count)
@@ -496,6 +579,14 @@ network *parse_network_cfg(char *filename)
         }else if(strcmp(s->type, "[maxpool]")==0){
             maxpool_layer *layer = parse_maxpool(options, net, count);
             net->layers_type[count] = MAXPOOL;
+            net->layers[count] = layer;
+        }else if(strcmp(s->type, "[upsample]")==0){
+            upsample_layer *layer = parse_upsample(options, net, count);
+            net->layers_type[count] = UPSAMPLE;
+            net->layers[count] = layer;
+        }else if(strcmp(s->type, "[yolo]")==0){
+            yolo_layer *layer = parse_yolo(options, net, count);
+            net->layers_type[count] = YOLO;
             net->layers[count] = layer;
         }else if(strcmp(s->type, "[normalize]")==0){
             normalize_layer *layer = parse_normalize(options, net, count);
