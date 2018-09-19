@@ -142,7 +142,7 @@ typedef struct {
 typedef struct {
     int h,w,c, out_h, out_w, out_c, n, batch, total, classes, inputs, outputs, truths, max_boxes;
     int *mask;
-    float ignore_thresh, truth_thresh, *cost;
+    float ignore_thresh, truth_thresh;
     float *biases, *bias_updates, *delta, *output;
     float *output_gpu, *delta_gpu;
 } yolo_layer;

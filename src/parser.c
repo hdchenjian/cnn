@@ -268,7 +268,6 @@ yolo_layer *parse_yolo(struct list *options, network *net, int count)
     yolo_layer *l = make_yolo_layer(net->batch, w, h, num, total, mask, classes);
     assert(l->outputs == w * h * c);
 
-    l->max_boxes = option_find_int(options, "max_boxes", 30);
     l->ignore_thresh = option_find_float(options, "ignore_thresh", .5);
     l->truth_thresh = option_find_float(options, "truth_thresh", 1);
     char *a = option_find_str(options, "anchors", 0);

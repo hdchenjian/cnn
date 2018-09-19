@@ -27,7 +27,7 @@ upsample_layer *make_upsample_layer(int batch, int w, int h, int c, int stride)
     l->delta_gpu =  cuda_make_array(l->delta, l->outputs*batch);
     l->output_gpu = cuda_make_array(l->output, l->outputs*batch);
     #endif
-    fprintf(stderr, "upsample           %4d x%4d x%4d   ->  %4d x%4d x%4d, stride: %d\n", w, h, c, l->out_w, l->out_h, l->out_c, stride);
+    fprintf(stderr, "upsample          %4d x%4d x%4d   ->  %4d x%4d x%4d, stride: %d\n", w, h, c, l->out_w, l->out_h, l->out_c, stride);
     return l;
 }
 
