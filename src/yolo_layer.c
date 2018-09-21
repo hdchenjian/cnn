@@ -36,6 +36,7 @@ yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask
     l->truths = l->max_boxes * (4 + 1);
     l->delta = calloc(batch*l->outputs, sizeof(float));
     l->output = calloc(batch*l->outputs, sizeof(float));
+    l->input_cpu = calloc(batch*l->outputs, sizeof(float));
 #ifdef GPU
     l->output_gpu = cuda_make_array(l->output, batch*l->outputs);
     l->delta_gpu = cuda_make_array(l->delta, batch*l->outputs);
@@ -52,6 +53,7 @@ void free_yolo_layer(void *input)
     if(layer->mask) free_ptr(layer->mask);
     if(layer->output) free_ptr(layer->output);
     if(layer->delta) free_ptr(layer->delta);
+    if(layer->input_cpu) free_ptr(layer->input_cpu);
 #ifdef GPU
     if(layer->output_gpu) cuda_free(layer->output_gpu);
     if(layer->delta_gpu) cuda_free(layer->delta_gpu);
@@ -90,6 +92,12 @@ float delta_yolo_box(box truth, float *x, float *biases, int n, int index, int i
 
 void delta_yolo_class(float *output, float *delta, int index, int class, int classes, int stride, float *avg_cat)
 {
+    if (delta[index]){
+        printf("in delta_yolo_class");
+        delta[index + stride*class] = 1 - output[index + stride*class];
+        if(avg_cat) *avg_cat += output[index + stride*class];
+        return;
+    }
     for(int n = 0; n < classes; ++n){
         delta[index + stride*n] = ((n == class)?1 : 0) - output[index + stride*n];
         if(n == class && avg_cat) *avg_cat += output[index + stride*n];
@@ -200,7 +208,7 @@ void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int tes
 
 void backward_yolo_layer(const yolo_layer *l, float *delta)
 {
-   axpy_cpu(l->batch*l->inputs, 1, l->delta, 1, delta, 1);
+   copy_cpu(l->batch*l->inputs, l->delta, 1, delta, 1);
 }
 
 void correct_yolo_boxes(detection *dets, int n, int w, int h, int netw, int neth, int relative)
@@ -303,9 +311,9 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 
 #ifdef GPU
 
-void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input, int test)
+void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input_gpu, int test)
 {
-    copy_gpu(l->batch*l->inputs, input, 1, l->output_gpu, 1);
+    copy_gpu(l->batch*l->inputs, input_gpu, 1, l->output_gpu, 1);
     int b, n;
     for(b = 0; b < l->batch; ++b){
         for(n = 0; n < l->n; ++n){
@@ -320,14 +328,14 @@ void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input, int
         return;
     }
 
-    cuda_pull_array(l->output_gpu, input, l->batch*l->inputs);
-    forward_yolo_layer(l, net, input, test);
+    cuda_pull_array(l->output_gpu, l->input_cpu, l->batch*l->inputs);
+    forward_yolo_layer(l, net, l->input_cpu, test);
     cuda_push_array(l->delta_gpu, l->delta, l->batch*l->outputs);
 }
 
 void backward_yolo_layer_gpu(const yolo_layer *l, float *delta)
 {
-    axpy_gpu(l->batch*l->inputs, 1, l->delta_gpu, 1, delta, 1);
+    copy_gpu(l->batch*l->inputs, l->delta_gpu, 1, delta, 1);
 }
 #endif
 

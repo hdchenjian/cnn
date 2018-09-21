@@ -243,7 +243,7 @@ void backward_connected_batchnorm_layer(const connected_layer *layer, int test)
                         layer->batch, layer->outputs, 1, layer->delta);
 }
 
-void backward_connected_layer(connected_layer *layer, float *input, float *delta, int test, int keep_delta)
+void backward_connected_layer(connected_layer *layer, float *input, float *delta, int test)
 {
     int all_outputs = layer->outputs * layer->batch;
     for(int i = 0; i < all_outputs; ++i){
@@ -273,7 +273,7 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
         a = layer->delta;
         b = layer->weights;
         c = delta;
-        gemm(0,0,m,n,k,1,a,k,b,n,keep_delta,c,n);
+        gemm(0,0,m,n,k,1,a,k,b,n,1,c,n);
     }
 }
 
@@ -358,7 +358,7 @@ void backward_connected_batchnorm_layer_gpu(const connected_layer *layer, int te
                         layer->variance_delta_gpu, layer->batch, layer->outputs, 1, layer->delta_gpu);
 }
 
-void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta, int test, int keep_delta)
+void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta, int test)
 {
     gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->outputs, 1);
@@ -380,7 +380,7 @@ void backward_connected_layer_gpu(connected_layer *layer, float *input, float *d
     b = layer->weights_gpu;
     c = delta;
     if(c) {
-        gemm_gpu(0,0,m,n,k,1,a,k,b,n,keep_delta,c,n);
+        gemm_gpu(0,0,m,n,k,1,a,k,b,n,1,c,n);
     }
 
     /*char cuda_compare_error_string[128] = {0};

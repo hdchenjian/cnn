@@ -50,7 +50,7 @@ void forward_upsample_layer(const upsample_layer *l, float *input)
 
 void backward_upsample_layer(const upsample_layer *l, float * delta)
 {
-    memset(delta, 0, l->h*l->w*l->c*l->batch * sizeof(float));
+    //memset(delta, 0, l->h*l->w*l->c*l->batch * sizeof(float));
     upsample_cpu(delta, l->w, l->h, l->c, l->batch, l->stride, 0, l->scale, l->delta);
 }
 
@@ -62,6 +62,7 @@ void forward_upsample_layer_gpu(const upsample_layer *l, float *input)
 
 void backward_upsample_layer_gpu(const upsample_layer *l, float *delta)
 {
-    upsample_gpu(delta_gpu, l->w, l->h, l->c, l->batch, l->stride, 0, l->scale, l->delta_gpu);
+    //fill_gpu(l->h*l->w*l->c*l->batch, 0, delta, 1);
+    upsample_gpu(delta, l->w, l->h, l->c, l->batch, l->stride, 0, l->scale, l->delta_gpu);
 }
 #endif

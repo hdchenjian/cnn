@@ -349,6 +349,8 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
     int i;
     for(i = 0; i < n; ++i){
         if(boxes[i].x == 0 && boxes[i].y == 0) {
+            printf("in correct_boxes, box size error");
+            exit(-1);
             boxes[i].x = 999999;
             boxes[i].y = 999999;
             boxes[i].w = 999999;

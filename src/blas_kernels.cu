@@ -444,10 +444,15 @@ __global__ void fill_kernel(int N, float ALPHA, float *X, int INCX)
     if(i < N) X[i*INCX] = ALPHA;
 }
 
-extern "C" void fill_gpu(int N, float ALPHA, float * X, int INCX)
+extern "C" void fill_gpu(int N, float ALPHA, float *X, int INCX)
 {
-    fill_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
-    check_error(cudaPeekAtLastError());
+    if(INCX == 1 && ALPHA == 0){
+        cudaError_t status = cudaMemset(X, 0, sizeof(float) * N);
+        check_error(status);
+    } else {
+        fill_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
+        check_error(cudaPeekAtLastError());
+    }
 }
 
 __global__ void copy_kernel(int N,  float *X, int OFFX, int INCX, float *Y, int OFFY, int INCY)

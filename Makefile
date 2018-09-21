@@ -1,5 +1,5 @@
-GPU=0
-DEBUG=1
+GPU=1
+DEBUG=0
 CUDNN=0
 OPENMP=0
 ARCH= -gencode arch=compute_35,code=sm_35 \

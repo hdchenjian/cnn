@@ -131,16 +131,21 @@ void free_network(network *net)
             exit(-1);
         }
     }
-    free_ptr(net->layers);
-    free_ptr(net->layers_type);
+    if(net->layers) free_ptr(net->layers);
+    if(net->layers_type) free_ptr(net->layers_type);
+    if(net->scales) free_ptr(net->scales);
+    if(net->steps) free_ptr(net->steps);
+    if(net->input) free_ptr(net->input);
+    if(net->truth) free_ptr(net->truth);
+    // truth_label_index use batch data pointer;
     if(net->workspace) free_ptr(net->workspace);
 #ifdef GPU
     if(net->input_gpu) cuda_free(net->input_gpu);
+    if(net->truth_gpu) cuda_free(net->truth_gpu);
     if(net->truth_label_index_gpu) cuda_free(net->truth_label_index_gpu);
     if(net->is_not_max_gpu) cuda_free(net->is_not_max_gpu);
     if(net->workspace_gpu) cuda_free(net->workspace_gpu);
 #endif
-
     free_ptr(net);
 }
 
@@ -177,33 +182,12 @@ void forward_network(network *net, float *input)
         if(net->layers_type[i] == CONVOLUTIONAL){
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_convolutional_layer(layer, input, net->workspace, net->test);
-            /*
-            if(i == 0){
-                int num = 5;
-                for(int b = 0; b < num; ++b){
-                    printf("%d %f\n", b, input[b]);
-                }
-            }
-            if(i == 0){
-                int num = 5;
-                for(int b = 0; b < num; ++b){
-                    printf("%d %f\n", b, layer->weights[b]);
-                }
-            }
-            */
-            
             input = layer->output;
-            /*if(i == 0){
-                int num = 5;
-                for(int b = 0; b < num; ++b){
-                    printf("%d %f\n", b, input[b]);
-                }
-            }
-            */
-            
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
+            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_connected_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == RNN){
@@ -220,18 +204,22 @@ void forward_network(network *net, float *input)
             input = layer->output;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
+            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_route_layer(layer, net);
             input = layer->output;
         }else if(net->layers_type[i] == SHORTCUT){
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_shortcut_layer(layer, input, net);
             input = layer->output;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_maxpool_layer(layer, input);
             input = layer->output;
         } else if(net->layers_type[i] == UPSAMPLE){
             upsample_layer *layer = (upsample_layer *)net->layers[i];
+            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_upsample_layer(layer, input);
             input = layer->output;
         } else if(net->layers_type[i] == YOLO){
@@ -434,8 +422,7 @@ void backward_network(network *net, float *input)
             */
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            int keep_delta = 0;
-            backward_connected_layer(layer, prev_input, prev_delta, net->test, keep_delta);
+            backward_connected_layer(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             backward_rnn_layer(layer, prev_input, prev_delta, net->test);
@@ -492,6 +479,7 @@ void forward_network_gpu(network *net, float *input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             //cudaError_t status = cudaMemset(net->workspace_gpu, 0, net->workspace_size);
             //check_error(status);
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
             input = layer->output_gpu;
             /*
@@ -506,6 +494,7 @@ void forward_network_gpu(network *net, float *input)
             */
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_connected_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == RNN){
@@ -522,18 +511,22 @@ void forward_network_gpu(network *net, float *input)
             input = layer->output_gpu;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_route_layer_gpu(layer, net);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == SHORTCUT){
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_shortcut_layer_gpu(layer, input, net);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_maxpool_layer_gpu(layer, input);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == UPSAMPLE){
             upsample_layer *layer = (upsample_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_upsample_layer_gpu(layer, input);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == YOLO){
@@ -586,7 +579,7 @@ void backward_network_gpu(network *net, float *input)
             backward_convolutional_layer_gpu(layer, prev_input, prev_delta, net->workspace_gpu, net->test);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            backward_connected_layer_gpu(layer, prev_input, prev_delta, net->test, 0);
+            backward_connected_layer_gpu(layer, prev_input, prev_delta, net->test);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             backward_rnn_layer_gpu(layer, prev_input, prev_delta, net->test);
@@ -672,27 +665,25 @@ void update_network_gpu(network *net)
 
 void train_network_detect(network *net, batch_detect d)
 {
-    if(net->input == 0){
-        net->input = (float *)malloc(net->h * net->w * net->c * net->batch * sizeof(float));
-        net->truth = (float *)malloc(net->h * net->w * net->c * net->batch * sizeof(float));
-    }
-    memset(net->truth, 0, sizeof(net->truth) * sizeof(float));
-    for(int j = 0; j < net->batch; ++j){
-        memcpy(net->input + j * d.X.cols, d.X.vals[j], d.X.cols * sizeof(float));
-        memcpy(net->truth + j * d.y.cols, d.y.vals[j], d.y.cols * sizeof(float));
-    }
+    for(int i = 0; i < net->subdivisions; ++i){
+        memset(net->truth, 0, net->max_boxes * 5 * net->batch);
+        for(int j = 0; j < net->batch; ++j){
+            memcpy(net->input + j * d.X.cols, d.X.vals[i * net->batch + j], d.X.cols * sizeof(float));
+            memcpy(net->truth + j * d.y.cols, d.y.vals[i * net->batch + j], d.y.cols * sizeof(float));
+        }
 #ifdef GPU
-    cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
-    cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
-    forward_network_gpu(net, net->input_gpu);
-    backward_network_gpu(net, net->input_gpu);
-    update_network_gpu(net);
+        cuda_push_array(net->input_gpu, net->input, net->h * net->w * net->c * net->batch);
+        cuda_push_array(net->truth_gpu, net->truth, net->max_boxes * 5 * net->batch);
+        forward_network_gpu(net, net->input_gpu);
+        backward_network_gpu(net, net->input_gpu);
+        if(net->subdivisions - 1 == i) update_network_gpu(net);
 #else
-    forward_network(net, net->input);
-    backward_network(net, net->input);
-    update_network(net);
+        forward_network(net, net->input);
+        backward_network(net, net->input);
+        if(net->subdivisions - 1 == i) update_network(net);
 #endif
-    net->seen += net->batch * net->time_steps;
+    }
+    net->seen += net->batch * net->time_steps * net->subdivisions;
     net->batch_train += 1;
 }
 

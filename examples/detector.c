@@ -33,25 +33,23 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
            "net->batch: %d, max_epoch: %d\n\n",
            net->seen, train_set_size, net->max_batches, net->classes, net->batch, max_epoch);
 
-    net->batch_train = net->seen / net->batch;
+    net->batch_train = net->seen / net->batch / net->subdivisions;
     net->epoch = net->seen / train_set_size;
     float avg_loss = -1;
     float max_accuracy = -1;
-    int max_accuracy_batch = 0;
-    int max_boxes = 30;
     while(net->batch_train < net->max_batches){
         time = what_time_is_it_now();
         update_current_learning_rate(net);
         batch_detect train;
-        train = load_data_detection(net->batch, paths, train_set_size, net->w, net->h, max_boxes, net->classes,
-                                    net->jitter, net->hue, net->saturation, net->exposure, net->test);
-        printf("Loaded: %lf seconds\n", what_time_is_it_now() - time);
+        train = load_data_detection(net->batch * net->subdivisions, paths, train_set_size, net->w, net->h, net->max_boxes,
+                                    net->classes, net->jitter, net->hue, net->saturation, net->exposure, net->test);
         /*
+        printf("Loaded: %lf seconds\n", what_time_is_it_now() - time);
         int zz;
         for(zz = 0; zz < train.X.rows; ++zz){
             image im = float_to_image(net->w, net->h, 3, train.X.vals[zz]);
             int k;
-            for(k = 0; k < max_boxes; ++k){
+            for(k = 0; k < net->max_boxes; ++k){
                 box b = float_to_box(train.y.vals[zz] + k*5, 1);
                 if(!b.x) break;
                 printf("%f %f %f %f\n", b.x, b.y, b.w, b.h);
@@ -69,8 +67,8 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
         net->epoch = net->seen / train_set_size;
         float loss = net->loss;
         if(loss > 999999 || loss < -999999 || loss != loss || (loss + 1.0 == loss)) {  // NaN ≠ NaN, Inf + 1 = Inf
-            fprintf(stderr, "\n\nloss too large: %f, exit\n", loss);
-            exit(-1);
+            //fprintf(stderr, "\n\nloss too large: %f, exit\n", loss);
+            //exit(-1);
         }
         if(avg_loss < 0){
             avg_loss = loss;
@@ -79,24 +77,25 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
         }
         if(net->correct_num / (net->accuracy_count + 0.00001F) > max_accuracy){
             max_accuracy = net->correct_num / (net->accuracy_count + 0.00001F);
-            max_accuracy_batch = net->batch_train;
         }
         printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %f, avg_loss: %.2f, learning_rate: %.8f, %.4f s, "
                "seen %lu images, max_accuracy: %.4f\n", net->epoch+1, net->batch_train,
                net->correct_num / (net->accuracy_count + 0.00001F),
                loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
         if(epoch_old != net->epoch){
-            char buff[256];
-            sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
-            save_weights(net, buff);
+            int save_weight_times = 15;
+            int save_weight_interval = max_epoch / save_weight_times;
+            if(save_weight_interval <= 1 || net->epoch % save_weight_interval == 0){
+                char buff[256];
+                sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
+                save_weights(net, buff);
+            }
         }
     }
-    printf("max_accuracy_batch: %d\n", max_accuracy_batch);
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
     save_weights(net, buff);
     free_network(net);
-    printf("max_accuracy_batch: %d\n", max_accuracy_batch);
     if(paths) free_ptr(paths);
     if(plist){
         free_list_contents(plist);

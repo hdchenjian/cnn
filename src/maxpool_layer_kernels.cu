@@ -96,8 +96,8 @@ __global__ void backward_maxpool_layer_kernel(int n, int in_h, int in_w, int in_
 
 extern "C" void backward_maxpool_layer_gpu(const maxpool_layer *l, float *delta_gpu)
 {
-    cudaError_t status = cudaMemset(delta_gpu, 0, sizeof(float) * l->h*l->w*l->c*l->batch);
-    check_error(status);
+    //cudaError_t status = cudaMemset(delta_gpu, 0, sizeof(float) * l->h*l->w*l->c*l->batch);
+    //check_error(status);
     size_t n = l->h*l->w*l->c*l->batch;
     backward_maxpool_layer_kernel<<<cuda_gridsize(n), BLOCK>>>(n, l->h, l->w, l->c, l->stride, l->size,
                                                                l->pad, l->delta_gpu, delta_gpu, l->indexes_gpu);

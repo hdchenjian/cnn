@@ -7,7 +7,7 @@
 #endif
 
 typedef struct {
-    int h,w,c,stride,batch, out_h, out_w, pad, size;
+    int h,w,c,stride,batch, outputs, out_h, out_w, pad, size;
     float *delta, *output;
     int *indexes, *indexes_gpu;
     float *output_gpu, *delta_gpu;

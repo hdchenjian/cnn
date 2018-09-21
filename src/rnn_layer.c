@@ -140,7 +140,7 @@ void backward_rnn_layer(const rnn_layer *l, float *input, float *delta, int test
         }
         copy_cpu(l->outputs * l->batch, l->input_layer->output, 1, l->state, 1);
         axpy_cpu(l->outputs * l->batch, 1, l->self_layer->output, 1, l->state, 1);
-        backward_connected_layer(l->output_layer, l->state, l->self_layer->delta, test, 0);
+        backward_connected_layer(l->output_layer, l->state, l->self_layer->delta, test);
 
         if(i != 0) {
             copy_cpu(l->outputs * l->batch, l->input_layer->output - l->outputs*l->batch, 1, l->state, 1);
@@ -151,10 +151,10 @@ void backward_rnn_layer(const rnn_layer *l, float *input, float *delta, int test
         float *delta_self_layer = NULL;
         if(i == 0) delta_self_layer = 0;
         else delta_self_layer = l->self_layer->delta - l->outputs*l->batch;
-        backward_connected_layer(l->self_layer, l->state, delta_self_layer, test, 0);
+        backward_connected_layer(l->self_layer, l->state, delta_self_layer, test);
 
         copy_cpu(l->outputs*l->batch, l->self_layer->delta, 1, l->input_layer->delta, 1);
-        backward_connected_layer(l->input_layer, input, delta, test, 0);
+        backward_connected_layer(l->input_layer, input, delta, test);
     }
     copy_cpu(l->outputs * l->batch, last_input, 1, l->state, 1);
     axpy_cpu(l->outputs * l->batch, 1, last_self, 1, l->state, 1);
@@ -230,7 +230,7 @@ void backward_rnn_layer_gpu(const rnn_layer *l, float *input, float *delta, int 
         }   
         copy_gpu(l->outputs * l->batch, l->input_layer->output_gpu, 1, l->state_gpu, 1);
         axpy_gpu(l->outputs * l->batch, 1, l->self_layer->output_gpu, 1, l->state_gpu, 1);
-        backward_connected_layer_gpu(l->output_layer, l->state_gpu, l->self_layer->delta_gpu, test, 0);
+        backward_connected_layer_gpu(l->output_layer, l->state_gpu, l->self_layer->delta_gpu, test);
 
         if(i != 0) {
             copy_gpu(l->outputs * l->batch, l->input_layer->output_gpu - l->outputs*l->batch, 1, l->state_gpu, 1);
@@ -242,10 +242,10 @@ void backward_rnn_layer_gpu(const rnn_layer *l, float *input, float *delta, int 
         float *delta_self_layer = NULL;
         if(i == 0) delta_self_layer = 0;
         else delta_self_layer = l->self_layer->delta_gpu - l->outputs*l->batch;
-        backward_connected_layer_gpu(l->self_layer, l->state_gpu, delta_self_layer, test, 0);
+        backward_connected_layer_gpu(l->self_layer, l->state_gpu, delta_self_layer, test);
         
         copy_gpu(l->outputs*l->batch, l->self_layer->delta_gpu, 1, l->input_layer->delta_gpu, 1);
-        backward_connected_layer_gpu(l->input_layer, input, delta, test, 0);
+        backward_connected_layer_gpu(l->input_layer, input, delta, test);
     }
     copy_gpu(l->outputs * l->batch, last_input, 1, l->state_gpu, 1);
     axpy_gpu(l->outputs * l->batch, 1, last_self, 1, l->state_gpu, 1);

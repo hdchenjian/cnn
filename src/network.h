@@ -99,22 +99,21 @@ typedef struct {
     int n;                  // the size of network
     int max_batches, max_epoch; // max iteration times of batch
     size_t seen;    // the number of image processed
-    int batch;   // the number of batch processed
-    int time_steps;  // for rnn layer
-    int inputs;  // for rnn layer, the inputs num of network
+    int time_steps, inputs;  // for rnn layer, the inputs num of network
     int epoch;
     int batch_train;   // the number of batch trained
-    int w, h, c;  // net input data dimension
+    int w, h, c, batch, subdivisions;  // net input data dimension
     int test;    // 0: train, 1: valid
     int classes;    // train data classes
-    int *truth_label_index;
-    float *input, *truth;
+    int *truth_label_index, *truth_label_index_gpu;
+    float *input, *truth, *input_gpu, *truth_gpu;
+    int *is_not_max_gpu; // for counting correct rate in forward_softmax_layer_gpu
+    float *workspace, *workspace_gpu;  // for convolutional_layer image reorder
+    size_t workspace_size;
+    int max_boxes;  // a image contain max_boxes groud truth box
 
     int correct_num;  // train correct number
     int accuracy_count, accuracy_count_max;  // all trained data size, train accuracy = correct_num / accuracy_count
-    float *workspace;  // for convolutional_layer image reorder
-    float *workspace_gpu;  // for convolutional_layer image reorder
-    size_t workspace_size;
     float loss;
     float hue, saturation, exposure, jitter;  // random_distort_image
     float mean_value, scale;   // use when load image
@@ -122,28 +121,20 @@ typedef struct {
 
     enum learning_rate_policy policy;
     int learning_rate_poly_power;  // for POLY learning_rate_policy
-    float learning_rate_init;
-    float learning_rate;
-    float momentum;
-    float decay;
+    float learning_rate_init, learning_rate, momentum, decay;
     float *scales; // for STEP STEPS learning_rate_policy
-    int   *steps;
+    int *steps;
     int num_steps;
 
     void **layers;
     enum LAYER_TYPE *layers_type;
-#ifdef GPU
-    float *input_gpu;  // train data
-    int *truth_label_index_gpu;
-    int *is_not_max_gpu; // for counting correct rate in forward_softmax_layer_gpu
-#endif
 } network;
 
 typedef struct {
     int h,w,c, out_h, out_w, out_c, n, batch, total, classes, inputs, outputs, truths, max_boxes;
     int *mask;
     float ignore_thresh, truth_thresh;
-    float *biases, *bias_updates, *delta, *output;
+    float *biases, *bias_updates, *delta, *output, *input_cpu;
     float *output_gpu, *delta_gpu;
 } yolo_layer;
 

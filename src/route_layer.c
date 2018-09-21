@@ -73,7 +73,8 @@ void backward_route_layer(const route_layer *l, network *net)
         float *delta = get_network_layer_data(net, index, 1, 0);
         int input_size = l->input_sizes[i];
         for(int j = 0; j < l->batch; ++j){
-            memcpy(delta + j*input_size, l->delta + offset + j*l->outputs, input_size * sizeof(float));
+            //memcpy(delta + j*input_size, l->delta + offset + j*l->outputs, input_size * sizeof(float));
+            axpy_cpu(input_size, 1, l->delta + offset + j*l->outputs, 1, delta + j*input_size, 1);
         }
         offset += input_size;
     }
@@ -105,7 +106,8 @@ void backward_route_layer_gpu(const route_layer *l, network *net)
         float *delta = get_network_layer_data(net, index, 1, 1);
         int input_size = l->input_sizes[i];
         for(int j = 0; j < l->batch; ++j){
-            cuda_mem_copy(delta + j*input_size, l->delta_gpu + offset + j*l->outputs, input_size);
+            //cuda_mem_copy(delta + j*input_size, l->delta_gpu + offset + j*l->outputs, input_size);
+            axpy_gpu(input_size, 1, l->delta_gpu + offset + j*l->outputs, 1, delta + j*input_size, 1);
         }
         offset += input_size;
     }

@@ -272,7 +272,7 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
         gemm_gpu(0,1,m,n,k,1,a,k,b,k,1,c,n);
 
         if (delta) {
-            fill_gpu(layer->h * layer->w * layer->c, 0, delta + i * layer->h * layer->w * layer->c, 1);
+            //fill_gpu(layer->h * layer->w * layer->c, 0, delta + i * layer->h * layer->w * layer->c, 1);
             m = layer->size*layer->size*layer->c;
             n = layer->out_w * layer->out_h;
             k = layer->n;
@@ -282,7 +282,7 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
             if (layer->size == 1) {
                 c = delta + i * layer->h * layer->w * layer->c;
             }
-            gemm_gpu(1,0,m,n,k,1,a,m,b,n,0,c,n);
+            gemm_gpu(1,0,m,n,k,1,a,m,b,n,1,c,n);
             if (layer->size != 1) {
                 col2im_gpu(workspace, layer->c, layer->h, layer->w, layer->size, layer->stride,
                            layer->pad, delta + i * layer->h * layer->w * layer->c);

@@ -297,10 +297,10 @@ void backward_lstm_layer(lstm_layer *l, float *input, float *delta, int test)
         mul_cpu(l->outputs*l->batch, l->temp3_cpu, 1, l->temp_cpu, 1);
         gradient_array(l->o_cpu, l->outputs*l->batch, LOGISTIC, l->temp_cpu);
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->wo->delta, 1);
-        backward_connected_layer(l->wo, l->prev_output, dh_cpu, test, 0);
+        backward_connected_layer(l->wo, l->prev_output, dh_cpu, test);
 
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->uo->delta, 1);
-        backward_connected_layer(l->uo, input, delta, test, 0);
+        backward_connected_layer(l->uo, input, delta, test);
 
         copy_cpu(l->outputs*l->batch, l->c_cpu, 1, l->temp_cpu, 1);
         activate_array(l->temp_cpu, l->outputs*l->batch, TANH);
@@ -312,25 +312,25 @@ void backward_lstm_layer(lstm_layer *l, float *input, float *delta, int test)
         mul_cpu(l->outputs*l->batch, l->i_cpu, 1, l->temp_cpu, 1);
         gradient_array(l->g_cpu, l->outputs*l->batch, TANH, l->temp_cpu);
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->wg->delta, 1);
-        backward_connected_layer(l->wg, l->prev_output, dh_cpu, test, 1);
+        backward_connected_layer(l->wg, l->prev_output, dh_cpu, test);
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->ug->delta, 1);
-        backward_connected_layer(l->ug, input, delta, test, 1);
+        backward_connected_layer(l->ug, input, delta, test);
 
         copy_cpu(l->outputs*l->batch, l->temp2_cpu, 1, l->temp_cpu, 1);
         mul_cpu(l->outputs*l->batch, l->g_cpu, 1, l->temp_cpu, 1);
         gradient_array(l->i_cpu, l->outputs*l->batch, LOGISTIC, l->temp_cpu);
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->wi->delta, 1);
-        backward_connected_layer(l->wi, l->prev_output, dh_cpu, test, 1);
+        backward_connected_layer(l->wi, l->prev_output, dh_cpu, test);
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->ui->delta, 1);
-        backward_connected_layer(l->ui, input, delta, test, 1);
+        backward_connected_layer(l->ui, input, delta, test);
 
         copy_cpu(l->outputs*l->batch, l->temp2_cpu, 1, l->temp_cpu, 1);
         mul_cpu(l->outputs*l->batch, l->prev_cell_cpu, 1, l->temp_cpu, 1);
         gradient_array(l->f_cpu, l->outputs*l->batch, LOGISTIC, l->temp_cpu);
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->wf->delta, 1);
-        backward_connected_layer(l->wf, l->prev_output, dh_cpu, test, 1);
+        backward_connected_layer(l->wf, l->prev_output, dh_cpu, test);
         copy_cpu(l->outputs*l->batch, l->temp_cpu, 1, l->uf->delta, 1);
-        backward_connected_layer(l->uf, input, delta, test, 1);
+        backward_connected_layer(l->uf, input, delta, test);
     }
     copy_cpu(l->outputs * l->batch, last_c_cpu, 1, l->c_cpu, 1);
     copy_cpu(l->outputs * l->batch, last_h_cpu, 1, l->h_cpu, 1);
@@ -476,9 +476,9 @@ void backward_lstm_layer_gpu(lstm_layer *l, float *input, float *delta, int test
         mul_gpu(l->outputs*l->batch, l->temp3_gpu, 1, l->temp_gpu, 1);
         gradient_array_gpu(l->o_gpu, l->outputs*l->batch, LOGISTIC, l->temp_gpu);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->wo->delta_gpu, 1);
-        backward_connected_layer_gpu(l->wo, l->prev_output_gpu, dh_gpu, test, 0);
+        backward_connected_layer_gpu(l->wo, l->prev_output_gpu, dh_gpu, test);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->uo->delta_gpu, 1);
-        backward_connected_layer_gpu(l->uo, input, delta, test, 0);
+        backward_connected_layer_gpu(l->uo, input, delta, test);
 
         copy_gpu(l->outputs*l->batch, l->c_gpu, 1, l->temp_gpu, 1);
         activate_array_gpu(l->temp_gpu, l->outputs*l->batch, TANH);
@@ -490,25 +490,25 @@ void backward_lstm_layer_gpu(lstm_layer *l, float *input, float *delta, int test
         mul_gpu(l->outputs*l->batch, l->i_gpu, 1, l->temp_gpu, 1);
         gradient_array_gpu(l->g_gpu, l->outputs*l->batch, TANH, l->temp_gpu);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->wg->delta_gpu, 1);
-        backward_connected_layer_gpu(l->wg, l->prev_output_gpu, dh_gpu, test, 1);
+        backward_connected_layer_gpu(l->wg, l->prev_output_gpu, dh_gpu, test);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->ug->delta_gpu, 1);
-        backward_connected_layer_gpu(l->ug, input, delta, test, 1);
+        backward_connected_layer_gpu(l->ug, input, delta, test);
 
         copy_gpu(l->outputs*l->batch, l->temp2_gpu, 1, l->temp_gpu, 1);
         mul_gpu(l->outputs*l->batch, l->g_gpu, 1, l->temp_gpu, 1);
         gradient_array_gpu(l->i_gpu, l->outputs*l->batch, LOGISTIC, l->temp_gpu);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->wi->delta_gpu, 1);
-        backward_connected_layer_gpu(l->wi, l->prev_output_gpu, dh_gpu, test, 1);
+        backward_connected_layer_gpu(l->wi, l->prev_output_gpu, dh_gpu, test);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->ui->delta_gpu, 1);
-        backward_connected_layer_gpu(l->ui, input, delta, test, 1);
+        backward_connected_layer_gpu(l->ui, input, delta, test);
 
         copy_gpu(l->outputs*l->batch, l->temp2_gpu, 1, l->temp_gpu, 1);
         mul_gpu(l->outputs*l->batch, l->prev_cell_gpu, 1, l->temp_gpu, 1);
         gradient_array_gpu(l->f_gpu, l->outputs*l->batch, LOGISTIC, l->temp_gpu);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->wf->delta_gpu, 1);
-        backward_connected_layer_gpu(l->wf, l->prev_output_gpu, dh_gpu, test, 1);
+        backward_connected_layer_gpu(l->wf, l->prev_output_gpu, dh_gpu, test);
         copy_gpu(l->outputs*l->batch, l->temp_gpu, 1, l->uf->delta_gpu, 1);
-        backward_connected_layer_gpu(l->uf, input, delta, test, 1);
+        backward_connected_layer_gpu(l->uf, input, delta, test);
     }
     copy_gpu(l->outputs * l->batch, last_c_gpu, 1, l->c_gpu, 1);
     copy_gpu(l->outputs * l->batch, last_h_gpu, 1, l->h_gpu, 1);

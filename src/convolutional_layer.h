@@ -20,7 +20,7 @@
 #endif
 
 typedef struct {
-    int h, w, c, n, size, stride, batch, out_h, out_w, batch_normalize, pad;
+    int h, w, c, n, size, stride, batch, subdivisions, outputs, out_h, out_w, batch_normalize, pad;
     float bflop, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult;
     float *weights, *weight_updates, *biases, *bias_updates, *delta, *output;
     float *mean, *mean_delta, *variance, *variance_delta, *rolling_mean, *rolling_variance, *x, *x_norm, *scales, *scale_updates;
@@ -36,7 +36,7 @@ image get_convolutional_image(const convolutional_layer *layer);
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
                                               ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad,
                                               float lr_mult, float lr_decay_mult, float bias_mult, float bias_decay_mult,
-                                              int weight_filler, float sigma);
+                                              int weight_filler, float sigma, int subdivisions);
 void free_convolutional_layer(void *input);
 void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test);
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace, int test);

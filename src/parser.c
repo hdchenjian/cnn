@@ -60,7 +60,7 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     convolutional_layer *layer = make_convolutional_layer(h, w, c, n, size, stride, net->batch, activation,
                                                           &(net->workspace_size), batch_normalize, pad,
                                                           lr_mult, lr_decay_mult, bias_mult, bias_decay_mult,
-                                                          weight_filler, sigma);
+                                                          weight_filler, sigma, net->subdivisions);
     return layer;
 }
 
@@ -482,6 +482,8 @@ void parse_net_options(struct list *options, network *net)
     net->max_batches = option_find_int(options, "max_batches", 0);
     net->max_epoch = option_find_int(options, "max_epoch", 0);
     net->batch = option_find_int(options, "batch", 0);
+    net->subdivisions = option_find_int(options, "subdivisions", 1);
+    net->batch /= net->subdivisions;
     net->accuracy_count_max = option_find_int(options, "accuracy_count_max", 2000);
     net->time_steps = option_find_int(options, "time_steps", 1);
     char *policy_s = option_find_str(options, "policy", "constant");
@@ -618,12 +620,17 @@ network *parse_network_cfg(char *filename)
         ++count;
         n = n->next;
     }
+
+    net->input = (float *)malloc(net->h * net->w * net->c * net->batch * sizeof(float));
+    net->max_boxes = 30;
+    net->truth = calloc(1, net->max_boxes * 5 * net->batch * sizeof(float));
 #ifdef GPU
     if(net->w == 0 || net->h == 0 || net->c == 0) {
         net->input_gpu = cuda_make_array(0, net->time_steps * net->batch * net->inputs);
     } else {
         net->input_gpu = cuda_make_array(0, net->h * net->w * net->c * net->batch);
     }
+    net->truth_gpu = cuda_make_array(0, net->max_boxes * 5 * net->batch);
     net->truth_label_index_gpu = cuda_make_int_array(0, net->batch);
     net->is_not_max_gpu = cuda_make_int_array(0, net->batch);
     net->gpu_index = cuda_get_device();
