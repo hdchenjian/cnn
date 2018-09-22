@@ -1,4 +1,4 @@
-#include "shortcut_layer.h"
+#include "network.h"
 
 image get_shortcut_image(const shortcut_layer *layer)
 {

@@ -461,6 +461,8 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             c = workspace;
             if (layer->size == 1) {
                 c = delta + j * layer->h * layer->w * layer->c;
+            } else {
+                memset(workspace, 0, m*n*sizeof(float));
             }
             gemm(1,0,m,n,k,1,a,m,b,n,1,c,n);
             if (layer->size != 1) {

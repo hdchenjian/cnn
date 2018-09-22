@@ -28,16 +28,6 @@ dropout_layer *make_dropout_layer(int w, int h, int c, int batch, int inputs, fl
     return l;
 } 
 
-void resize_dropout_layer(dropout_layer *l, int inputs)
-{
-    l->rand = realloc(l->rand, l->inputs*l->batch*sizeof(float));
-    #ifdef GPU
-    cuda_free(l->rand_gpu);
-
-    l->rand_gpu = cuda_make_array(l->rand, inputs*l->batch);
-    #endif
-}
-
 void forward_dropout_layer(const dropout_layer *l, float *input, int test)
 {
     if (0 != test) return;  // 0: train, 1: valid

@@ -12,7 +12,7 @@
 #endif
 
 typedef struct {
-    int h,w,c,batch, normalize_type;
+    int h,w,c,batch, outputs, normalize_type;
     float *delta, *output;
     float *output_gpu, *delta_gpu;
 } avgpool_layer;

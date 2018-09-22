@@ -349,6 +349,15 @@ softmax_layer *parse_softmax(struct list *options, network *net, int count, int 
     return layer;
 }
 
+enum COST_TYPE get_cost_type(char *s)
+{
+    if (strcmp(s, "sse")==0) return SSE;
+    if (strcmp(s, "masked")==0) return MASKED;
+    if (strcmp(s, "smooth")==0) return SMOOTH;
+    fprintf(stderr, "Couldn't find cost type %s, going with SSE\n", s);
+    return SSE;
+}
+
 cost_layer *parse_cost(struct list *options, network *net, int count)
 {
     char *type_s = option_find_str(options, "type", "sse");

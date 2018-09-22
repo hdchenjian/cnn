@@ -16,12 +16,12 @@ avgpool_layer *make_avgpool_layer(int batch, int w, int h, int c)
     l->h = h;
     l->w = w;
     l->c = c;
-    int output_size = c * batch;
-    l->output =  calloc(output_size, sizeof(float));
-    l->delta =   calloc(output_size, sizeof(float));
+    l->outputs = c;
+    l->output = calloc(l->outputs * batch, sizeof(float));
+    l->delta = calloc(l->outputs * batch, sizeof(float));
     #ifdef GPU
-    l->output_gpu  = cuda_make_array(l->output, output_size);
-    l->delta_gpu   = cuda_make_array(l->delta, output_size);
+    l->output_gpu  = cuda_make_array(l->output, l->outputs * batch);
+    l->delta_gpu   = cuda_make_array(l->delta, l->outputs * batch);
     #endif
     return l;
 }
@@ -57,7 +57,7 @@ void backward_avgpool_layer(const avgpool_layer *l, float *delta)
             //printf("backward_avgpool_layer: %f\n", temp);
             for(int i = 0; i < l->h*l->w; ++i){
                 int in_index = i + l->h*l->w*(k + b*l->c);
-                delta[in_index] = temp / (l->h*l->w);
+                delta[in_index] += temp / (l->h*l->w);
             }
         }
     }

@@ -24,10 +24,6 @@
 
 #ifdef GPU
     #include "cuda.h"
-
-    #ifdef CUDNN
-    #include "cudnn.h"
-    #endif
 #endif
 
 enum COST_TYPE{
@@ -74,14 +70,12 @@ typedef struct {
 
 typedef struct {
     int is_last_layer;   // 1: is last layer, 0: not
-    int inputs, batch;
+    int inputs, outputs, batch;
     float label_specific_margin_bias;
     int margin_scale;
-    float *delta, *output;
-    float *delta_gpu, *output_gpu;
+    float *delta, *output, *delta_gpu, *output_gpu;
     float *input_backup, *input_backup_gpu;  // for AM-softmax
-    float *loss, *loss_gpu;
-    float *cost;
+    float *loss, *loss_gpu, *cost;
 } softmax_layer;
 
 typedef struct {
@@ -144,31 +138,42 @@ void free_yolo_layer(void *input);
 void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int test);
 void backward_yolo_layer(const yolo_layer *l, float *delta);
 int yolo_num_detections(const yolo_layer *l, float thresh);
-
 #ifdef GPU
 void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input, int test);
 void backward_yolo_layer_gpu(const yolo_layer *l, float *delta);
 #endif
 
-image get_avgpool_image(const avgpool_layer *l);
+cost_layer *make_cost_layer(int batch, int inputs, enum COST_TYPE cost_type, float scale);
 void forward_cost_layer(const cost_layer *l, float *input, network *net);
 void backward_cost_layer(const cost_layer *l, float *delta);
-void forward_softmax_layer(softmax_layer *layer, float *input, network *net);
-void backward_softmax_layer(const softmax_layer *layer, float *delta);
-void forward_route_layer(const route_layer *l, network *net);
-void backward_route_layer(const route_layer *l, network *net);
-image get_route_image(const route_layer *layer);
-void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net);
-void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net);
-image get_shortcut_image(const shortcut_layer *layer);
-
 #ifdef GPU
 void forward_cost_layer_gpu(const cost_layer *l, float *input, network *net);
 void backward_cost_layer_gpu(const cost_layer *l, float *delta);
+#endif
+
+softmax_layer *make_softmax_layer(int inputs, int batch, int is_last_layer, float label_specific_margin_bias, int margin_scale);
+void forward_softmax_layer(softmax_layer *layer, float *input, network *net);
+void backward_softmax_layer(const softmax_layer *layer, float *delta);
+#ifdef GPU
 void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *net);
 void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu);
+#endif
+
+image get_route_image(const route_layer *layer);
+route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_size, network *net);
+void forward_route_layer(const route_layer *l, network *net);
+void backward_route_layer(const route_layer *l, network *net);
+#ifdef GPU
 void forward_route_layer_gpu(const route_layer *l, network *net);
 void backward_route_layer_gpu(const route_layer *l, network *net);
+#endif
+
+image get_shortcut_image(const shortcut_layer *layer);
+shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, int out_w,int out_h,int out_c,
+                                    ACTIVATION activation, float prev_layer_weight, float shortcut_layer_weight);
+void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net);
+void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net);
+#ifdef GPU
 void forward_shortcut_layer_gpu(const shortcut_layer *l, float *input_gpu, network *net);
 void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, network *net);
 #endif

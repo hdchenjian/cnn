@@ -9,6 +9,7 @@ normalize_layer *make_normalize_layer(int w, int h, int c, int batch)
     l->h = h;
     l->c = c;
     l->inputs = inputs;
+    l->outputs = inputs;
     l->batch = batch;
     l->output = calloc(inputs*batch, sizeof(float));
     l->delta = calloc(inputs*batch, sizeof(float));
@@ -35,7 +36,7 @@ void forward_normalize_layer(const normalize_layer *l, float *input)
 
 void backward_normalize_layer(const normalize_layer *l, float *delta)
 {
-    memcpy(delta, l->delta, l->inputs * l->batch * sizeof(float));
+    axpy_cpu(l->inputs * l->batch, 1, l->delta, 1, delta, 1);
 }
 
 #ifdef GPU
@@ -51,7 +52,7 @@ void forward_normalize_layer_gpu(const normalize_layer *l, float *input)
 
 void backward_normalize_layer_gpu(const normalize_layer *l, float *delta)
 {
-    cuda_mem_copy(delta, l->delta_gpu, l->inputs*l->batch);
+    axpy_gpu(l->inputs * l->batch, 1, l->delta_gpu, 1, delta, 1);
 }
 
 #endif

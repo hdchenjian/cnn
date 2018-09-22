@@ -1,4 +1,4 @@
-#include "softmax_layer.h"
+#include "network.h"
 
 softmax_layer *make_softmax_layer(int inputs, int batch, int is_last_layer,
                                   float label_specific_margin_bias, int margin_scale)
@@ -8,6 +8,7 @@ softmax_layer *make_softmax_layer(int inputs, int batch, int is_last_layer,
     softmax_layer *layer = calloc(1, sizeof(softmax_layer));
     layer->is_last_layer = is_last_layer;
     layer->inputs = inputs;
+    layer->outputs = inputs;
     layer->batch = batch;
     layer->label_specific_margin_bias = label_specific_margin_bias;
     layer->margin_scale = margin_scale;
@@ -96,7 +97,7 @@ void backward_softmax_layer(const softmax_layer *layer, float *delta)
         scale = layer->margin_scale;
     }
     for(int i = 0; i < element_num; ++i){
-        delta[i] = scale * layer->delta[i];
+        delta[i] += scale * layer->delta[i];
         //printf("%f \n", delta[i]);
     }
 }
@@ -163,7 +164,6 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
 
 void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu)
 {
-    fill_gpu(layer->batch*layer->inputs, 0, delta_gpu, 1);
     float scale = 1.0F;
     if(layer->margin_scale > 0){
         scale = layer->margin_scale;

@@ -1,29 +1,8 @@
-#include "cost_layer.h"
+#include <math.h>
+#include <stdio.h>
 
-#include <unistd.h>
-
-enum COST_TYPE get_cost_type(char *s)
-{
-    if (strcmp(s, "sse")==0) return SSE;
-    if (strcmp(s, "masked")==0) return MASKED;
-    if (strcmp(s, "smooth")==0) return SMOOTH;
-    fprintf(stderr, "Couldn't find cost type %s, going with SSE\n", s);
-    return SSE;
-}
-
-char *get_cost_string(enum COST_TYPE a)
-{
-    switch(a){
-        case SSE:
-            return "sse";
-        case MASKED:
-            return "masked";
-        case SMOOTH:
-            return "smooth";
-        default:
-            return "sse";
-    }
-}
+#include "utils.h"
+#include "network.h"
 
 cost_layer *make_cost_layer(int batch, int inputs, enum COST_TYPE cost_type, float scale)
 {
@@ -42,20 +21,6 @@ cost_layer *make_cost_layer(int batch, int inputs, enum COST_TYPE cost_type, flo
     l->output_gpu = cuda_make_array(l->delta, inputs*batch);
     #endif
     return l;
-}
-
-void resize_cost_layer(cost_layer *l, int inputs)
-{
-    l->inputs = inputs;
-    l->outputs = inputs;
-    l->delta = realloc(l->delta, inputs*l->batch*sizeof(float));
-    l->output = realloc(l->output, inputs*l->batch*sizeof(float));
-#ifdef GPU
-    cuda_free(l->delta_gpu);
-    cuda_free(l->output_gpu);
-    l->delta_gpu = cuda_make_array(l->delta, inputs*l->batch);
-    l->output_gpu = cuda_make_array(l->output, inputs*l->batch);
-#endif
 }
 
 void forward_cost_layer(const cost_layer *l, float *input, network *net)

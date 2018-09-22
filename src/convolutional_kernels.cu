@@ -281,6 +281,9 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
             c = workspace;
             if (layer->size == 1) {
                 c = delta + i * layer->h * layer->w * layer->c;
+            } else {
+                cudaError_t status = cudaMemset(workspace, 0, sizeof(float) * m * n);
+                check_error(status);
             }
             gemm_gpu(1,0,m,n,k,1,a,m,b,n,1,c,n);
             if (layer->size != 1) {
