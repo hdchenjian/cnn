@@ -383,7 +383,7 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
     }
 }
 
-void fill_truth_detection(char *path, int num_boxes, float *truth, int classes, int flip, float dx, float dy, float sx, float sy)
+void fill_truth_detection(char *path, int max_boxes, float *truth, int classes, int flip, float dx, float dy, float sx, float sy)
 {
     char labelpath[4096];
     find_replace(path, "train_image", "labels", labelpath);
@@ -395,7 +395,7 @@ void fill_truth_detection(char *path, int num_boxes, float *truth, int classes, 
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
     correct_boxes(boxes, count, dx, dy, sx, sy, flip);
-    if(count > num_boxes) count = num_boxes;
+    if(count > max_boxes) count = max_boxes;
     float x,y,w,h;
     int id;
     int i;
@@ -428,7 +428,17 @@ void free_batch_detect(batch_detect d)
     free_matrix(d.y);
 }
 
-batch_detect load_data_detection(int n, char **paths, int train_set_size, int w, int h, int boxes, int classes,
+image load_data_detection_valid(char *path, int w, int h, int *image_w, int *image_h)
+{
+    image orig = load_image_color(path, 0, 0);
+    image boxed_image = letterbox_image(orig, w, h);
+    *image_w = orig.w;
+    *image_h = orig.h;
+    free_image(orig);
+    return boxed_image;
+}
+
+batch_detect load_data_detection(int n, char **paths, int train_set_size, int w, int h, int max_boxes, int classes,
                          float jitter, float hue, float saturation, float exposure, int test)
 {
     char **random_paths = get_random_paths(paths, n, train_set_size);
@@ -436,7 +446,7 @@ batch_detect load_data_detection(int n, char **paths, int train_set_size, int w,
     d.X.rows = n;
     d.X.vals = calloc(d.X.rows, sizeof(float*));
     d.X.cols = h*w*3;
-    d.y = make_matrix(n, 5*boxes);
+    d.y = make_matrix(n, 5*max_boxes);
     for(int i = 0; i < n; ++i){
         image orig = load_image_color(random_paths[i], 0, 0);
         image sized = make_image(w, h, orig.c);
@@ -465,7 +475,7 @@ batch_detect load_data_detection(int n, char **paths, int train_set_size, int w,
             if(flip) flip_image(sized);
         }
         d.X.vals[i] = sized.data;
-        fill_truth_detection(random_paths[i], boxes, d.y.vals[i], classes, flip, -dx/w, -dy/h, nw/w, nh/h);
+        fill_truth_detection(random_paths[i], max_boxes, d.y.vals[i], classes, flip, -dx/w, -dy/h, nw/w, nh/h);
         free_image(orig);
     }
     free(random_paths);

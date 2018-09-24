@@ -32,7 +32,7 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
         if(before_layer.w == first_layer.w && before_layer.h == first_layer.h){
             l->out_c += before_layer.c;
         }else{
-        	fprintf(stderr, "make_route_layer, input layer size not same\n");
+            fprintf(stderr, "make_route_layer, input layer size not same\n");
             exit(-1);
         }
     }

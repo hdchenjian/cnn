@@ -11,7 +11,7 @@ image get_yolo_image(const yolo_layer *layer)
     return float_to_image(layer->out_h, layer->out_w, layer->out_c, NULL);
 }
 
-yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask, int classes)
+yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask, int classes, int layer_index)
 {
     yolo_layer *l = calloc(1, sizeof(yolo_layer));;
     l->n = n;
@@ -24,6 +24,7 @@ yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask
     l->out_h = l->h;
     l->out_c = l->c;
     l->classes = classes;
+    l->layer_index = layer_index;
     l->biases = calloc(total*2, sizeof(float));
     for(int i = 0; i < total*2; ++i){
         l->biases[i] = .5;
@@ -93,7 +94,6 @@ float delta_yolo_box(box truth, float *x, float *biases, int n, int index, int i
 void delta_yolo_class(float *output, float *delta, int index, int class, int classes, int stride, float *avg_cat)
 {
     if (delta[index]){
-        printf("in delta_yolo_class");
         delta[index + stride*class] = 1 - output[index + stride*class];
         if(avg_cat) *avg_cat += output[index + stride*class];
         return;
@@ -113,7 +113,8 @@ static int entry_index(const yolo_layer *l, int batch, int location, int entry)
 
 void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int test)
 {
-    memcpy(l->output, input, l->outputs*l->batch*sizeof(float));
+    memset(l->delta, 0, l->outputs * l->batch * sizeof(float));
+    memcpy(l->output, input, l->outputs * l->batch * sizeof(float));
 
 #ifndef GPU
     for(int b = 0; b < l->batch; ++b){
@@ -126,7 +127,6 @@ void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int tes
     }
 #endif
 
-    memset(l->delta, 0, l->outputs * l->batch * sizeof(float));
     if(0 != test) return;    // 0: train, 1: valid
     float avg_iou = 0;
     float recall = 0;
@@ -201,8 +201,8 @@ void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int tes
         }
     }
     net->loss = pow(mag_array(l->delta, l->outputs * l->batch), 2);
-    printf("Avg IOU: %f, Class: %f, Obj: %f, any Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
-           avg_iou/count, avg_category/count, avg_obj/count, avg_anyobj/(l->w*l->h*l->n*l->batch),
+    printf("layer: %d, Avg IOU: %f, Class: %f, Obj: %f, any Obj: %f, .5R: %f, .75R: %f,  count: %d\n",
+           l->layer_index, avg_iou/count, avg_category/count, avg_obj/count, avg_anyobj/(l->w*l->h*l->n*l->batch),
            recall/count, recall75/count, count);
 }
 

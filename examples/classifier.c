@@ -30,7 +30,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
     batch *all_train_data = NULL;
     if(0 == train_data_type) {
         train_set_size = option_find_int(options, "train_num", 0);
-        all_train_data = load_csv_image_to_memory(train_list, net->batch, labels, net->classes, train_set_size,
+        all_train_data = load_csv_image_to_memory(train_list, net->batch * net->subdivisions, labels, net->classes, train_set_size,
                                                   &batch_num, net->w, net->h, net->c, net->hue, net->saturation,
                                                   net->exposure, net->test);
     } else if(1 == train_data_type){
@@ -38,7 +38,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
         paths = (char **)list_to_array(plist);
         train_set_size = plist->size;
         train_set_size = option_find_int(options, "train_num", train_set_size);
-        all_train_data = load_image_to_memory(paths, net->batch, labels, net->classes, train_set_size, &batch_num,
+        all_train_data = load_image_to_memory(paths, net->batch * net->subdivisions, labels, net->classes, train_set_size, &batch_num,
                                               net->w, net->h, net->c, net->hue, net->saturation, net->exposure,
                                               net->flip, net->mean_value, net->scale, net->test);
     } else {
@@ -49,12 +49,12 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
     }
     double time;
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
-    int max_epoch = (int)net->max_batches * net->batch / train_set_size;
+    int max_epoch = (int)net->max_batches * net->batch * net->subdivisions / train_set_size;
     printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d,"
            "net->batch: %d, max_epoch: %d\n\n",
            net->seen, train_set_size, net->max_batches, net->classes, net->batch, max_epoch);
 
-    net->batch_train = net->seen / net->batch;
+    net->batch_train = net->seen / net->batch / net->subdivisions;
     net->epoch = net->seen / train_set_size;
     float avg_loss = -1;
     float max_accuracy = -1;
@@ -86,7 +86,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
             train_network(net, train.data, train.truth_label_index);
         } else {
             //double start_time = what_time_is_it_now();
-            train = random_batch(paths, net->batch, labels, net->classes, train_set_size, net->w, net->h, net->c,
+            train = random_batch(paths, net->batch * net->subdivisions, labels, net->classes, train_set_size, net->w, net->h, net->c,
                                  net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
                                  net->test);
             /*printf("train_data_type: %d, class: %d spend %f s\n",

@@ -125,7 +125,7 @@ typedef struct {
 } network;
 
 typedef struct {
-    int h,w,c, out_h, out_w, out_c, n, batch, total, classes, inputs, outputs, truths, max_boxes;
+    int h,w,c, out_h, out_w, out_c, n, batch, total, classes, inputs, outputs, truths, max_boxes, layer_index;
     int *mask;
     float ignore_thresh, truth_thresh;
     float *biases, *bias_updates, *delta, *output, *input_cpu;
@@ -133,11 +133,12 @@ typedef struct {
 } yolo_layer;
 
 image get_yolo_image(const yolo_layer *layer);
-yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask, int classes);
+yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask, int classes, int layer_index);
 void free_yolo_layer(void *input);
 void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int test);
 void backward_yolo_layer(const yolo_layer *l, float *delta);
 int yolo_num_detections(const yolo_layer *l, float thresh);
+int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float thresh, int *map, int relative, detection *dets);
 #ifdef GPU
 void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input, int test);
 void backward_yolo_layer_gpu(const yolo_layer *l, float *delta);
@@ -188,11 +189,12 @@ void free_network(network *net);
 void train_network(network *net, float *input, int *truth_label_index);
 void train_network_detect(network *net, batch_detect d);
 void valid_network(network *net, float *input, int *truth_label_index);
-float *forward_network_test(network *net, float *input);
+void forward_network_test(network *net, float *input);
 int get_network_output_size_layer(network *net, int i);
 image get_network_image_layer(network *net, int i);
 float update_current_learning_rate(network * net);
 void save_weights(network *net, char *filename);
 void load_weights(network *net, char *filename);
+detection *get_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, int *num);
 #endif
 

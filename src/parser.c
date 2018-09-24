@@ -260,12 +260,11 @@ yolo_layer *parse_yolo(struct list *options, network *net, int count)
         c = m.c;
         if(h == 0) error("Layer before yolo layer must output image.");
     }
-    int classes = option_find_int(options, "classes", 20);
     int total = option_find_int(options, "total", 1);
     int num = 0;
     char *mask_str = option_find_str(options, "mask", 0);
     int *mask = parse_yolo_mask(mask_str, &num);
-    yolo_layer *l = make_yolo_layer(net->batch, w, h, num, total, mask, classes);
+    yolo_layer *l = make_yolo_layer(net->batch, w, h, num, total, mask, net->classes, count);
     assert(l->outputs == w * h * c);
 
     l->ignore_thresh = option_find_float(options, "ignore_thresh", .5);

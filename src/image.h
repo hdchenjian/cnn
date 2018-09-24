@@ -26,6 +26,7 @@ image rotate_crop_image(image im, float rad, float s, int w, int h, float dx, fl
 image random_crop_image(image im, int w, int h);
 image random_augment_image(image im, float angle, float aspect, int low, int high, int w, int h);
 void letterbox_image_into(image im, int w, int h, image boxed);
+image letterbox_image(image im, int w, int h);
 image resize_max(image im, int max);
 void translate_image(image m, float s);
 void embed_image(image source, image dest, int dx, int dy);

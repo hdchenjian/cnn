@@ -24,4 +24,5 @@ box decode_box(box b, box anchor);
 box encode_box(box b, box anchor);
 box float_to_box(float *f, int stride);
 float box_iou(box a, box b);
+void do_nms_sort(detection *dets, int total, int classes, float thresh);
 #endif

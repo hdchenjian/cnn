@@ -172,7 +172,15 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
     printf("\nseed string over, generate start:\n\n");
     for(int i = 0; i < num; ++i){
         input[c] = 1;
-        float *out = forward_network_test(net, input);
+        forward_network_test(net, input);
+#ifndef GPU
+        float *out = get_network_layer_data(net, net->output_layer, 0, 0);
+#else
+        int network_output_size = get_network_output_size_layer(net, net->output_layer);
+        float *network_output_gpu = get_network_layer_data(net, net->output_layer, 0, 1);
+        float *out = malloc(network_output_size * sizeof(float));
+        cuda_pull_array(network_output_gpu, out, network_output_size);
+#endif
         float max = -FLT_MAX;
         float min = FLT_MAX;
         for(int j = 0; j < net->classes; ++j){
@@ -200,6 +208,9 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
             c = max_index;
         }
         printf("%lc", c);
+#ifdef GPU
+        free_ptr(out);
+#endif
     }
     printf("\n");
     free_ptr(input);

@@ -227,6 +227,8 @@ void forward_network(network *net, float *input)
             input = layer->output;
         } else if(net->layers_type[i] == YOLO){
             yolo_layer *layer = (yolo_layer *)net->layers[i];
+            // In forward_yolo_layer function set delta to 0
+            // if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_yolo_layer(layer, net, input, net->test);
             input = layer->output;
         } else if(net->layers_type[i] == AVGPOOL){
@@ -542,6 +544,7 @@ void forward_network_gpu(network *net, float *input)
             input = layer->output_gpu;
         } else if(net->layers_type[i] == YOLO){
             yolo_layer *layer = (yolo_layer *)net->layers[i];
+            // if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_yolo_layer_gpu(layer, net, input, net->test);
             input = layer->output_gpu;
         } else if(net->layers_type[i] == AVGPOOL){
@@ -708,27 +711,76 @@ void train_network(network *net, float *input, int *truth_label_index)
         net->correct_num = 0;
     }
 
-    net->truth_label_index = truth_label_index;
+    for(int i = 0; i < net->subdivisions; ++i){
+        net->truth_label_index = truth_label_index + i * net->batch;
 #ifdef GPU
-    if(net->w == 0 || net->h == 0 || net->c == 0) {
-        cuda_push_array(net->input_gpu, input, net->time_steps * net->batch * net->inputs);
-    } else {
-        cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
-    }
-    cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
-    //forward_network(net, input);
-    //backward_network(net, input);
-    forward_network_gpu(net, net->input_gpu);
-    backward_network_gpu(net, net->input_gpu);
-    update_network_gpu(net);
+        if(net->w == 0 || net->h == 0 || net->c == 0) {
+            cuda_push_array(net->input_gpu, input + i * net->time_steps * net->batch * net->inputs, net->time_steps * net->batch * net->inputs);
+        } else {
+            cuda_push_array(net->input_gpu, input + i * net->h * net->w * net->c * net->batch, net->h * net->w * net->c * net->batch);
+        }
+        cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
+        //forward_network(net, input);
+        //backward_network(net, input);
+        forward_network_gpu(net, net->input_gpu);
+        backward_network_gpu(net, net->input_gpu);
+        update_network_gpu(net);
 #else
-    forward_network(net, input);
-    backward_network(net, input);
-    update_network(net);
+        float *input_data;
+        if(net->w == 0 || net->h == 0 || net->c == 0) {
+            input_data = input + i * net->time_steps * net->batch * net->inputs;
+        } else {
+            input_data = input + i * net->h * net->w * net->c * net->batch;
+        }
+        forward_network(net, input_data);
+        backward_network(net, input_data);
+        update_network(net);
 #endif
-    net->seen += net->batch * net->time_steps;
+    }
+    net->seen += net->batch * net->subdivisions * net->time_steps;
     net->accuracy_count += net->batch;
     net->batch_train += 1;
+}
+
+int num_detections(network *net, float thresh)
+{
+    int s = 0;
+    for(int i = 0; i < net->n; ++i){
+        if(net->layers_type[i] == YOLO){
+            yolo_layer *l = (yolo_layer *)net->layers[i];
+            s += yolo_num_detections(l, thresh);
+        }
+    }
+    return s;
+}
+
+detection *make_network_boxes(network *net, float thresh, int *num)
+{
+    int nboxes = num_detections(net, thresh);
+    if(num) *num = nboxes;
+    detection *dets = calloc(nboxes, sizeof(detection));
+    for(int i = 0; i < nboxes; ++i){
+        dets[i].prob = calloc(net->classes, sizeof(float));
+    }
+    return dets;
+}
+
+void fill_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, detection *dets)
+{
+    for(int i = 0; i < net->n; ++i){
+        if(net->layers_type[i] == YOLO){
+            yolo_layer *l = (yolo_layer *)net->layers[i];
+            int count = get_yolo_detections(l, w, h, net->w, net->h, thresh, map, relative, dets);
+            dets += count;
+        }
+    }
+}
+
+detection *get_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, int *num)
+{
+    detection *dets = make_network_boxes(net, thresh, num);
+    fill_network_boxes(net, w, h, thresh, map, relative, dets);
+    return dets;
 }
 
 void valid_network(network *net, float *input, int *truth_label_index)
@@ -748,7 +800,7 @@ void valid_network(network *net, float *input, int *truth_label_index)
     net->accuracy_count += net->batch;
 }
 
-float *forward_network_test(network *net, float *input)
+void forward_network_test(network *net, float *input)
 {
 #ifdef GPU
     if(net->w == 0 || net->h == 0 || net->c == 0) {
@@ -760,16 +812,6 @@ float *forward_network_test(network *net, float *input)
 #else
     forward_network(net, input);
 #endif
-
-#ifndef GPU
-    float *network_output = get_network_layer_data(net, net->output_layer, 0, 0);
-#else
-    int network_output_size = get_network_output_size_layer(net, net->output_layer);
-    float *network_output_gpu = get_network_layer_data(net, net->output_layer, 0, 1);
-    float *network_output = malloc(network_output_size * sizeof(float));
-    cuda_pull_array(network_output_gpu, network_output, network_output_size);
-#endif
-    return network_output;
 }
 
 int get_network_output_size_layer(network *net, int i)

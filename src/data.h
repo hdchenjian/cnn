@@ -42,5 +42,6 @@ void free_matrix(matrix m);
 matrix make_matrix(int rows, int cols);
 batch_detect load_data_detection(int n, char **paths, int train_set_size, int w, int h, int boxes, int classes,
                                  float jitter, float hue, float saturation, float exposure, int test);
+image load_data_detection_valid(char *path, int w, int h, int *image_w, int *image_h);
 void free_batch_detect(batch_detect d);
 #endif
