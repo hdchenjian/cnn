@@ -121,9 +121,13 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
                net->correct_num / (net->accuracy_count + 0.00001F),
                loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
         if(epoch_old != net->epoch){
-            char buff[256];
-            sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
-            save_weights(net, buff);
+            int save_weight_times = 20;
+            int save_weight_interval = max_epoch / save_weight_times;
+            if(save_weight_interval <= 1 || net->epoch % save_weight_interval == 0){
+                char buff[256];
+                sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
+                save_weights(net, buff);
+            }
         }
         //sleep(30);
         //exit(-1);
@@ -153,7 +157,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     srand(time(0));
     network *net = load_network(cfgfile, weightfile);
     struct list *options = read_data_cfg(datacfg);
-    char *label_list = option_find_str(options, "labels", "data/labels.list");
+    char *label_list = option_find_str(options, "labels_test", "data/labels.list");
     char **labels = get_labels(label_list);
     char *valid_list = option_find_str(options, "valid", "data/valid.list");
 
@@ -231,7 +235,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         */
 #endif
         for(int i = 0; i < network_output_size; i++){
-            fprintf(fp, "%.19f ", network_output[i]);
+            fprintf(fp, "%f ", network_output[i]);
         }
         fprintf(fp, "\n");
 

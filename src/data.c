@@ -241,10 +241,10 @@ batch random_batch(char **paths, int batch_size, char **labels, int classes, int
             index = test_index;
             //printf("index: %d %s %f %f\n", index, paths[index], mean_value, scale);
             img = load_image(paths[index], w, h, c);
+            //flip_image(img); printf("in random_batch: flip_image to extract feature, ");
             test_index += 1;
         }
         //save_image_png(img, "input.jpg");
-        //flip_image(img);
         if(mean_value > 0.001){
             for(int k = 0; k < image_size; ++k){
                 // load_image_stb divide 255.0F

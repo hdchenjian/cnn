@@ -14,7 +14,7 @@
 # done
 
 #./cnn rnn train cfg/rnn.cfg -data shakespear.txt
-./cnn rnn generate cfg/rnn.cfg backup/rnn_000699.weights -seed Chapter -len 1000
+#./cnn rnn generate cfg/rnn.cfg backup/rnn_000699.weights -seed Chapter -len 1000
 
 # for i in range(0,12): print "'" + str(a-i*0.005) + "'"
 
@@ -23,3 +23,7 @@
 #     sed -i "s/learning_rate=.*/learning_rate=$lr/g" cfg/densenet.cfg
 #     ./cnn classifier train  cfg/lfw_small.data cfg/densenet.cfg >> log_test
 # done
+
+./cnn classifier train cfg/lfw_small.data cfg/cosface.cfg  > log
+./cnn classifier valid cfg/lfw_small.data cfg/cosface.cfg backup/cosface_final.weights
+python scripts/evaluation_recongnition.py
