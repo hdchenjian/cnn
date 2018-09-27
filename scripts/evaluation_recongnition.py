@@ -11,13 +11,6 @@ def get_score(a, b):
        sum += a[i] * b[i]
     return sum
 
-def get_scoree(a, b, c, d):
-    sum = 0.0
-    for i in range(0, 512):
-       sum += a[i] * c[i]
-       sum += b[i] * d[i]
-    return sum
-
 all_label = []
 f = open("/var/darknet/lfw_small/labels_test.txt", 'rU')
 for line in f.readlines():
@@ -79,8 +72,6 @@ for _label in range(0, len(all_label)):
     for _index in positive_index:
         for index_ in negtive_index:
             negtive_paire.append([_index, index_])
-    #print negtive_paire, len(negtive_paire)
-    #exit()
 
 negtive_num = 5000
 negtive_paire_sample = []
@@ -88,9 +79,11 @@ strip_num = len(negtive_paire) / negtive_num
 for i in range(0, negtive_num):
     negtive_paire_sample.append(negtive_paire[i * strip_num + random.randint(0, strip_num)])
 negtive_paire = negtive_paire_sample
-print negtive_paire
+for i in range(0, 10): print positive_paire[i]
+print('\n')
+for i in range(0, 10): print negtive_paire[i]
 
-features_l = []
+features = []
 f = open("features.txt", 'rU')
 for line in f.readlines():
     line = line.strip('\n')
@@ -99,34 +92,11 @@ for line in f.readlines():
     for i in range(0, len(line)):
         line[i] = float(line[i])
     #print line, len(line)
-    features_l.append(line)
+    features.append(line)
 f.close()
 
-features_r = []
-f = open("features_r.txt", 'rU')
-for line in f.readlines():
-    line = line.strip('\n')
-    line = line.split(' ')
-    line = line[:-1]
-    for i in range(0, len(line)):
-        line[i] = float(line[i])
-    #print line, len(line)
-    features_r.append(line)
-f.close()
-
-features = []
-for i in range(0, len(features_l)):
-    feature_ = features_l[i] + features_r[i]
-    sum = 0.0
-    for j in range(0, len(feature_)):
-        sum += (feature_[j] * feature_[j])
-    sum = math.sqrt(sum)
-    for j in range(0, len(feature_)):
-        feature_[j] /= sum
-    features.append(feature_)
-    
-threshold = -0.86
-while threshold < 0.9:
+threshold = 0.6
+while threshold < 0.75:
     print "threshold: ", threshold
     right_count = 0
     max_score = None
@@ -140,7 +110,10 @@ while threshold < 0.9:
         #print score
         if score >= threshold:
             right_count += 1
-    
+    print("positve max_score, min_score", max_score, min_score)
+
+    max_score = None
+    min_score = None
     right_count_negtive = 0
     for item in negtive_paire:
         score = get_score(features[item[0]], features[item[1]])
@@ -151,9 +124,9 @@ while threshold < 0.9:
         #print score
         if score < threshold:
             right_count_negtive += 1
-    print "positve", right_count, len(positive_paire), float(right_count) / len(positive_paire), max_score, min_score
-    print "negtive", right_count_negtive, len(negtive_paire), float(right_count_negtive) / len(negtive_paire)
-    print "total", right_count + right_count_negtive, len(negtive_paire) + len(positive_paire), float(right_count + right_count_negtive) / (len(negtive_paire) + len(positive_paire))
-    
-    threshold += 0.1
-    print '\n'
+    print("negtive max_score, min_score", max_score, min_score)
+    print("positive", right_count, '/', len(positive_paire), float(right_count) / len(positive_paire))
+    print("negtive", right_count_negtive, '/', len(negtive_paire), float(right_count_negtive) / len(negtive_paire))
+    print("total", right_count + right_count_negtive, '/',  len(negtive_paire) + len(positive_paire),
+          float(right_count + right_count_negtive) / (len(negtive_paire) + len(positive_paire)))
+    threshold += 0.03
