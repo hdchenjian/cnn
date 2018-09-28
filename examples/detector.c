@@ -27,9 +27,9 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
     train_set_size = plist->size;
     train_set_size = option_find_int(options, "train_num", train_set_size);
     double time;
-    printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
+    fprintf(stderr, "Learning Rate: %g, Momentum: %g, Decay: %g\n", net->learning_rate, net->momentum, net->decay);
     int max_epoch = (int)net->max_batches * net->batch * net->subdivisions / train_set_size;
-    printf("image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d,"
+    fprintf(stderr, "image net has seen: %lu, train_set_size: %d, max_batches of net: %d, net->classes: %d,"
            "net->batch: %d, max_epoch: %d\n\n",
            net->seen, train_set_size, net->max_batches, net->classes, net->batch, max_epoch);
 

@@ -91,12 +91,17 @@ for line in f.readlines():
     line = line[:-1]
     for i in range(0, len(line)):
         line[i] = float(line[i])
-    #print line, len(line)
+    _sum = 0.0
+    for j in range(0, len(line)):
+        _sum += (line[j] * line[j])
+    _sum = math.sqrt(_sum)
+    for j in range(0, len(line)):
+        line[j] /= _sum
     features.append(line)
 f.close()
 
-threshold = 0.6
-while threshold < 0.75:
+threshold = 0.4
+while threshold < 0.65:
     print "threshold: ", threshold
     right_count = 0
     max_score = None
@@ -129,4 +134,4 @@ while threshold < 0.75:
     print("negtive", right_count_negtive, '/', len(negtive_paire), float(right_count_negtive) / len(negtive_paire))
     print("total", right_count + right_count_negtive, '/',  len(negtive_paire) + len(positive_paire),
           float(right_count + right_count_negtive) / (len(negtive_paire) + len(positive_paire)))
-    threshold += 0.03
+    threshold += 0.02
