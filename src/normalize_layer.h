@@ -17,8 +17,8 @@
 
 typedef struct {
     int batch, inputs, outputs, h, w, c;
-    float *output, *delta;
-    float *output_gpu, *delta_gpu;
+    float *output, *delta, *norm_data;
+    float *output_gpu, *delta_gpu, *norm_data_gpu;
 } normalize_layer;
 
 normalize_layer *make_normalize_layer(int w, int h, int c, int batch);

@@ -275,6 +275,15 @@ char **get_labels(char *filename)
     return labels;
 }
 
+char **get_labels_and_num(char *filename, int *num)
+{
+    struct list *plist = get_paths(filename);
+    char **labels = (char **)list_to_array(plist);
+    *num = plist->size;
+    free_list(plist);
+    return labels;
+}
+
 void free_matrix(matrix m)
 {
     for(int i = 0; i < m.rows; ++i) free(m.vals[i]);

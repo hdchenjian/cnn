@@ -92,9 +92,11 @@ void free_network(network *net)
             normalize_layer *layer = (normalize_layer *)net->layers[i];
             if(layer->output) free_ptr(layer->output);
             if(layer->delta) free_ptr(layer->delta);
+            if(layer->norm_data) free_ptr(layer->norm_data);
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+            if(layer->norm_data_gpu) cuda_free(layer->norm_data_gpu);
 #endif
             free_ptr(layer);
         } else if(net->layers_type[i] == DROPOUT){

@@ -62,7 +62,25 @@ void variance_cpu(float *x, float *mean, int batch, int filters, int spatial, fl
     }
 }
 
-void l2normalize_cpu(float *x, int batch, int filters, int spatial)
+void backward_l2normalize_cpu(int batch, int filters, int spatial, float *norm_data, float *output, float *delta, float *previous_delta)
+{
+    for(int b = 0; b < batch; ++b){
+        for(int i = 0; i < spatial; ++i){
+            float a = 0;
+            for(int j = 0; j < filters; j++){
+                int index = b * filters * spatial + i + j * spatial;
+                a += output[index] * delta[index];
+            }
+            float norm_data_tmp = norm_data[b * spatial + i];
+            for(int f = 0; f < filters; ++f){
+                int index_delta = (b * filters + f) * spatial + i;
+                previous_delta[index_delta] += (delta[index_delta] - output[index_delta] * a) / norm_data_tmp;
+            }
+        }
+    }
+}
+
+void l2normalize_cpu(float *x, int batch, int filters, int spatial, float *norm_data)
 {
     for(int b = 0; b < batch; ++b){
         for(int i = 0; i < spatial; ++i){
@@ -76,6 +94,7 @@ void l2normalize_cpu(float *x, int batch, int filters, int spatial)
                 int index = b*filters*spatial + f*spatial + i;
                 x[index] /= sum;
             }
+            norm_data[b * spatial + i] = sum;
         }
     }
 }

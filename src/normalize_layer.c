@@ -13,9 +13,11 @@ normalize_layer *make_normalize_layer(int w, int h, int c, int batch)
     l->batch = batch;
     l->output = calloc(inputs*batch, sizeof(float));
     l->delta = calloc(inputs*batch, sizeof(float));
+    l->norm_data = calloc(batch * l->w * l->h, sizeof(float));
 #ifdef GPU
     l->output_gpu = cuda_make_array(l->output, inputs*batch);
     l->delta_gpu = cuda_make_array(l->delta, inputs*batch);
+    l->norm_data_gpu = cuda_make_array(l->norm_data, l->w * l->h * batch);
 #endif
     return l;
 } 
@@ -27,7 +29,7 @@ void resize_normalize_layer(const normalize_layer *l, int inputs)
 void forward_normalize_layer(const normalize_layer *l, float *input)
 {
     memcpy(l->output, input, l->inputs * l->batch * sizeof(float));
-    l2normalize_cpu(l->output, l->batch, l->c, l->w*l->h);
+    l2normalize_cpu(l->output, l->batch, l->c, l->w*l->h, l->norm_data);
     /*for(int j = 0; j < 100; ++j){
         printf("forward_normalize_layer %d %f %f\n", j, input[j], l->output[j]);
     }
@@ -36,7 +38,8 @@ void forward_normalize_layer(const normalize_layer *l, float *input)
 
 void backward_normalize_layer(const normalize_layer *l, float *delta)
 {
-    axpy_cpu(l->inputs * l->batch, 1, l->delta, 1, delta, 1);
+    //axpy_cpu(l->inputs * l->batch, 1, l->delta, 1, delta, 1);
+    backward_l2normalize_cpu(l->batch, l->c, l->w*l->h, l->norm_data, l->output, l->delta, delta);
 }
 
 #ifdef GPU
@@ -44,7 +47,7 @@ void backward_normalize_layer(const normalize_layer *l, float *delta)
 void forward_normalize_layer_gpu(const normalize_layer *l, float *input)
 {
     cuda_mem_copy(l->output_gpu, input, l->inputs*l->batch);
-    l2normalize_gpu(l->output_gpu, l->batch, l->c, l->w*l->h);
+    l2normalize_gpu(l->output_gpu, l->batch, l->c, l->w*l->h, l->norm_data_gpu);
     /*char cuda_compare_error_string[128] = {0};
     sprintf(cuda_compare_error_string, "\n%s", "forward_normalize_layer_gpu output");
     cuda_compare(l->output_gpu, l->output, l->inputs*l->batch, cuda_compare_error_string);*/
@@ -52,7 +55,8 @@ void forward_normalize_layer_gpu(const normalize_layer *l, float *input)
 
 void backward_normalize_layer_gpu(const normalize_layer *l, float *delta)
 {
-    axpy_gpu(l->inputs * l->batch, 1, l->delta_gpu, 1, delta, 1);
+    //axpy_gpu(l->inputs * l->batch, 1, l->delta_gpu, 1, delta, 1);
+    backward_l2normalize_gpu(l->batch, l->c, l->w*l->h, l->norm_data_gpu, l->output_gpu, l->delta_gpu, delta);
 }
 
 #endif

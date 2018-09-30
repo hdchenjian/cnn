@@ -101,7 +101,7 @@ for line in f.readlines():
 f.close()
 
 threshold = 0.4
-while threshold < 0.65:
+while threshold < 0.95:
     print "threshold: ", threshold
     right_count = 0
     max_score = None

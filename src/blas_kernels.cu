@@ -475,20 +475,46 @@ extern "C" void normalize_gpu(float *x, float *mean, float *variance, int batch,
     check_error(cudaPeekAtLastError());
 }
 
-__global__ void l2norm_kernel(int N, float *x, int batch, int filters, int spatial)
+__global__ void l2norm_backward_kernel(size_t N, int batch, int filters, int spatial, float *norm_data, float *output, float *delta, float *previous_delta)
+{
+    int index = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if (index >= N) return;
+    int b = index / spatial;
+    int i = index % spatial;
+    float a = 0;
+    for(int j = 0; j < filters; j++){
+        int index = b * filters * spatial + i + j * spatial;
+        a += output[index] * delta[index];
+    }
+    float norm_data_tmp = norm_data[b * spatial + i];
+    for(int f = 0; f < filters; ++f){
+        int index_delta = (b * filters + f) * spatial + i;
+        previous_delta[index_delta] += (delta[index_delta] - output[index_delta] * a) / norm_data_tmp;
+    }
+}
+
+extern "C" void backward_l2normalize_gpu(int batch, int filters, int spatial, float *norm_data, float *output, float *delta, float *previous_delta)
+{
+    size_t N = batch*spatial;
+    l2norm_backward_kernel<<<cuda_gridsize(N), BLOCK>>>(N, batch, filters, spatial, norm_data, output, delta, previous_delta);
+    check_error(cudaPeekAtLastError());
+}
+
+__global__ void l2norm_kernel(int N, float *x, int batch, int filters, int spatial, float *norm_data)
 {
     int index = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
     if (index >= N) return;
     int b = index / spatial;
     int i = index % spatial;
     int f;
-    float sum = 0;
+    float sum = 1e-6;
     for(f = 0; f < filters; ++f){
         int index = b*filters*spatial + f*spatial + i;
         sum += powf(x[index], 2);
     }
     sum = sqrtf(sum);
     if(sum == 0) sum = 1;
+    norm_data[b * spatial + i] = sum;
     //printf("%f\n", sum);
     for(f = 0; f < filters; ++f){
         int index = b*filters*spatial + f*spatial + i;
@@ -496,10 +522,10 @@ __global__ void l2norm_kernel(int N, float *x, int batch, int filters, int spati
     }
 }
 
-extern "C" void l2normalize_gpu(float *x, int batch, int filters, int spatial)
+extern "C" void l2normalize_gpu(float *x, int batch, int filters, int spatial, float *norm_data)
 {
     size_t N = batch*spatial;
-    l2norm_kernel<<<cuda_gridsize(N), BLOCK>>>(N, x, batch, filters, spatial);
+    l2norm_kernel<<<cuda_gridsize(N), BLOCK>>>(N, x, batch, filters, spatial, norm_data);
     check_error(cudaPeekAtLastError());
 }
 

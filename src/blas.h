@@ -28,7 +28,8 @@ void normalize_delta_cpu(float *x, float *mean, float *variance, float *mean_del
 void smooth_l1_cpu(int n, float *pred, float *truth, float *delta, float *error);
 void l2_cpu(int batch, int n, float *pred, int *truth_label_index, float *delta, float *error);
 void softmax_x_ent_cpu(int batch, int n, float *pred, int *truth, float *delta, float *error);
-void l2normalize_cpu(float *x, int batch, int filters, int spatial);
+void l2normalize_cpu(float *x, int batch, int filters, int spatial, float *norm_data);
+void backward_l2normalize_cpu(int batch, int filters, int spatial, float *norm_data, float *output, float *delta, float *previous_delta);
 void weighted_delta_cpu(int num, float *state, float *h, float *z, float *delta_state, float *delta_h, float *delta_z, float *delta);
 void mult_add_into_cpu(int num, float *a, float *b, float *c);
 void upsample_cpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
@@ -69,7 +70,8 @@ void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int 
 void softmax_gpu_me(float *input, int n, int batch, float *output);
 void shortcut_gpu(int batch, int w1, int h1, int c1, float *add, int w2, int h2, int c2, float s1, float s2, float *out);
 void softmax_x_ent_gpu(int batch, int n, float *pred, int *truth, float *delta, float *error);
-void l2normalize_gpu(float *x, int batch, int filters, int spatial);
+void l2normalize_gpu(float *x, int batch, int filters, int spatial, float *norm_data);
+void backward_l2normalize_gpu(int batch, int filters, int spatial, float *norm_data, float *output, float *delta, float *previous_delta);
 void specific_margin_add_gpu(int batch, int inputs, float *input, float label_specific_margin_bias, int margin_scale,
                              int *truth_label_index_gpu);
 void is_max_gpu(int batch, int inputs, float *output_gpu, int *truth_label_index_gpu, int *is_not_max);

@@ -116,8 +116,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
             max_accuracy = net->correct_num / (net->accuracy_count + 0.00001F);
             max_accuracy_batch = net->batch_train;
         }
-        printf("epoch: %d, batch: %d, accuracy: %.4f, loss: %f, avg_loss: %.2f, learning_rate: %.8f, %.4f s, "
-               "seen %lu images, max_accuracy: %.4f\n", net->epoch+1, net->batch_train,
+        printf("epoch:%d, batch:%d, accuracy: %.4f, loss: %.2f, avg_loss:%.2f, learning_rate:%f, %.3fs, "
+               "seen %lu image, max_accuracy: %.4f\n", net->epoch+1, net->batch_train,
                net->correct_num / (net->accuracy_count + 0.00001F),
                loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
         if(epoch_old != net->epoch){
@@ -158,7 +158,8 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     network *net = load_network(cfgfile, weightfile);
     struct list *options = read_data_cfg(datacfg);
     char *label_list = option_find_str(options, "labels_test", "data/labels.list");
-    char **labels = get_labels(label_list);
+    int label_num = 0;
+    char **labels = get_labels_and_num(label_list, &label_num);
     char *valid_list = option_find_str(options, "valid", "data/valid.list");
 
     int valid_set_size = 0;
@@ -264,7 +265,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         }
         free(all_valid_data);
     }
-    free_ptrs((void**)labels, net->classes);
+    free_ptrs((void**)labels, label_num);
     if(paths) free_ptr(paths);
     if(plist){
         free_list_contents(plist);
