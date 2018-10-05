@@ -24,6 +24,12 @@
 #     ./cnn classifier train  cfg/lfw_small.data cfg/densenet.cfg >> log_test
 # done
 
-./cnn classifier train cfg/lfw_small.data cfg/cosface.cfg  > log
-./cnn classifier valid cfg/lfw_small.data cfg/cosface.cfg backup/cosface_final.weights
-python scripts/evaluation_recongnition.py
+for lr in '0.1' '0.05' '0.025' '0.01' '0.005' '0.001'; do
+    echo "learning_rate=" $lr `date` >> log_test
+    sed -i "s/learning_rate=.*/learning_rate=$lr/g" cfg/cosface.cfg
+    sed -i "s/batch=.*/batch=150/g" cfg/cosface.cfg
+    ./cnn classifier train cfg/face_recognition.data cfg/cosface.cfg  >> log_test
+    sed -i "s/batch=.*/batch=1/g" cfg/cosface.cfg
+    ./cnn classifier valid cfg/face_recognition.data cfg/cosface.cfg backup/cosface_final.weights
+    python scripts/evaluation_recongnition.py >> log_test
+done

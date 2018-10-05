@@ -1,0 +1,7 @@
+train_data_type = -1
+train = /var/darknet/face_data/train.txt 
+labels = /var/darknet/face_data/labels.txt
+valid  = /var/darknet/face_data/test.txt
+labels_test = /var/darknet/face_data/labels_test.txt
+backup = backup 
+top=1
