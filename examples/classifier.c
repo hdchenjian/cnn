@@ -119,13 +119,19 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
         printf("epoch:%d, batch:%d, accuracy: %.4f, loss: %.2f, avg_loss:%.2f, learning_rate:%f, %.3fs, "
                "seen %lu image, max_accuracy: %.4f\n", net->epoch+1, net->batch_train,
                net->correct_num / (net->accuracy_count + 0.00001F),
-               loss, avg_loss, net->learning_rate, what_time_is_it_now()-time, net->seen,  max_accuracy);
+               loss, avg_loss, net->learning_rate, what_time_is_it_now() - time, net->seen,  max_accuracy);
         if(epoch_old != net->epoch){
             int save_weight_times = 20;
             int save_weight_interval = max_epoch / save_weight_times;
             if(save_weight_interval <= 1 || net->epoch % save_weight_interval == 0){
                 char buff[256];
                 sprintf(buff, "%s/%s_%06d.weights", backup_directory, base, net->epoch);
+                save_weights(net, buff);
+            }
+        } else {
+            if(net->batch_train > 1000 && net->batch_train % 3000 == 0){
+                char buff[256];
+                sprintf(buff, "%s/%s.backup",backup_directory,base);
                 save_weights(net, buff);
             }
         }

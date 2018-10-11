@@ -3,5 +3,6 @@ train  = /var/darknet/cifar/train.list
 #train_num = 500
 valid  = /var/darknet/cifar/test.list
 labels = /var/darknet/cifar/labels.txt
+labels_test = /var/darknet/cifar/labels.txt
 backup = backup
 top=1

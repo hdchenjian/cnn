@@ -5,6 +5,20 @@ import os
 import random
 import math
 
+'''
+f = open("features.txt", 'rU')
+for line in f.readlines():
+    line = line.strip('\n')
+    line = line.split(' ')
+    line = line[:-1]
+    _sum = 0.0
+    for i in range(0, len(line)):
+        line[i] = float(line[i])
+        _sum += line[i] * line[i]
+    print(_sum)
+exit()
+'''
+
 def get_score(a, b):
     sum = 0.0
     for i in range(0, len(a)):
@@ -40,8 +54,8 @@ f.close()
 
 positive_paire = []
 test_paire_num = 10000.0
-positive_paire_num = 140000
-negtive_paire_num = 990000
+positive_paire_num = 1400000
+negtive_paire_num = 99000000
 for _label in range(0, len(all_label)):
     positive_index = []
     index = 0
@@ -119,7 +133,7 @@ for line in f.readlines():
     features.append(line)
 f.close()
 
-threshold = 0.4
+threshold = 0.2
 print_score = True
 while threshold < 0.85:
     print "threshold: ", threshold
