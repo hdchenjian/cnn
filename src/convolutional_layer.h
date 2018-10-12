@@ -30,6 +30,17 @@ typedef struct {
     ACTIVATION activation;
     float *bottom_data, *slope, *slope_updates;
     float *bottom_data_gpu, *slope_gpu, *slope_updates_gpu;
+    size_t workspace_size;
+    #ifdef CUDNN
+    cudnnTensorDescriptor_t normTensorDesc;
+    cudnnTensorDescriptor_t srcTensorDesc, dstTensorDesc;
+    cudnnTensorDescriptor_t dsrcTensorDesc, ddstTensorDesc;
+    cudnnFilterDescriptor_t weightDesc, dweightDesc;
+    cudnnConvolutionDescriptor_t convDesc;
+    cudnnConvolutionFwdAlgo_t fw_algo;
+    cudnnConvolutionBwdDataAlgo_t bd_algo;
+    cudnnConvolutionBwdFilterAlgo_t bf_algo;
+    #endif
 } convolutional_layer;
 
 image get_convolutional_image(const convolutional_layer *layer);

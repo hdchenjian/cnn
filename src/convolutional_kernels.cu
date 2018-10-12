@@ -142,6 +142,15 @@ __global__ void activate_prelu_array_kernel(float *x, float *slope_gpu, int n, i
 
 void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test)
 {
+#ifdef CUDNN
+    const float alpha = 1, beta = 0;
+    cudnnConvolutionForward(cudnn_handle(), &alpha, layer->srcTensorDesc, in,
+                layer->weightDesc, layer->weights_gpu,
+                layer->convDesc, layer->fw_algo,
+                workspace, layer->workspace_size,
+                &beta, layer->dstTensorDesc, layer->output_gpu);
+
+#else
     int m = layer->n;
     int n = layer->out_w*layer->out_h;
     int k = layer->size*layer->size*layer->c;
@@ -159,6 +168,7 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         }
         gemm_gpu(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
+#endif
     if (layer->batch_normalize) {
         forward_batchnorm_layer_gpu(layer, test);
     }
@@ -253,6 +263,22 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
         backward_batchnorm_layer_gpu(layer, test);
     }
 
+#ifdef CUDNN
+    float one = 1;
+    cudnnConvolutionBackwardFilter(cudnn_handle(), &one, layer->srcTensorDesc, input,
+                                   layer->ddstTensorDesc, layer->delta_gpu,
+                                   layer->convDesc, layer->bf_algo,
+                                   workspace, layer->workspace_size,
+                                   &one, layer->dweightDesc, layer->weight_updates_gpu);
+
+    if(delta){
+        cudnnConvolutionBackwardData(cudnn_handle(), &one, layer->weightDesc, layer->weights_gpu,
+                                     layer->ddstTensorDesc, layer->delta_gpu,
+                                     layer->convDesc, layer->bd_algo,
+                                     workspace, layer->workspace_size,
+                                     &one, layer->dsrcTensorDesc, delta);
+    }
+#else
     for(int i = 0; i < layer->batch; ++i){
         int m = layer->n;
         int n = layer->size*layer->size*layer->c;
@@ -292,6 +318,7 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
             }
         }
     }
+#endif
 }
 
 void update_convolutional_layer_gpu(const convolutional_layer *layer, float learning_rate, float momentum, float decay)

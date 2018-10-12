@@ -1,12 +1,46 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "utils.h"
 #include "parser.h"
 #include "data.h"
 #include "option_list.h"
 #include "network.h"
+
+pthread_mutex_t mutex;
+int load_over = 0;
+batch train_global;
+
+typedef struct load_args{
+    char **paths;
+    char **labels;
+    int classes, train_set_size, w, h, c, batch_size, flip, test;
+    float hue, saturation, exposure, mean_value, scale;
+} load_args;
+
+void load_data_in_thread(void *args_point)
+{
+    printf("load_data_in_thread\n");
+    load_args args = *(load_args *)args_point;
+    while(1){
+        pthread_mutex_lock(&mutex);
+        if(load_over == 0){
+            train_global = random_batch(
+                args.paths, args.batch_size, args.labels, args.classes,
+                args.train_set_size, args.w, args.h, args.c,
+                args.hue, args.saturation, args.exposure, args.flip, args.mean_value, args.scale,
+                args.test);
+            printf("load_over\n");
+            load_over = 1;
+            pthread_mutex_unlock(&mutex);
+        } else {
+            pthread_mutex_unlock(&mutex);
+        }
+        usleep(20000);
+    }
+}
 
 void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
 {
@@ -59,6 +93,28 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
     float avg_loss = -1;
     float max_accuracy = -1;
     int max_accuracy_batch = 0;
+    pthread_t load_data_thread_id;
+    if(0 != train_data_type && 1 != train_data_type){
+        load_args args = {0};
+        args.paths = paths;
+        args.batch_size = net->batch * net->subdivisions;
+        args.labels = labels;
+        args.classes =  net->classes;
+        args.train_set_size = train_set_size;
+        args.w = net->w;
+        args.h = net->h;
+        args.c = net->c;
+        args.hue = net->hue;
+        args.saturation = net->saturation;
+        args.exposure=net->exposure;
+        args.flip= net->flip;
+        args.mean_value = net->mean_value;
+        args.scale = net->scale;
+        args.test = net->test;
+        pthread_mutex_init(&mutex, NULL);
+        pthread_create(&load_data_thread_id, NULL, (void *)load_data_in_thread, &args);
+        usleep(1000000);
+    }
     while(net->batch_train < net->max_batches){
         time = what_time_is_it_now();
         update_current_learning_rate(net);
@@ -85,19 +141,29 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
             train = all_train_data[index];
             train_network(net, train.data, train.truth_label_index);
         } else {
-            //double start_time = what_time_is_it_now();
+            /*
             train = random_batch(paths, net->batch * net->subdivisions, labels, net->classes, train_set_size, net->w, net->h, net->c,
                                  net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
                                  net->test);
-            /*printf("train_data_type: %d, class: %d spend %f s\n",
-              train_data_type, train.truth_label_index[0], what_time_is_it_now() - start_time);
-            image tmp;
-            tmp.w = train.w;
-            tmp.h = train.h;
-            tmp.c = train.c;
-            tmp.data = train.data;
-            save_image_png(tmp, "input.jpg");*/
+            */
+            while(1){
+                pthread_mutex_lock(&mutex);
+                if(load_over == 1){
+                    train = train_global;
+                    load_over = 0;
+                    pthread_mutex_unlock(&mutex);
+                    break;
+                }
+                printf("wait load_over\n");
+                pthread_mutex_unlock(&mutex);
+                usleep(50000);
+            }
+            
+            printf("train_data_type: %d, class: %d spend %f s\n",
+              train_data_type, train.truth_label_index[0], what_time_is_it_now() - time);
+            double start_time = what_time_is_it_now();
             train_network(net, train.data, train.truth_label_index);
+            printf("train spend %f s\n", what_time_is_it_now() - start_time);
             free_batch(&train);
         }
         int epoch_old = net->epoch;

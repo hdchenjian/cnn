@@ -1,4 +1,5 @@
 #LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cudnn/cudnn-v5/
+#export LD_LIBRARY_PATH=/opt/ego/cudnn-v7
 
 #./cnn detector train cfg/voc.data cfg/yolo-voc.cfg  backup/yolo-voc.backup  >> train_log_person_face
 #./cnn detector train cfg/person_face.data cfg/yolo-voc-person-face.cfg    >> train_log_person_face
