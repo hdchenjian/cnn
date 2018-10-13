@@ -20,7 +20,7 @@ typedef struct load_args{
     float hue, saturation, exposure, mean_value, scale;
 } load_args;
 
-void load_data_in_thread(void *args_point)
+void *load_data_in_thread(void *args_point)
 {
     printf("load_data_in_thread\n");
     load_args args = *(load_args *)args_point;
@@ -112,7 +112,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
         args.scale = net->scale;
         args.test = net->test;
         pthread_mutex_init(&mutex, NULL);
-        pthread_create(&load_data_thread_id, NULL, (void *)load_data_in_thread, &args);
+        pthread_create(&load_data_thread_id, NULL, load_data_in_thread, &args);
         usleep(1000000);
     }
     while(net->batch_train < net->max_batches){
