@@ -22,7 +22,6 @@ typedef struct load_args{
 
 void *load_data_in_thread(void *args_point)
 {
-    printf("load_data_in_thread\n");
     load_args args = *(load_args *)args_point;
     while(1){
         pthread_mutex_lock(&mutex);
@@ -32,7 +31,7 @@ void *load_data_in_thread(void *args_point)
                 args.train_set_size, args.w, args.h, args.c,
                 args.hue, args.saturation, args.exposure, args.flip, args.mean_value, args.scale,
                 args.test);
-            printf("load_over\n");
+            //printf("load_over\n");
             load_over = 1;
             pthread_mutex_unlock(&mutex);
         } else {
@@ -116,9 +115,9 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
         usleep(1000000);
     }
     while(net->batch_train < net->max_batches){
+        batch train;
         time = what_time_is_it_now();
         update_current_learning_rate(net);
-        batch train;
         if(0 == train_data_type) {
             int index = rand() % batch_num;
             train = all_train_data[index];
@@ -141,12 +140,13 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
             train = all_train_data[index];
             train_network(net, train.data, train.truth_label_index);
         } else {
-            /*
-            train = random_batch(paths, net->batch * net->subdivisions, labels, net->classes, train_set_size, net->w, net->h, net->c,
-                                 net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
-                                 net->test);
-            */
             while(1){
+                /*
+                train = random_batch(paths, net->batch * net->subdivisions, labels, net->classes,
+                                     train_set_size, net->w, net->h, net->c, net->hue, net->saturation, net->exposure,
+                                     net->flip, net->mean_value, net->scale, net->test);
+                break;
+                */
                 pthread_mutex_lock(&mutex);
                 if(load_over == 1){
                     train = train_global;
@@ -158,12 +158,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
                 pthread_mutex_unlock(&mutex);
                 usleep(50000);
             }
-            
-            printf("train_data_type: %d, class: %d spend %f s\n",
-              train_data_type, train.truth_label_index[0], what_time_is_it_now() - time);
-            double start_time = what_time_is_it_now();
             train_network(net, train.data, train.truth_label_index);
-            printf("train spend %f s\n", what_time_is_it_now() - start_time);
             free_batch(&train);
         }
         int epoch_old = net->epoch;
