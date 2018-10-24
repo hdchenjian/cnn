@@ -45,7 +45,6 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
     layer->weight_updates = calloc(inputs*outputs, sizeof(float));
     layer->biases = calloc(outputs, sizeof(float));
     layer->bias_updates = calloc(outputs, sizeof(float));
-    for(int i = 0; i < outputs; ++i) layer->biases[i] = 0;
     layer->activation = activation;
 
     if(layer->batch_normalize){

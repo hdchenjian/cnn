@@ -37,7 +37,7 @@ void *load_data_in_thread(void *args_point)
         } else {
             pthread_mutex_unlock(&mutex);
         }
-        usleep(20000);
+        usleep(10000);
     }
 }
 
@@ -145,6 +145,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
                 train = random_batch(paths, net->batch * net->subdivisions, labels, net->classes,
                                      train_set_size, net->w, net->h, net->c, net->hue, net->saturation, net->exposure,
                                      net->flip, net->mean_value, net->scale, net->test);
+                printf("train_data_type: %d, spend %f \n", train_data_type, what_time_is_it_now() - time);
                 break;
                 */
                 pthread_mutex_lock(&mutex);
@@ -156,9 +157,12 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
                 }
                 printf("wait load_over\n");
                 pthread_mutex_unlock(&mutex);
-                usleep(50000);
+                usleep(5000);
             }
+            //printf("train_data_type: %d, spend %f \n", train_data_type, what_time_is_it_now() - time);
+            //double train_start_time = what_time_is_it_now();
             train_network(net, train.data, train.truth_label_index);
+            //printf("train spend %f \n", what_time_is_it_now() - train_start_time);
             free_batch(&train);
         }
         int epoch_old = net->epoch;
