@@ -111,6 +111,17 @@ void forward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
 {
     if(0 == test){    // 0: train, 1: valid
         copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->x_gpu, 1);
+#ifdef CUDNN
+        float one = 1;
+        float zero = 0;
+        cudnnBatchNormalizationForwardTraining(cudnn_handle(), CUDNN_BATCHNORM_SPATIAL, &one, &zero,
+                                               layer->dstTensorDesc, layer->x_gpu,
+                                               layer->dstTensorDesc, layer->output_gpu,
+                                               layer->normTensorDesc,
+                                               layer->scales_gpu, layer->biases_gpu,
+                                               .01, layer->rolling_mean_gpu, layer->rolling_variance_gpu,
+                                               .00001, layer->mean_gpu, layer->variance_gpu);
+#else
         fast_mean_gpu(layer->output_gpu, layer->batch, layer->n, layer->out_h*layer->out_w, layer->mean_gpu);
         fast_variance_gpu(layer->output_gpu, layer->mean_gpu, layer->batch, layer->n, layer->out_h*layer->out_w,
                           layer->variance_gpu);
@@ -123,12 +134,15 @@ void forward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
         normalize_gpu(layer->output_gpu, layer->mean_gpu, layer->variance_gpu, layer->batch, layer->n,
                       layer->out_h*layer->out_w);
         copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->x_norm_gpu, 1);
-        
+        scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->n, layer->out_h*layer->out_w);
+        add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
+#endif
     } else {
         normalize_gpu(layer->output_gpu, layer->rolling_mean_gpu, layer->rolling_variance_gpu,
                       layer->batch, layer->n, layer->out_h*layer->out_w);
+        scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->n, layer->out_h*layer->out_w);
+        add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     }
-    scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->n, layer->out_h*layer->out_w);
 }
 
 __global__ void activate_prelu_array_kernel(float *x, float *slope_gpu, int n, int channel, int dim)
@@ -171,8 +185,9 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
 #endif
     if (layer->batch_normalize) {
         forward_batchnorm_layer_gpu(layer, test);
+    } else {
+        add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     }
-    add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     if(layer->activation == PRELU){
         copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->bottom_data_gpu, 1);
         int size = layer->batch * layer->out_h * layer->out_w * layer->n;
@@ -195,6 +210,20 @@ void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
         fprintf(stderr, "backward_batchnorm_layer: use no used!\n");
         exit(-1);
     }
+#ifdef CUDNN
+    float one = 1;
+    float zero = 0;
+    cudnnBatchNormalizationBackward(cudnn_handle(), CUDNN_BATCHNORM_SPATIAL,
+                                    &one, &zero, &one, &one,
+                                    layer->dstTensorDesc, layer->x_gpu,
+                                    layer->dstTensorDesc, layer->delta_gpu,
+                                    layer->dstTensorDesc, layer->x_norm_gpu,
+                                    layer->normTensorDesc,
+                                    layer->scales_gpu, layer->scale_updates_gpu, layer->bias_updates_gpu,
+                                    .00001, layer->mean_gpu, layer->variance_gpu);
+    copy_gpu(layer->out_h * layer->out_w * layer->n*layer->batch, layer->x_norm_gpu, 1, layer->delta_gpu, 1);
+#else
+    backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     backward_scale_gpu(layer->x_norm_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h,
                        layer->scale_updates_gpu);
     scale_bias_gpu(layer->delta_gpu, layer->scales_gpu, layer->batch, layer->n, layer->out_h*layer->out_w);
@@ -205,6 +234,7 @@ void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)
                             layer->batch, layer->n, layer->out_w*layer->out_h, layer->variance_delta_gpu);
     normalize_delta_gpu(layer->x_gpu, layer->mean_gpu, layer->variance_gpu, layer->mean_delta_gpu,
                         layer->variance_delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h, layer->delta_gpu);
+#endif
 }
 
 __global__ void backward_prelu_slope_kernel(float *delta, float *bottom_data, float *slope_updates, int channel,
@@ -258,9 +288,10 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
         gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,
                            layer->activation, layer->delta_gpu);
     }
-    backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     if(layer->batch_normalize){
         backward_batchnorm_layer_gpu(layer, test);
+    } else {
+        backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     }
 
 #ifdef CUDNN
