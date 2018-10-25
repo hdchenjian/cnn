@@ -154,18 +154,8 @@ __global__ void activate_prelu_array_kernel(float *x, float *slope_gpu, int n, i
     }
 }
 
-void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test)
+void fix_cudnn_kernel_size_1_forward(const convolutional_layer *layer, float *in, float *workspace)
 {
-    fill_gpu(layer->n * layer->out_h * layer->out_w*layer->batch, 0, layer->output_gpu, 1);
-#ifdef CUDNN
-    const float alpha = 1, beta = 0;
-    cudnnConvolutionForward(cudnn_handle(), &alpha, layer->srcTensorDesc, in,
-                layer->weightDesc, layer->weights_gpu,
-                layer->convDesc, layer->fw_algo,
-                workspace, layer->workspace_size,
-                &beta, layer->dstTensorDesc, layer->output_gpu);
-
-#else
     int m = layer->n;
     int n = layer->out_w*layer->out_h;
     int k = layer->size*layer->size*layer->c;
@@ -183,6 +173,24 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         }
         gemm_gpu(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
+
+}
+void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test)
+{
+    //fill_gpu(layer->n * layer->out_h * layer->out_w*layer->batch, 0, layer->output_gpu, 1);
+#ifdef CUDNN
+    if(layer->size > 1) {
+        const float alpha = 1, beta = 0;
+        cudnnConvolutionForward(cudnn_handle(), &alpha, layer->srcTensorDesc, in,
+                                layer->weightDesc, layer->weights_gpu,
+                                layer->convDesc, layer->fw_algo,
+                                workspace, layer->workspace_size,
+                                &beta, layer->dstTensorDesc, layer->output_gpu);
+    } else {
+        fix_cudnn_kernel_size_1_forward(layer, in, workspace);
+    }
+#else
+    fix_cudnn_kernel_size_1_forward(layer, in, workspace);
 #endif
     if (layer->batch_normalize) {
         forward_batchnorm_layer_gpu(layer, test);
@@ -272,45 +280,8 @@ __global__ void gradient_prelu_array_kernel(float *delta, float *bottom_data, fl
     }
 }
 
-void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *input, float *delta,
-        float *workspace, int test)
+void fix_cudnn_kernel_size_1_backward(const convolutional_layer *layer, float *input, float *delta, float *workspace)
 {
-    if(layer->activation == PRELU){
-        int size = layer->batch * layer->out_h * layer->out_w * layer->n;
-        int dim = layer->out_h * layer->out_w;
-        backward_prelu_slope_kernel<<<layer->n, BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu,
-                                                         layer->slope_updates_gpu, layer->n, dim, layer->batch);
-        check_error(cudaPeekAtLastError());
-        gradient_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu, layer->slope_gpu,
-                                                                    size, layer->n, dim);
-        check_error(cudaPeekAtLastError());
-    } else if (layer->activation == LINEAR) {
-    } else {
-        gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,
-                           layer->activation, layer->delta_gpu);
-    }
-    if(layer->batch_normalize){
-        backward_batchnorm_layer_gpu(layer, test);
-    } else {
-        backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
-    }
-
-#ifdef CUDNN
-    float one = 1;
-    cudnnConvolutionBackwardFilter(cudnn_handle(), &one, layer->srcTensorDesc, input,
-                                   layer->ddstTensorDesc, layer->delta_gpu,
-                                   layer->convDesc, layer->bf_algo,
-                                   workspace, layer->workspace_size,
-                                   &one, layer->dweightDesc, layer->weight_updates_gpu);
-
-    if(delta){
-        cudnnConvolutionBackwardData(cudnn_handle(), &one, layer->weightDesc, layer->weights_gpu,
-                                     layer->ddstTensorDesc, layer->delta_gpu,
-                                     layer->convDesc, layer->bd_algo,
-                                     workspace, layer->workspace_size,
-                                     &one, layer->dsrcTensorDesc, delta);
-    }
-#else
     for(int i = 0; i < layer->batch; ++i){
         int m = layer->n;
         int n = layer->size*layer->size*layer->c;
@@ -350,6 +321,51 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
             }
         }
     }
+}
+void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *input, float *delta,
+        float *workspace, int test)
+{
+    if(layer->activation == PRELU){
+        int size = layer->batch * layer->out_h * layer->out_w * layer->n;
+        int dim = layer->out_h * layer->out_w;
+        backward_prelu_slope_kernel<<<layer->n, BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu,
+                                                         layer->slope_updates_gpu, layer->n, dim, layer->batch);
+        check_error(cudaPeekAtLastError());
+        gradient_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu, layer->slope_gpu,
+                                                                    size, layer->n, dim);
+        check_error(cudaPeekAtLastError());
+    } else if (layer->activation == LINEAR) {
+    } else {
+        gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,
+                           layer->activation, layer->delta_gpu);
+    }
+    if(layer->batch_normalize){
+        backward_batchnorm_layer_gpu(layer, test);
+    } else {
+        backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
+    }
+
+#ifdef CUDNN
+    if(layer->size > 1) {
+        float one = 1;
+        cudnnConvolutionBackwardFilter(cudnn_handle(), &one, layer->srcTensorDesc, input,
+                                       layer->ddstTensorDesc, layer->delta_gpu,
+                                       layer->convDesc, layer->bf_algo,
+                                       workspace, layer->workspace_size,
+                                       &one, layer->dweightDesc, layer->weight_updates_gpu);
+
+        if(delta){
+            cudnnConvolutionBackwardData(cudnn_handle(), &one, layer->weightDesc, layer->weights_gpu,
+                                         layer->ddstTensorDesc, layer->delta_gpu,
+                                         layer->convDesc, layer->bd_algo,
+                                         workspace, layer->workspace_size,
+                                         &one, layer->dsrcTensorDesc, delta);
+        }
+    } else {
+        fix_cudnn_kernel_size_1_backward(layer, input, delta, workspace);
+    }
+#else
+    fix_cudnn_kernel_size_1_backward(layer, input, delta, workspace);
 #endif
 }
 

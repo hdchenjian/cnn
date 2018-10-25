@@ -9,10 +9,6 @@
 
 #ifdef GPU
     #include "cuda.h"
-
-    #ifdef CUDNN
-    #include "cudnn.h"
-    #endif
 #endif
 
 typedef struct {
