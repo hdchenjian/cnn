@@ -116,6 +116,35 @@ void test_image()
     }
 }
 
+void test_load_csv_image()
+{
+    FILE *fp = fopen("/var/darknet/insightface/src/face_data_train.csv", "r");
+    if(!fp) file_error("file not exist!\n");
+    int fields = 0;  // the number of pixel per image
+    int w, h;
+    int n = 0;
+    char *line;
+    int train_set_size = 1;
+    while((line = fgetl(fp)) && (n < train_set_size)){
+        char class = atoi(line);
+        if(0 == fields){
+            fields = count_fields(line);
+            w = sqrtf(fields / 3);
+            h = sqrtf(fields / 3);
+        }
+        printf("class: %d, w: %d, h: %d\n", class, w, h);
+        float *value = parse_fields(line, fields);
+        image tmp;
+        tmp.w = w;
+        tmp.h = h;
+        tmp.c = 3;
+        tmp.data = value + 1;
+        save_image_png(tmp, "input.jpg");
+        sleep(1);
+        free(line);
+    }
+}
+
 int main(int argc, char **argv)
 {
     // https://pjreddie.com/projects/mnist-in-csv/
@@ -126,6 +155,7 @@ int main(int argc, char **argv)
     #ifdef GPU
     //test_gemm_gpu(1000, 1000);
     #endif
-    test_image();
+    //test_image();
+    test_load_csv_image();
     return 0;
 }
