@@ -722,10 +722,11 @@ void train_network(network *net, float *input, int *truth_label_index)
             cuda_push_array(net->input_gpu, input + i * net->h * net->w * net->c * net->batch, net->h * net->w * net->c * net->batch);
         }
         cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
-        //forward_network(net, input);
-        //backward_network(net, input);
         forward_network_gpu(net, net->input_gpu);
         backward_network_gpu(net, net->input_gpu);
+
+        //forward_network(net, input);
+        //backward_network(net, input);
         update_network_gpu(net);
 #else
         float *input_data;

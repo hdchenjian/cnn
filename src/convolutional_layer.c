@@ -419,6 +419,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     	if(layer->output[i] < min) min = layer->output[i];
     }
     printf("forward_convolutional_layer max: %f, min: %f\n", max, min);*/
+    //cuda_compare(layer->output_gpu, layer->output, layer->n * layer->out_h * layer->out_w, "forward_convolutional_layer ");
 }
 
 void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int spatial, float *mean_delta)
@@ -562,6 +563,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
                 col2im_cpu(workspace, layer->c, layer->h, layer->w, layer->size, layer->stride, layer->pad,
                            delta + j * layer->h * layer->w * layer->c);
             }
+            //cuda_compare(layer->delta_gpu, layer->delta, layer->n * layer->out_h * layer->out_w, "backward_convolutional_layer ");
         }
     }
 }

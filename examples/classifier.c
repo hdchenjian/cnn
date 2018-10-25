@@ -159,6 +159,21 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
                 pthread_mutex_unlock(&mutex);
                 usleep(5000);
             }
+            /*
+            image tmp;
+            tmp.w = train.w;
+            tmp.h = train.h;
+            tmp.c = train.c;
+            tmp.data = train.data;
+            float max = -FLT_MAX, min = FLT_MAX;
+            for(int i = 0; i < train.w * train.h * train.c; ++i){
+                if(train.data[i] > max) max = train.data[i];
+                if(train.data[i] < min) min = train.data[i];
+            }
+            printf("input image max: %f, min: %f , class: %d\n", max, min, train.truth_label_index[0]);
+            save_image_png(tmp, "input.jpg");
+            sleep(3);
+            */
             //printf("train_data_type: %d, spend %f \n", train_data_type, what_time_is_it_now() - time);
             //double train_start_time = what_time_is_it_now();
             train_network(net, train.data, train.truth_label_index);

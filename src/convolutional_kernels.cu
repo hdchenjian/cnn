@@ -156,6 +156,7 @@ __global__ void activate_prelu_array_kernel(float *x, float *slope_gpu, int n, i
 
 void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in, float *workspace, int test)
 {
+    fill_gpu(layer->n * layer->out_h * layer->out_w*layer->batch, 0, layer->output_gpu, 1);
 #ifdef CUDNN
     const float alpha = 1, beta = 0;
     cudnnConvolutionForward(cudnn_handle(), &alpha, layer->srcTensorDesc, in,
