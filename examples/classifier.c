@@ -10,7 +10,7 @@
 #include "network.h"
 
 pthread_mutex_t mutex;
-int load_over = 0;
+int load_over;
 batch train_global;
 
 typedef struct load_args{
@@ -155,8 +155,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
                     pthread_mutex_unlock(&mutex);
                     break;
                 }
-                printf("wait load_over\n");
                 pthread_mutex_unlock(&mutex);
+                printf("wait load_over\n");
                 usleep(5000);
             }
             /*

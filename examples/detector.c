@@ -8,6 +8,33 @@
 #include "option_list.h"
 #include "network.h"
 
+pthread_mutex_t mutex;
+int load_over;
+batch_detect train_global;
+
+typedef struct load_args{
+    char **paths;
+    int classes, train_set_size, w, h, test, batch, subdivisions, max_boxes;
+    float hue, saturation, exposure, jitter;
+} load_args;
+
+void *load_detect_data_thread(void *args_point)
+{
+    load_args args = *(load_args *)args_point;
+    while(1){
+        pthread_mutex_lock(&mutex);
+        if(load_over == 0){
+            train_global = load_data_detection(args.batch * args.subdivisions, args.paths, args.train_set_size, args.w, args.h, args.max_boxes,
+                                               args.classes, args.jitter, args.hue, args.saturation, args.exposure, args.test);
+            load_over = 1;
+            pthread_mutex_unlock(&mutex);
+        } else {
+            pthread_mutex_unlock(&mutex);
+        }
+        usleep(10000);
+    }
+}
+
 void train_detector(char *datacfg, char *cfgfile, char *weightfile)
 {
     char *base = basecfg(cfgfile);
@@ -37,15 +64,49 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
     net->epoch = net->seen / train_set_size;
     float avg_loss = -1;
     float max_accuracy = -1;
-    int burn_in = 500;
+    int burn_in = 1000;
+    batch_detect train;
+    load_args args = {0};
+    args.paths = paths;
+    args.batch = net->batch;
+    args.subdivisions = net->subdivisions;
+    args.classes =  net->classes;
+    args.train_set_size = train_set_size;
+    args.w = net->w;
+    args.h = net->h;
+    args.max_boxes = net->max_boxes;
+    args.jitter=net->jitter;
+    args.hue = net->hue;
+    args.saturation = net->saturation;
+    args.exposure=net->exposure;
+    args.test = net->test;
+    pthread_mutex_init(&mutex, NULL);
+    pthread_t load_data_thread_id;
+    pthread_create(&load_data_thread_id, NULL, load_detect_data_thread, &args);
+    usleep(1000000);
     while(net->batch_train < net->max_batches){
         time = what_time_is_it_now();
         update_current_learning_rate(net);
         if(net->batch_train < burn_in) net->learning_rate = net->learning_rate_init * pow((float)net->batch_train / burn_in, 4);
         else if(net->batch_train == burn_in) net->learning_rate = net->learning_rate_init;
-        batch_detect train;
-        train = load_data_detection(net->batch * net->subdivisions, paths, train_set_size, net->w, net->h, net->max_boxes,
-                                    net->classes, net->jitter, net->hue, net->saturation, net->exposure, net->test);
+        while(1){
+            /*
+            train = load_data_detection(net->batch * net->subdivisions, paths, train_set_size, net->w, net->h, net->max_boxes,
+                                        net->classes, net->jitter, net->hue, net->saturation, net->exposure, net->test);
+            break;
+            */
+            pthread_mutex_lock(&mutex);
+            if(load_over == 1){
+                train = train_global;
+                load_over = 0;
+                pthread_mutex_unlock(&mutex);
+                break;
+            }
+            pthread_mutex_unlock(&mutex);
+            printf("wait load_over\n");
+            usleep(5000);
+        }
+
         /*
         printf("Loaded: %lf seconds\n", what_time_is_it_now() - time);
         int zz;
@@ -61,7 +122,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
             save_image_png(im, "truth11");
         }
         */
-
+        printf("load data spend %f \n", what_time_is_it_now() - time);
         train_network_detect(net, train);
         free_batch_detect(train);
         //sleep(1.5);

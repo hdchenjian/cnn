@@ -456,6 +456,7 @@ batch_detect load_data_detection(int n, char **paths, int train_set_size, int w,
     d.X.vals = calloc(d.X.rows, sizeof(float*));
     d.X.cols = h*w*3;
     d.y = make_matrix(n, 5*max_boxes);
+#pragma omp parallel for
     for(int i = 0; i < n; ++i){
         image orig = load_image_color(random_paths[i], 0, 0);
         image sized = make_image(w, h, orig.c);
