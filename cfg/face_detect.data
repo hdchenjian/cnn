@@ -1,0 +1,4 @@
+train  = /var/darknet/celeba/train.txt
+valid  = /var/darknet/celeba/test.txt
+names = /var/darknet/celeba/face.names
+backup = backup

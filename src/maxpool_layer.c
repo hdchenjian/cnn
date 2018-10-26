@@ -20,8 +20,8 @@ maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int
     layer->stride = stride;
     layer->batch = batch;
     layer->pad = padding;
-    layer->out_w = (w + 2*padding)/stride;
-    layer->out_h = (h + 2*padding)/stride;
+    layer->out_w = (w + padding - size)/stride + 1;
+    layer->out_h = (h + padding - size)/stride + 1;
     layer->outputs = layer->out_h * layer->out_w * c;
     layer->output = calloc(batch * layer->out_h * layer->out_w * c, sizeof(float));
     layer->delta = calloc(batch * layer->out_h * layer->out_w * c, sizeof(float));
@@ -37,8 +37,8 @@ maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int
 void forward_maxpool_layer(const maxpool_layer *layer, float *in)
 {
     int b,i,j,k,m,n;
-    int w_offset = -layer->pad;
-    int h_offset = -layer->pad;
+    int w_offset = -layer->pad / 2;
+    int h_offset = -layer->pad / 2;
 
     int h = layer->out_h;
     int w = layer->out_w;

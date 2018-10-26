@@ -201,7 +201,7 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
         if(h == 0) error("Layer before maxpool layer must output image.");
     }
     int size = option_find_int(options, "size", stride);
-    int padding = option_find_int(options, "padding", (size-1)/2);
+    int padding = option_find_int(options, "padding", size-1);
     maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding);
     return layer;
 }
