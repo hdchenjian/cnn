@@ -42,10 +42,13 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     l->delta =  calloc(outputs*batch, sizeof(float));
     l->output = calloc(outputs*batch, sizeof(float));;
 
-    #ifdef GPU
+#ifdef GPU
     l->delta_gpu =  cuda_make_array(l->delta, outputs*batch);
     l->output_gpu = cuda_make_array(l->output, outputs*batch);
-    #endif
+#elif defined(OPENCL)
+    l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
+    l->output_cl = cl_make_array(l->output, l->outputs*batch);
+#endif
     fprintf(stderr, "Route:              %d x %d x %d -> %d x %d x %d, %d inputs, layer: %s\n",
             l->out_w, l->out_h, l->out_c, l->out_w, l->out_h, l->out_c, l->inputs, input_layer_str);
     return l;
@@ -111,5 +114,20 @@ void backward_route_layer_gpu(const route_layer *l, network *net)
         }
         offset += input_size;
     }
+}
+#elif defined(OPENCL)
+void forward_route_layer_cl(const route_layer *l, network *net){
+    int offset = 0;
+    for(int i = 0; i < l->n; ++i){
+        int index = l->input_layers[i];
+        cl_mem input = get_network_layer_data_cl(net, index, 0);
+        int input_size = l->input_sizes[i];
+        for(int j = 0; j < l->batch; ++j){
+            //cl_copy_array_with_offset(l->output_gpu + offset + j*l->outputs, input + j*input_size, input_size);
+            cl_copy_array_with_offset(input, l->output_cl, input_size, j*input_size, offset + j*l->outputs);
+        }
+        offset += input_size;
+    }
+
 }
 #endif

@@ -53,6 +53,9 @@ void free_network(network *net)
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+#elif defined(OPENCL)
+            if(layer->output_cl) clReleaseMemObject(layer->output_cl);
+            if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
 #endif
             free_ptr(layer);
         } else if(net->layers_type[i] == SHORTCUT){
@@ -62,6 +65,9 @@ void free_network(network *net)
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+#elif defined(OPENCL)
+            if(layer->output_cl) clReleaseMemObject(layer->output_cl);
+            if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
 #endif
             free_ptr(layer);
         } else if(net->layers_type[i] == MAXPOOL){
@@ -73,6 +79,10 @@ void free_network(network *net)
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
             if(layer->indexes_gpu) cuda_free(layer->indexes_gpu);
+#elif defined(OPENCL)
+            if(layer->output_cl) clReleaseMemObject(layer->output_cl);
+            if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
+            if(layer->indexes_cl) clReleaseMemObject(layer->indexes_cl);
 #endif
             free_ptr(layer);
         } else if(net->layers_type[i] == UPSAMPLE){
@@ -147,6 +157,14 @@ void free_network(network *net)
     if(net->truth_label_index_gpu) cuda_free(net->truth_label_index_gpu);
     if(net->is_not_max_gpu) cuda_free(net->is_not_max_gpu);
     if(net->workspace_gpu) cuda_free(net->workspace_gpu);
+#elif defined(OPENCL)
+    // Clean-up OpenCL
+    clReleaseCommandQueue(cl.queue);
+    clReleaseContext(cl.context);
+    cl.initialized = 0;
+    //clReleaseProgram(cl.program);
+    //clReleaseKernel(kernel);
+
 #endif
     free_ptr(net);
 }
@@ -803,6 +821,126 @@ void valid_network(network *net, float *input, int *truth_label_index)
     net->accuracy_count += net->batch;
 }
 
+#ifdef OPENCL
+/* data_type: 0: output, 1: delta */
+cl_mem get_network_layer_data_cl(network *net, int i, int data_type)
+{
+    if(net->layers_type[i] == CONVOLUTIONAL){
+        convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+        /*
+    } else if(net->layers_type[i] == CONNECTED){
+        connected_layer *layer = (connected_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == RNN){
+        rnn_layer *layer = (rnn_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == LSTM){
+        lstm_layer *layer = (lstm_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == GRU){
+        gru_layer *layer = (gru_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+        */
+    } else if(net->layers_type[i] == ROUTE){
+        route_layer *layer = (route_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == SHORTCUT){
+        shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == MAXPOOL){
+        maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == UPSAMPLE){
+        upsample_layer *layer = (upsample_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == YOLO){
+        yolo_layer *layer = (yolo_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+        /*
+    } else if(net->layers_type[i] == DROPOUT){
+        dropout_layer *layer = (dropout_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == AVGPOOL){
+        avgpool_layer *layer = (avgpool_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == NORMALIZE){
+        normalize_layer *layer = (normalize_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == SOFTMAX){
+        softmax_layer *layer = (softmax_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+    } else if(net->layers_type[i] == COST){
+        cost_layer *layer = (cost_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
+        */
+    } else {
+        printf("get_network_layer_data_cl layers_type error, layer: %d %d\n", i, net->layers_type[i]);
+        exit(-1);
+    }
+}
+
+void forward_network_cl(network *net, cl_mem input)
+{
+    for(int i = 0; i < net->n && i <= net->output_layer; ++i){
+        if(net->layers_type[i] == CONVOLUTIONAL){
+            convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test);
+            input = layer->output_cl;
+            /*
+        }else if(net->layers_type[i] == CONNECTED){
+            connected_layer *layer = (connected_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
+            forward_connected_layer_gpu(layer, input, net->test);
+            input = layer->output_gpu;
+            */
+        }else if(net->layers_type[i] == ROUTE){
+            route_layer *layer = (route_layer *)net->layers[i];
+            if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            forward_route_layer_cl(layer, net);
+            input = layer->output_cl;
+        }else if(net->layers_type[i] == SHORTCUT){
+            shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            forward_shortcut_layer_cl(layer, input, net);
+            input = layer->output_cl;
+        } else if(net->layers_type[i] == MAXPOOL){
+            maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            forward_maxpool_layer_cl(layer, input);
+            input = layer->output_cl;
+        } else if(net->layers_type[i] == UPSAMPLE){
+            upsample_layer *layer = (upsample_layer *)net->layers[i];
+            if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            forward_upsample_layer_cl(layer, input);
+            input = layer->output_cl;
+        } else if(net->layers_type[i] == YOLO){
+            yolo_layer *layer = (yolo_layer *)net->layers[i];
+            // if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
+            forward_yolo_layer_cl(layer, net, input, net->test);
+            input = layer->output_cl;
+            cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "yolo output diff: ");
+            /*
+        } else if(net->layers_type[i] == NORMALIZE){
+            normalize_layer *layer = (normalize_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
+            forward_normalize_layer_gpu(layer, input);
+            input = layer->output_gpu;
+        } else if(net->layers_type[i] == SOFTMAX){
+            softmax_layer *layer = (softmax_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
+            forward_softmax_layer_gpu(layer, input, net);
+            input = layer->output_gpu;
+            */
+        } else {
+            printf("forward_network_gpu layers_type error, layer: %d\n", i);
+            exit(-1);
+        }
+    }
+}
+#endif
+
 void forward_network_test(network *net, float *input)
 {
 #ifdef GPU
@@ -812,6 +950,15 @@ void forward_network_test(network *net, float *input)
         cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
     }
     forward_network_gpu(net, net->input_gpu);
+#elif defined(OPENCL)
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        printf("RNN OPENCL not implement!\n");
+        exit(-1);
+    } else {
+        cl_write_array(net->input_cl, input, net->h * net->w * net->c * net->batch);
+    }
+    forward_network(net, input);
+    forward_network_cl(net, net->input_cl);
 #else
     forward_network(net, input);
 #endif
@@ -946,6 +1093,8 @@ void load_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
     if(gpu_index >= 0){
         push_convolutional_layer(l);
     }
+#elif defined(OPENCL)
+    push_convolutional_layer_cl(l);
 #endif
 }
 
@@ -1035,10 +1184,6 @@ void save_weights(network *net, char *filename)
 
 void load_weights(network *net, char *filename)
 {
-#ifdef GPU
-    if(net->gpu_index >= 0){
-    }
-#endif
     fprintf(stderr, "Loading weights from %s\n", filename);
     fflush(stdout);
     FILE *fp = fopen(filename, "rb");

@@ -80,5 +80,16 @@ void weighted_delta_gpu(int num, float *state, float *h, float *z, float *delta_
 void weighted_sum_gpu(float *a, float *b, float *s, int num, float *c);
 void mult_add_into_gpu(int num, float *a, float *b, float *c);
 void upsample_gpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
+#elif defined(OPENCL)
+#include "opencl.h"
+void axpy_cl(int N, float ALPHA, cl_mem X, int INCX, cl_mem Y, int INCY);
+void copy_cl(int N, cl_mem X, int INCX, cl_mem Y, int INCY);
+void scal_cl(int N, float ALPHA, cl_mem X, int INCX);
+void scale_bias_cl(cl_mem output, cl_mem biases, int batch, int n, int size);
+void normalize_cl(cl_mem x, cl_mem mean, cl_mem variance, int batch, int filters, int spatial);
+void fast_mean_cl(cl_mem x, int batch, int filters, int spatial, cl_mem mean);
+void fast_variance_cl(cl_mem x, cl_mem mean, int batch, int filters, int spatial, cl_mem variance);
+void activate_prelu_array_cl(cl_mem x, cl_mem slope_cl, int batch, int filters, int spatial);
+void shortcut_cl(int batch, int w1, int h1, int c1, cl_mem add, int w2, int h2, int c2, float s1, float s2, cl_mem out);
 #endif
 #endif

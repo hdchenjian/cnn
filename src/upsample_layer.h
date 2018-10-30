@@ -4,6 +4,8 @@
 #include "image.h"
 #ifdef GPU
 #include "cuda.h"
+#elif defined(OPENCL)
+#include "opencl.h"
 #endif
 
 typedef struct{
@@ -11,6 +13,7 @@ typedef struct{
     float scale;
     float *output, *delta;
     float *delta_gpu, *output_gpu;
+    cl_mem delta_cl, output_cl;
 } upsample_layer;
 
 image get_upsample_image(const upsample_layer *layer);
@@ -22,6 +25,8 @@ void backward_upsample_layer(const upsample_layer *l, float * delta);
 #ifdef GPU
 void forward_upsample_layer_gpu(const upsample_layer *l, float *input);
 void backward_upsample_layer_gpu(const upsample_layer *l, float *delta);
+#elif defined(OPENCL)
+void forward_upsample_layer_cl(const upsample_layer *l, cl_mem input);
 #endif
 
 #endif

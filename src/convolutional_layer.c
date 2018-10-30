@@ -117,8 +117,11 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->weight_updates = calloc(c*n*size*size, sizeof(float));
     layer->biases = calloc(n, sizeof(float));
     layer->bias_updates = calloc(n, sizeof(float));
-    layer->out_h = (layer->h-1)/layer->stride + 1;
-    layer->out_w = (layer->w-1)/layer->stride + 1;
+    int padding = 0;
+    if(pad) padding = size / 2;
+    layer->pad = padding;
+    layer->out_h = (layer->h + 2*layer->pad - layer->size) / layer->stride + 1;
+    layer->out_w = (layer->w + 2*layer->pad - layer->size) / layer->stride + 1;
     // 2.0F: multiplication add
     layer->bflop = (2.0F * layer->size*layer->size*layer->c * layer->n * layer->out_h*layer->out_w) / 1000000000.0F;
     layer->outputs = layer->out_h * layer->out_w * layer->n;
@@ -135,7 +138,6 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     }
 
     layer->batch_normalize = batch_normalize;
-    layer->pad = pad;
     if(batch_normalize){
         layer->scales = calloc(n, sizeof(float));
         layer->scale_updates = calloc(n, sizeof(float));
@@ -193,6 +195,33 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     cudnnCreateConvolutionDescriptor(&layer->convDesc);
     cudnn_convolutional_setup(layer);
     #endif
+#elif defined(OPENCL)
+    layer->weights_cl = cl_make_array(layer->weights, c*n*size*size);
+    layer->weight_updates_cl = cl_make_array(layer->weight_updates, c*n*size*size);
+
+    layer->biases_cl = cl_make_array(layer->biases, n);
+    layer->bias_updates_cl = cl_make_array(layer->bias_updates, n);
+
+    layer->delta_cl = cl_make_array(layer->delta, batch * layer->out_h * layer->out_w * n);
+    layer->output_cl = cl_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
+
+    if(batch_normalize){
+        layer->scales_cl = cl_make_array(layer->scales, n);
+        layer->scale_updates_cl = cl_make_array(layer->scale_updates, n);
+        layer->mean_cl = cl_make_array(layer->mean, n);
+        layer->mean_delta_cl = cl_make_array(layer->mean, n);
+        layer->variance_delta_cl = cl_make_array(layer->variance, n);
+        layer->variance_cl = cl_make_array(layer->variance, n);
+        layer->rolling_mean_cl = cl_make_array(layer->mean, n);
+        layer->rolling_variance_cl = cl_make_array(layer->variance, n);
+        layer->x_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+        layer->x_norm_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+    }
+    if(layer->activation == PRELU){
+        layer->bottom_data_cl = cl_make_array(layer->bottom_data, batch * layer->out_h * layer->out_w * n);
+        layer->slope_cl = cl_make_array(layer->slope, n);
+        layer->slope_updates_cl = cl_make_array(layer->slope_updates, n);
+    }
 #endif
 
     layer->workspace_size = get_workspace_size(layer);
@@ -203,62 +232,6 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         "Convolutional:      %d x %d x %d inputs, %d weights size %d stride %d -> %d x %d x %d outputs, %.2fMb %5.3f BFLOPs\n",
         w,h,c, n, size, stride, layer->out_w, layer->out_h, n, layer->workspace_size / Mb_size, layer->bflop);
     return layer;
-}
-
-void free_convolutional_layer(void *input)
-{
-    convolutional_layer *layer = (convolutional_layer *)input;
-    if(layer->weights) free_ptr(layer->weights);
-    if(layer->weight_updates) free_ptr(layer->weight_updates);
-    if(layer->biases) free_ptr(layer->biases);
-    if(layer->bias_updates) free_ptr(layer->bias_updates);
-    if(layer->output) free_ptr(layer->output);
-    if(layer->delta) free_ptr(layer->delta);
-    if(layer->scales) free_ptr(layer->scales);
-    if(layer->scale_updates) free_ptr(layer->scale_updates);
-    if(layer->mean) free_ptr(layer->mean);
-    if(layer->mean_delta) free_ptr(layer->mean_delta);
-    if(layer->variance) free_ptr(layer->variance);
-    if(layer->variance_delta) free_ptr(layer->variance_delta);
-    if(layer->rolling_mean) free_ptr(layer->rolling_mean);
-    if(layer->rolling_variance) free_ptr(layer->rolling_variance);
-    if(layer->x) free_ptr(layer->x);
-    if(layer->x_norm) free_ptr(layer->x_norm);
-    if(layer->bottom_data) free_ptr(layer->bottom_data);
-    if(layer->slope) free_ptr(layer->slope);
-    if(layer->slope_updates) free_ptr(layer->slope_updates);
-#ifdef GPU
-    if(layer->weights_gpu) cuda_free(layer->weights_gpu);
-    if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
-    if(layer->biases_gpu) cuda_free(layer->biases_gpu);
-    if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
-    if(layer->output_gpu) cuda_free(layer->output_gpu);
-    if(layer->delta_gpu) cuda_free(layer->delta_gpu);
-    if(layer->scales_gpu) cuda_free(layer->scales_gpu);
-    if(layer->scale_updates_gpu) cuda_free(layer->scale_updates_gpu);
-    if(layer->mean_gpu) cuda_free(layer->mean_gpu);
-    if(layer->mean_delta_gpu) cuda_free(layer->mean_delta_gpu);
-    if(layer->variance_gpu) cuda_free(layer->variance_gpu);
-    if(layer->variance_delta_gpu) cuda_free(layer->variance_delta_gpu);
-    if(layer->rolling_mean_gpu) cuda_free(layer->rolling_mean_gpu);
-    if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
-    if(layer->x_gpu) cuda_free(layer->x_gpu);
-    if(layer->x_norm_gpu) cuda_free(layer->x_norm_gpu);
-    if(layer->bottom_data_gpu) cuda_free(layer->bottom_data_gpu);
-    if(layer->slope_gpu) cuda_free(layer->slope_gpu);
-    if(layer->slope_updates_gpu) cuda_free(layer->slope_updates_gpu);
-#ifdef CUDNN
-    cudnnDestroyTensorDescriptor(layer->normTensorDesc);
-    cudnnDestroyTensorDescriptor(layer->srcTensorDesc);
-    cudnnDestroyTensorDescriptor(layer->dstTensorDesc);
-    cudnnDestroyTensorDescriptor(layer->dsrcTensorDesc);
-    cudnnDestroyTensorDescriptor(layer->ddstTensorDesc);
-    cudnnDestroyFilterDescriptor(layer->weightDesc);
-    cudnnDestroyFilterDescriptor(layer->dweightDesc);
-    cudnnDestroyConvolutionDescriptor(layer->convDesc);
-#endif
-#endif
-    free_ptr(layer);
 }
 
 float im2col_get_pixel(float *im, int height, int width, int channels, int row, int col, int channel, int pad)
@@ -374,7 +347,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     int m = layer->n;
     int n = layer->out_h * layer->out_w;
     int k = layer->size*layer->size*layer->c;
-    memset(layer->output, 0, layer->batch * m*n*sizeof(float));
+    //memset(layer->output, 0, layer->batch * m*n*sizeof(float));
     for(int i = 0; i < layer->batch; ++i){
         float *a = layer->weights;
         float *b = workspace;
@@ -388,7 +361,6 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         }
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
-
     if(layer->batch_normalize){
         forward_batchnorm_layer(layer, test);
     }
@@ -597,4 +569,208 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
         layer->weights[i] += learning_rate * layer->lr_mult / batch * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;
     }
+}
+
+#ifdef OPENCL
+
+void add_bias_cl(const convolutional_layer *layer)
+{
+    int size = layer->out_h * layer->out_w;
+    cl_kernel kernel = get_kernel_by_name("convolutional_bias_cl", "-D BLOCK=32");
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->n), (void*) &layer->n);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(size), (void*) &size);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->biases_cl), (void*) &layer->biases_cl);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->output_cl), (void*) &layer->output_cl);
+    check_error(cl);
+
+    const size_t global_size[] = {layer->n*size, layer->batch};
+    cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 2, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
+               int ksize,  int stride,  int pad, cl_mem data_col)
+{
+    int height_col = (height + 2 * pad - ksize) / stride + 1;
+    int width_col = (width + 2 * pad - ksize) / stride + 1;
+    cl_kernel kernel = get_kernel_by_name("im2col_cl", 0);
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(data_im), (void*) &data_im);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(offset), (void*) &offset);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(height), (void*) &height);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(width), (void*) &width);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(ksize), (void*) &ksize);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(pad), (void*) &pad);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(stride), (void*) &stride);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(height_col), (void*) &height_col);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(width_col), (void*) &width_col);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(data_col), (void*) &data_col);
+    check_error(cl);
+    size_t global_size = channels*height_col*width_col;
+    cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 1, 0, &global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+void forward_batchnorm_layer_cl(const convolutional_layer *layer, int test)
+{
+    if(0 == test){    // 0: train, 1: valid
+        copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->x_cl, 1);
+        fast_mean_cl(layer->output_cl, layer->batch, layer->n, layer->out_h*layer->out_w, layer->mean_cl);
+        fast_variance_cl(layer->output_cl, layer->mean_cl, layer->batch, layer->n, layer->out_h*layer->out_w,
+                          layer->variance_cl);
+
+        scal_cl(layer->n, .99, layer->rolling_mean_cl, 1);
+        axpy_cl(layer->n, .01, layer->mean_cl, 1, layer->rolling_mean_cl, 1);
+        scal_cl(layer->n, .99, layer->rolling_variance_cl, 1);
+        axpy_cl(layer->n, .01, layer->variance_cl, 1, layer->rolling_variance_cl, 1);
+
+        normalize_cl(layer->output_cl, layer->mean_cl, layer->variance_cl, layer->batch, layer->n,
+                      layer->out_h*layer->out_w);
+        copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->x_norm_cl, 1);
+        scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->n, layer->out_h*layer->out_w);
+        add_bias_cl(layer);
+    } else {
+        normalize_cl(layer->output_cl, layer->rolling_mean_cl, layer->rolling_variance_cl,
+                     layer->batch, layer->n, layer->out_h*layer->out_w);
+        scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->n, layer->out_h*layer->out_w);
+        add_bias_cl(layer);
+    }
+}
+
+void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test)
+{
+    int m = layer->n;
+    int n = layer->out_h * layer->out_w;
+    int k = layer->size*layer->size*layer->c;
+    for(int i = 0; i < layer->batch; ++i){
+        cl_mem a = layer->weights_cl;
+        cl_mem b = workspace;
+        cl_mem c = layer->output_cl;
+        if (layer->size == 1){
+            b = in;
+            gemm_cl(0,0,m,n,k,1,a,0,k,b, i * layer->w * layer->h * layer->c, n,0,c,i*n*m,n);
+        } else {
+            cl_memset_array(workspace, n* k);
+            im2col_cl(in, i*layer->c*layer->h*layer->w, layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
+            gemm_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n);
+        }
+    }
+    if (layer->batch_normalize) {
+        forward_batchnorm_layer_cl(layer, test);
+    } else {
+        add_bias_cl(layer);
+    }
+    if(layer->activation == PRELU){
+        copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->bottom_data_cl, 1);
+        int size = layer->batch * layer->out_h * layer->out_w * layer->n;
+        int dim = layer->out_h * layer->out_w;
+        activate_prelu_array_cl(layer->output_cl, layer->slope_cl, size, layer->n, dim);
+    } else if (layer->activation == LINEAR) {
+    } else {
+        activate_array_cl(layer->output_cl, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
+    }
+}
+
+void pull_convolutional_layer_cl(const convolutional_layer *layer)
+{
+    int size = layer->size*layer->size*layer->c*layer->n;
+    cl_read_array(layer->weights_cl, layer->weights, size);
+    cl_read_array(layer->biases_cl, layer->biases, layer->n);
+    cl_read_array(layer->weight_updates_cl, layer->weight_updates, size);
+    cl_read_array(layer->bias_updates_cl, layer->bias_updates, layer->n);
+    if (layer->batch_normalize){
+        cl_read_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n);
+        cl_read_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n);
+    }
+}
+
+void push_convolutional_layer_cl(const convolutional_layer *layer)
+{
+    int size = layer->size*layer->size*layer->c*layer->n;
+    cl_write_array(layer->weights_cl, layer->weights, size);
+    cl_write_array(layer->biases_cl, layer->biases, layer->n);
+    cl_write_array(layer->weight_updates_cl, layer->weight_updates, size);
+    cl_write_array(layer->bias_updates_cl, layer->bias_updates, layer->n);
+    if (layer->batch_normalize){
+        cl_write_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n);
+        cl_write_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n);
+    }
+}
+#endif
+
+void free_convolutional_layer(void *input)
+{
+    convolutional_layer *layer = (convolutional_layer *)input;
+    if(layer->weights) free_ptr(layer->weights);
+    if(layer->weight_updates) free_ptr(layer->weight_updates);
+    if(layer->biases) free_ptr(layer->biases);
+    if(layer->bias_updates) free_ptr(layer->bias_updates);
+    if(layer->output) free_ptr(layer->output);
+    if(layer->delta) free_ptr(layer->delta);
+    if(layer->scales) free_ptr(layer->scales);
+    if(layer->scale_updates) free_ptr(layer->scale_updates);
+    if(layer->mean) free_ptr(layer->mean);
+    if(layer->mean_delta) free_ptr(layer->mean_delta);
+    if(layer->variance) free_ptr(layer->variance);
+    if(layer->variance_delta) free_ptr(layer->variance_delta);
+    if(layer->rolling_mean) free_ptr(layer->rolling_mean);
+    if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+    if(layer->x) free_ptr(layer->x);
+    if(layer->x_norm) free_ptr(layer->x_norm);
+    if(layer->bottom_data) free_ptr(layer->bottom_data);
+    if(layer->slope) free_ptr(layer->slope);
+    if(layer->slope_updates) free_ptr(layer->slope_updates);
+#ifdef GPU
+    if(layer->weights_gpu) cuda_free(layer->weights_gpu);
+    if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
+    if(layer->biases_gpu) cuda_free(layer->biases_gpu);
+    if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
+    if(layer->output_gpu) cuda_free(layer->output_gpu);
+    if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+    if(layer->scales_gpu) cuda_free(layer->scales_gpu);
+    if(layer->scale_updates_gpu) cuda_free(layer->scale_updates_gpu);
+    if(layer->mean_gpu) cuda_free(layer->mean_gpu);
+    if(layer->mean_delta_gpu) cuda_free(layer->mean_delta_gpu);
+    if(layer->variance_gpu) cuda_free(layer->variance_gpu);
+    if(layer->variance_delta_gpu) cuda_free(layer->variance_delta_gpu);
+    if(layer->rolling_mean_gpu) cuda_free(layer->rolling_mean_gpu);
+    if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
+    if(layer->x_gpu) cuda_free(layer->x_gpu);
+    if(layer->x_norm_gpu) cuda_free(layer->x_norm_gpu);
+    if(layer->bottom_data_gpu) cuda_free(layer->bottom_data_gpu);
+    if(layer->slope_gpu) cuda_free(layer->slope_gpu);
+    if(layer->slope_updates_gpu) cuda_free(layer->slope_updates_gpu);
+#ifdef CUDNN
+    cudnnDestroyTensorDescriptor(layer->normTensorDesc);
+    cudnnDestroyTensorDescriptor(layer->srcTensorDesc);
+    cudnnDestroyTensorDescriptor(layer->dstTensorDesc);
+    cudnnDestroyTensorDescriptor(layer->dsrcTensorDesc);
+    cudnnDestroyTensorDescriptor(layer->ddstTensorDesc);
+    cudnnDestroyFilterDescriptor(layer->weightDesc);
+    cudnnDestroyFilterDescriptor(layer->dweightDesc);
+    cudnnDestroyConvolutionDescriptor(layer->convDesc);
+#endif
+#elif defined(OPENCL)
+    if(layer->weights_cl) clReleaseMemObject(layer->weights_cl);
+    if(layer->weight_updates_cl) clReleaseMemObject(layer->weight_updates_cl);
+    if(layer->biases_cl) clReleaseMemObject(layer->biases_cl);
+    if(layer->bias_updates_cl) clReleaseMemObject(layer->bias_updates_cl);
+    if(layer->output_cl) clReleaseMemObject(layer->output_cl);
+    if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
+    if(layer->scales_cl) clReleaseMemObject(layer->scales_cl);
+    if(layer->scale_updates_cl) clReleaseMemObject(layer->scale_updates_cl);
+    if(layer->mean_cl) clReleaseMemObject(layer->mean_cl);
+    if(layer->mean_delta_cl) clReleaseMemObject(layer->mean_delta_cl);
+    if(layer->variance_cl) clReleaseMemObject(layer->variance_cl);
+    if(layer->variance_delta_cl) clReleaseMemObject(layer->variance_delta_cl);
+    if(layer->rolling_mean_cl) clReleaseMemObject(layer->rolling_mean_cl);
+    if(layer->rolling_variance_cl) clReleaseMemObject(layer->rolling_variance_cl);
+    if(layer->x_cl) clReleaseMemObject(layer->x_cl);
+    if(layer->x_norm_cl) clReleaseMemObject(layer->x_norm_cl);
+    if(layer->bottom_data_cl) clReleaseMemObject(layer->bottom_data_cl);
+    if(layer->slope_cl) clReleaseMemObject(layer->slope_cl);
+    if(layer->slope_updates_cl) clReleaseMemObject(layer->slope_updates_cl);
+#endif
+    free_ptr(layer);
 }

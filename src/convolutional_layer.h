@@ -13,10 +13,11 @@
 
 #ifdef GPU
     #include "cuda.h"
-
     #ifdef CUDNN
     #include "cudnn.h"
     #endif
+#elif defined(OPENCL)
+    #include "opencl.h"
 #endif
 
 typedef struct {
@@ -27,9 +28,13 @@ typedef struct {
     float *mean_gpu, *mean_delta_gpu, *variance_gpu, *variance_delta_gpu, *rolling_mean_gpu, *rolling_variance_gpu, *x_gpu,
         *x_norm_gpu, *scales_gpu, *scale_updates_gpu;
     float *weights_gpu, *weight_updates_gpu, *biases_gpu, *bias_updates_gpu, *delta_gpu, *output_gpu;
+    cl_mem mean_cl, mean_delta_cl, variance_cl, variance_delta_cl, rolling_mean_cl, rolling_variance_cl, x_cl,
+        x_norm_cl, scales_cl, scale_updates_cl;
+    cl_mem weights_cl, weight_updates_cl, biases_cl, bias_updates_cl, delta_cl, output_cl;
     ACTIVATION activation;
     float *bottom_data, *slope, *slope_updates;
     float *bottom_data_gpu, *slope_gpu, *slope_updates_gpu;
+    cl_mem bottom_data_cl, slope_cl, slope_updates_cl;
     size_t workspace_size;
     #ifdef CUDNN
     cudnnTensorDescriptor_t normTensorDesc;
@@ -74,5 +79,9 @@ void pull_convolutional_layer(const convolutional_layer *layer);
 
 void add_bias_gpu(float *output, float *biases, int batch, int n, int size);
 void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int size);
+
+#elif defined(OPENCL)
+void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test);
+void push_convolutional_layer_cl(const convolutional_layer *layer);
 #endif
 #endif

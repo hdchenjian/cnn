@@ -23,7 +23,9 @@
 #include <time.h>
 
 #ifdef GPU
-    #include "cuda.h"
+#include "cuda.h"
+#elif defined(OPENCL)
+#include "opencl.h"
 #endif
 
 enum COST_TYPE{
@@ -58,6 +60,7 @@ typedef struct {
     ACTIVATION activation;
     float *delta, *output;
     float *output_gpu, *delta_gpu;
+    cl_mem output_cl, delta_cl;
 } shortcut_layer;
 
 typedef struct {
@@ -65,6 +68,7 @@ typedef struct {
     int *input_layers, *input_sizes;
     float *delta, *output;
     float *output_gpu, *delta_gpu;
+    cl_mem output_cl, delta_cl;
 } route_layer;
 
 
@@ -103,6 +107,7 @@ typedef struct {
     float *input, *truth, *input_gpu, *truth_gpu;
     int *is_not_max_gpu; // for counting correct rate in forward_softmax_layer_gpu
     float *workspace, *workspace_gpu;  // for convolutional_layer image reorder
+    cl_mem workspace_cl, input_cl, truth_cl, is_not_max_cl, truth_label_index_cl;
     size_t workspace_size;
     int max_boxes;  // a image contain max_boxes groud truth box
 
@@ -130,6 +135,7 @@ typedef struct {
     float ignore_thresh, truth_thresh;
     float *biases, *bias_updates, *delta, *output, *input_cpu;
     float *output_gpu, *delta_gpu;
+    cl_mem output_cl, delta_cl;
 } yolo_layer;
 
 image get_yolo_image(const yolo_layer *layer);
@@ -142,6 +148,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #ifdef GPU
 void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input, int test);
 void backward_yolo_layer_gpu(const yolo_layer *l, float *delta);
+#elif defined(OPENCL)
+void forward_yolo_layer_cl(const yolo_layer *l, network *net, cl_mem input_cl, int test);
 #endif
 
 cost_layer *make_cost_layer(int batch, int inputs, enum COST_TYPE cost_type, float scale);
@@ -167,6 +175,8 @@ void backward_route_layer(const route_layer *l, network *net);
 #ifdef GPU
 void forward_route_layer_gpu(const route_layer *l, network *net);
 void backward_route_layer_gpu(const route_layer *l, network *net);
+#elif defined(OPENCL)
+void forward_route_layer_cl(const route_layer *l, network *net);
 #endif
 
 image get_shortcut_image(const shortcut_layer *layer);
@@ -177,6 +187,8 @@ void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net
 #ifdef GPU
 void forward_shortcut_layer_gpu(const shortcut_layer *l, float *input_gpu, network *net);
 void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, network *net);
+#elif defined(OPENCL)
+void forward_shortcut_layer_cl(const shortcut_layer *l, cl_mem input_cl, network *net);
 #endif
 
 float *get_network_layer_data(network *net, int i, int data_type, int is_gpu);
@@ -196,5 +208,9 @@ float update_current_learning_rate(network * net);
 void save_weights(network *net, char *filename);
 void load_weights(network *net, char *filename);
 detection *get_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, int *num);
+
+#ifdef OPENCL
+cl_mem get_network_layer_data_cl(network *net, int i, int data_type);
+#endif
 #endif
 

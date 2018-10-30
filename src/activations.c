@@ -142,3 +142,49 @@ void gradient_array(const float *x, const int n, const ACTIVATION a, float *delt
         delta[i] *= gradient(x[i], a);
     }
 }
+
+#ifdef OPENCL
+void activate_array_cl(cl_mem x, int n, ACTIVATION a)
+{
+    cl_kernel kernel = get_kernel_by_name("activate_array_cl", 0);
+    cl_command_queue queue = cl.queue;
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(x), (void*) &x);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(n), (void*) &n);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(a), (void*) &a);
+    check_error(cl);
+    size_t gsize = n;
+    cl.error = clEnqueueNDRangeKernel(queue, kernel, 1, 0, &gsize, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+void activate_array_with_offset_cl(cl_mem x, int offset, int n, ACTIVATION a)
+{
+    cl_kernel kernel = get_kernel_by_name("activate_array_with_offset_cl", 0);
+    cl_command_queue queue = cl.queue;
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(x), (void*) &x);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(offset), (void*) &offset);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(n), (void*) &n);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(a), (void*) &a);
+    check_error(cl);
+    size_t gsize = n;
+    cl.error = clEnqueueNDRangeKernel(queue, kernel, 1, 0, &gsize, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+void gradient_array_cl(cl_mem x, int n, ACTIVATION a, cl_mem delta)
+{
+    cl_kernel kernel = get_kernel_by_name("gradient_array_cl", 0);
+    cl_command_queue queue = cl.queue;
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(x), (void*) &x);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(n), (void*) &n);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(a), (void*) &a);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(delta), (void*) &delta);
+    check_error(cl);
+    size_t gsize = n;
+    cl.error = clEnqueueNDRangeKernel(queue, kernel, 1, 0, &gsize, 0, 0, 0, 0);
+    check_error(cl);
+}
+#endif

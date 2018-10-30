@@ -26,12 +26,15 @@ shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, i
     l->prev_layer_weight = prev_layer_weight;
     l->shortcut_layer_weight = shortcut_layer_weight;
 
-    l->delta =  calloc(l->outputs*batch, sizeof(float));
+    l->delta = calloc(l->outputs*batch, sizeof(float));
     l->output = calloc(l->outputs*batch, sizeof(float));;
 
     #ifdef GPU
     l->delta_gpu =  cuda_make_array(l->delta, l->outputs*batch);
     l->output_gpu = cuda_make_array(l->output, l->outputs*batch);
+    #elif defined(OPENCL)
+    l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
+    l->output_cl = cl_make_array(l->output, l->outputs*batch);
     #endif
     return l;
 }
@@ -71,5 +74,14 @@ void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, netw
     float *shortcut_layer_delta_gpu = get_network_layer_data(net, l->index, 1, 1);
     shortcut_gpu(l->batch, l->out_w, l->out_h, l->out_c, l->delta_gpu, l->w, l->h, l->c,
                  1, l->shortcut_layer_weight, shortcut_layer_delta_gpu);
+}
+#elif defined(OPENCL)
+void forward_shortcut_layer_cl(const shortcut_layer *l, cl_mem input_cl, network *net)
+{
+    copy_cl(l->outputs*l->batch, input_cl, 1, l->output_cl, 1);
+    cl_mem shortcut_layer_output_cl = get_network_layer_data_cl(net, l->index, 0);
+    shortcut_cl(l->batch, l->w, l->h, l->c, shortcut_layer_output_cl, l->out_w, l->out_h, l->out_c,
+                l->prev_layer_weight, l->shortcut_layer_weight, l->output_cl);
+    activate_array_cl(l->output_cl, l->outputs*l->batch, l->activation);
 }
 #endif

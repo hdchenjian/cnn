@@ -1,12 +1,9 @@
-int gpu_index = 0;
-
 #include "cuda.h"
 
 #ifdef GPU
 
 void cuda_set_device(int n)
 {
-    gpu_index = n;
     cudaError_t status = cudaSetDevice(n);
     check_error(status);
 }

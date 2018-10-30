@@ -23,13 +23,17 @@ maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int
     layer->out_w = (w + padding - size)/stride + 1;
     layer->out_h = (h + padding - size)/stride + 1;
     layer->outputs = layer->out_h * layer->out_w * c;
-    layer->output = calloc(batch * layer->out_h * layer->out_w * c, sizeof(float));
-    layer->delta = calloc(batch * layer->out_h * layer->out_w * c, sizeof(float));
-    layer->indexes = calloc(layer->out_h * layer->out_w * layer->c * batch, sizeof(int));
+    layer->output = calloc(batch * layer->outputs, sizeof(float));
+    layer->delta = calloc(batch * layer->outputs, sizeof(float));
+    layer->indexes = calloc(layer->outputs * batch, sizeof(int));
 #ifdef GPU
-    layer->indexes_gpu = cuda_make_int_array(0, layer->out_h * layer->out_w * layer->c * batch);
-    layer->output_gpu = cuda_make_array(layer->output, layer->out_h * layer->out_w * layer->c * batch);
-    layer->delta_gpu = cuda_make_array(layer->delta, layer->out_h * layer->out_w * layer->c * batch);
+    layer->indexes_gpu = cuda_make_int_array(0, layer->outputs * batch);
+    layer->output_gpu = cuda_make_array(layer->output, layer->outputs * batch);
+    layer->delta_gpu = cuda_make_array(layer->delta, layer->outputs * batch);
+#elif defined(OPENCL)
+    layer->indexes_cl = cl_make_int_array(0, layer->outputs * batch);
+    layer->delta_cl =  cl_make_array(layer->delta, layer->outputs*batch);
+    layer->output_cl = cl_make_array(layer->output, layer->outputs*batch);
 #endif
     return layer;
 }
@@ -91,3 +95,23 @@ void backward_maxpool_layer(const maxpool_layer *layer, float *delta)
         delta[index] += layer->delta[i];
     }
 }
+
+#if defined(OPENCL)
+void forward_maxpool_layer_cl(const maxpool_layer *layer, cl_mem in_cl){
+    cl_kernel kernel = get_kernel_by_name("forward_maxpool_layer_cl", 0);
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->h), (void*)&layer->h);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->w), (void*)&layer->w);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->c), (void*)&layer->c);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->stride), (void*)&layer->stride);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->size), (void*)&layer->size);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->pad), (void*)&layer->pad);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(in_cl), (void*)&in_cl);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->output_cl), (void*)&layer->output_cl);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->indexes_cl), (void*)&layer->indexes_cl);
+    check_error(cl);
+    const size_t global_size[] = {layer->out_h *layer->out_w * layer->c * layer->batch};
+    cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 1, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+#endif

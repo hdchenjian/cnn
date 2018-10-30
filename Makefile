@@ -1,7 +1,8 @@
-GPU=1
+GPU=0
 DEBUG=0
-CUDNN=1
+CUDNN=0
 OPENMP=1
+OPENCL=1
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
       -gencode arch=compute_61,code=[sm_61,compute_61]
@@ -47,7 +48,16 @@ CFLAGS+= -DCUDNN
 LDFLAGS+= -L/opt/ego/cudnn-v7 -lcudnn
 endif
 
+ifeq ($(OPENCL), 1)
+COMMON+= -DOPENCL -I/usr/local/cuda-8.0/targets/x86_64-linux/include
+LDFLAGS+= -L/usr/local/cuda-8.0/targets/x86_64-linux/lib -lOpenCL
+endif
+
 OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o normalize_layer.o rnn_layer.o lstm_layer.o gru_layer.o upsample_layer.o yolo_layer.o
+
+ifeq ($(OPENCL), 1)
+OBJ+= blas_cl.o opencl.o
+endif
 
 ifeq ($(GPU), 1) 
 LDFLAGS+= -lstdc++ 

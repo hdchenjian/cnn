@@ -17,6 +17,11 @@ void activate_array(float *x, const int n, const ACTIVATION a);
 #ifdef GPU
 void activate_array_gpu(float *x, int n, ACTIVATION a);
 void gradient_array_gpu(float *x, int n, ACTIVATION a, float *delta);
+#elif defined(OPENCL)
+#include "opencl.h"
+void activate_array_cl(cl_mem x, int n, ACTIVATION a);
+void activate_array_with_offset_cl(cl_mem x, int offset, int n, ACTIVATION a);
+void gradient_array_cl(cl_mem x, int n, ACTIVATION a, cl_mem delta);
 #endif
 
 static inline float stair_activate(float x)

@@ -1147,11 +1147,8 @@ __global__ void upsample_kernel(size_t N, float *x, int w, int h, int c, int bat
     int in_w = out_w / stride;
     int in_h = out_h / stride;
     int in_c = out_c;
-
     int in_index = b*w*h*c + in_c*w*h + in_h*w + in_w;
-
-
-    if(forward) out[out_index] += scale * x[in_index];
+    if(forward) out[out_index] = scale * x[in_index];
     else atomicAdd(x+in_index, scale * out[out_index]);
 }
 extern "C" void upsample_gpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out)

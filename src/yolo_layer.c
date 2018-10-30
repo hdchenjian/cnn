@@ -41,6 +41,9 @@ yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask
 #ifdef GPU
     l->output_gpu = cuda_make_array(l->output, batch*l->outputs);
     l->delta_gpu = cuda_make_array(l->delta, batch*l->outputs);
+#elif defined(OPENCL)
+    l->output_cl = cl_make_array(l->output, batch*l->outputs);
+    l->delta_cl = cl_make_array(l->delta, batch*l->outputs);
 #endif
     fprintf(stderr, "yolo\n");
     return l;
@@ -58,6 +61,9 @@ void free_yolo_layer(void *input)
 #ifdef GPU
     if(layer->output_gpu) cuda_free(layer->output_gpu);
     if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+#elif defined(OPENCL)
+    if(layer->output_cl) clReleaseMemObject(layer->output_cl);
+    if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
 #endif
     free_ptr(layer);
 }
@@ -116,7 +122,7 @@ void forward_yolo_layer(const yolo_layer *l, network *net, float *input, int tes
     memset(l->delta, 0, l->outputs * l->batch * sizeof(float));
     memcpy(l->output, input, l->outputs * l->batch * sizeof(float));
 
-#ifndef GPU
+#if !defined(GPU) && !defined(OPENCL)
     for(int b = 0; b < l->batch; ++b){
         for(int n = 0; n < l->n; ++n){
             int index = entry_index(l, b, n*l->w*l->h, 0);
@@ -323,11 +329,6 @@ void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input_gpu,
             activate_array_gpu(l->output_gpu + index, (1+l->classes)*l->w*l->h, LOGISTIC);
         }
     }
-    if(0 != test){    // 0: train, 1: valid
-        cuda_pull_array(l->output_gpu, l->output, l->batch*l->outputs);
-        return;
-    }
-
     cuda_pull_array(l->output_gpu, l->input_cpu, l->batch*l->inputs);
     forward_yolo_layer(l, net, l->input_cpu, test);
     cuda_push_array(l->delta_gpu, l->delta, l->batch*l->outputs);
@@ -336,6 +337,23 @@ void forward_yolo_layer_gpu(const yolo_layer *l, network *net, float *input_gpu,
 void backward_yolo_layer_gpu(const yolo_layer *l, float *delta)
 {
     copy_gpu(l->batch*l->inputs, l->delta_gpu, 1, delta, 1);
+}
+
+#elif defined(OPENCL)
+void forward_yolo_layer_cl(const yolo_layer *l, network *net, cl_mem input_cl, int test){
+    copy_cl(l->batch*l->inputs, input_cl, 1, l->output_cl, 1);
+    int b, n;
+    for(b = 0; b < l->batch; ++b){
+        for(n = 0; n < l->n; ++n){
+            int index = entry_index(l, b, n*l->w*l->h, 0);
+            activate_array_with_offset_cl(l->output_cl, index, 2*l->w*l->h, LOGISTIC);
+            index = entry_index(l, b, n*l->w*l->h, 4);
+            activate_array_with_offset_cl(l->output_cl, index, (1+l->classes)*l->w*l->h, LOGISTIC);
+        }
+    }
+    cl_read_array(l->output_cl, l->input_cpu, l->batch*l->inputs);
+    forward_yolo_layer(l, net, l->input_cpu, test);
+    cl_write_array(l->delta_cl, l->delta, l->batch*l->outputs);
 }
 #endif
 

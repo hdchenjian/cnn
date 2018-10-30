@@ -7,6 +7,7 @@
 void run_classifier(int argc, char **argv);
 void run_char_rnn(int argc, char **argv);
 void run_detector(int argc, char **argv);
+void cl_setup();
 
 int main(int argc, char **argv)
 {
@@ -19,9 +20,9 @@ int main(int argc, char **argv)
         gpu_index = -1;
     }
 
-#ifndef GPU
-    gpu_index = -1;
-#else
+#if defined(OPENCL)
+    cl_setup();
+#elif defined(GPU)
     if(gpu_index >= 0){
         cuda_set_device(gpu_index);
     }

@@ -642,17 +642,25 @@ network *parse_network_cfg(char *filename)
     net->truth_label_index_gpu = cuda_make_int_array(0, net->batch);
     net->is_not_max_gpu = cuda_make_int_array(0, net->batch);
     net->gpu_index = cuda_get_device();
+#elif defined(OPENCL)
+    net->input_cl = cl_make_array(0, net->h * net->w * net->c * net->batch);
+    net->truth_cl = cl_make_array(0, net->max_boxes * 5 * net->batch);
+    net->truth_label_index_cl = cl_make_int_array(0, net->batch);
+    net->is_not_max_cl = cl_make_int_array(0, net->batch);
+    net->gpu_index = -1;
 #endif
     if(net->workspace_size){
 #ifdef GPU
         if(net->gpu_index >= 0){
             net->workspace_gpu = cuda_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
         }else {
-            net->workspace = calloc(1, net->workspace_size);
+            printf("net->gpu_index < 0!\n");
+            exit(-1);
         }
-#else
-        net->workspace = calloc(1, net->workspace_size);
+#elif defined(OPENCL)
+        net->workspace_cl = cl_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
 #endif
+        net->workspace = calloc(1, net->workspace_size);
     }
     if(net->workspace_gpu){
         printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n");

@@ -4,6 +4,8 @@
 #include "image.h"
 #ifdef GPU
 #include "cuda.h"
+#elif defined(OPENCL)
+#include "opencl.h"
 #endif
 
 typedef struct {
@@ -11,6 +13,7 @@ typedef struct {
     float *delta, *output;
     int *indexes, *indexes_gpu;
     float *output_gpu, *delta_gpu;
+    cl_mem output_cl, delta_cl, indexes_cl;
 } maxpool_layer;
 
 image get_maxpool_image(const maxpool_layer *layer);
@@ -21,6 +24,8 @@ void backward_maxpool_layer(const maxpool_layer *layer, float *delta);
 #ifdef GPU
 void forward_maxpool_layer_gpu(const maxpool_layer *layer, float *in_gpu);
 void backward_maxpool_layer_gpu(const maxpool_layer *layer, float *delta_gpu);
+#elif defined(OPENCL)
+void forward_maxpool_layer_cl(const maxpool_layer *layer, cl_mem in_gpu);
 #endif
 
 #endif
