@@ -13,7 +13,9 @@ typedef struct {
     float *delta, *output;
     int *indexes, *indexes_gpu;
     float *output_gpu, *delta_gpu;
+#ifdef OPENCL
     cl_mem output_cl, delta_cl, indexes_cl;
+#endif
 } maxpool_layer;
 
 image get_maxpool_image(const maxpool_layer *layer);

@@ -19,7 +19,11 @@ void gemm_gpu(int TA, int TB, int M, int N, int K, float ALPHA,
         float *C_gpu, int ldc);
 #elif defined(OPENCL)
 #include "opencl.h"
-#define BLOCK_GEMM 16
+#ifdef CLBLAS
+#include <clBLAS.h>
+#endif
+
+#define TS 32
 void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,
              cl_mem A_gpu, int a_off, int lda,
              cl_mem B_gpu, int b_off, int ldb,

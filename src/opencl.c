@@ -153,7 +153,7 @@ cl_kernel get_kernel(char *kernelname, char *options)
 
 cl_kernel get_kernel_by_name(char *kernelname, char *options)
 {
-    printf("get_kernel_by_name kernelname: %s, options: %s\n", kernelname, options);
+    //printf("get_kernel_by_name kernelname: %s, options: %s\n", kernelname, options);
     static cl_kernel kernel_im2col_cl = 0;
     static cl_kernel kernel_convolutional_bias = 0;
     static cl_kernel kernel_gemm = 0;

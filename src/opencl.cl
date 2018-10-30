@@ -1,27 +1,32 @@
-#define BLOCK_GEMM 16
+#define TS 16
 
-__kernel void axpy_cl(int N, float ALPHA, __global float *X, int INCX, __global float *Y, int INCY) {
+__kernel void axpy_cl(int N, float ALPHA, __global float *X, int INCX, __global float *Y, int INCY)
+{
     int i = get_global_id(0);
     Y[i*INCY] += ALPHA*X[i*INCX];
 }
 
-__kernel void scal_cl(int N, float ALPHA, __global float *X, int INCX) {
+__kernel void scal_cl(int N, float ALPHA, __global float *X, int INCX)
+{
     int i = get_global_id(0);
     X[i*INCX] *= ALPHA;
 }
 
-__kernel void mask_cl(int n, __global float *x, __global float *mask, int mod) {
+__kernel void mask_cl(int n, __global float *x, __global float *mask, int mod)
+{
     int i = get_global_id(0);
     x[i] = (i%mod && !mask[(i/mod)*mod]) ? 0 : x[i];
 }
 
-__kernel void copy_cl(int N, __global float *X, int INCX, __global float *Y, int INCY) {
+__kernel void copy_cl(int N, __global float *X, int INCX, __global float *Y, int INCY)
+{
     int i = get_global_id(0);
     Y[i*INCY] = X[i*INCX];
 }
 
 __kernel void im2col_cl(__global float *data_im, int offset, int height, int width, int ksize, int pad, int stride,
-                        int height_col, int width_col, __global float *data_col) {
+                        int height_col, int width_col, __global float *data_col)
+{
     int index = get_global_id(0);
     int w_out = index % width_col;
     int h_index = index / width_col;
@@ -42,7 +47,8 @@ __kernel void im2col_cl(__global float *data_im, int offset, int height, int wid
     }
 }
 
-__kernel void convolutional_bias_cl(int n, int size, __global float *biases, __global float *output) {
+__kernel void convolutional_bias_cl(int n, int size, __global float *biases, __global float *output)
+{
     int id = get_global_id(0);
     int batch = get_global_id(1);
     int filter = id/size;
@@ -58,8 +64,8 @@ __kernel void gemm_tn(int TA, int TB, int M, int N, int K, float ALPHA,
     A += a_off;
     B += b_off;
     C += c_off;
-    __local float Asub[BLOCK_GEMM][BLOCK_GEMM];
-    __local float Bsub[BLOCK_GEMM][BLOCK_GEMM];
+    __local float Asub[TS][TS];
+    __local float Bsub[TS][TS];
 
     int col = get_global_id(0);
     int row = get_global_id(1);
@@ -78,10 +84,10 @@ __kernel void gemm_tn(int TA, int TB, int M, int N, int K, float ALPHA,
     float val = 0;
     float orig = C[row*ldc + col];
 
-    for(i = 0; i < K; i += BLOCK_GEMM){
+    for(i = 0; i < K; i += TS){
         
         int arow = y + i;
-        int acol = x + row_block*BLOCK_GEMM;
+        int acol = x + row_block*TS;
 
         int brow = y + i;
         int bcol = col;
@@ -98,7 +104,7 @@ __kernel void gemm_tn(int TA, int TB, int M, int N, int K, float ALPHA,
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for(j = 0; j < BLOCK_GEMM && i+j<K; ++j){
+        for(j = 0; j < TS && i+j<K; ++j){
             val += Asub[y][j]*Bsub[j][x];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -116,8 +122,8 @@ __kernel void gemm_nt(int TA, int TB, int M, int N, int K, float ALPHA,
     A += a_off;
     B += b_off;
     C += c_off;
-    __local float Asub[BLOCK_GEMM][BLOCK_GEMM];
-    __local float Bsub[BLOCK_GEMM][BLOCK_GEMM];
+    __local float Asub[TS][TS];
+    __local float Bsub[TS][TS];
 
     
     int col = get_global_id(0);
@@ -137,12 +143,12 @@ __kernel void gemm_nt(int TA, int TB, int M, int N, int K, float ALPHA,
     float val = 0;
     float orig = C[row*ldc + col];
 
-    for(i = 0; i < K; i += BLOCK_GEMM){
+    for(i = 0; i < K; i += TS){
         
         int arow = row;
         int acol = x + i;
 
-        int brow = col_block*BLOCK_GEMM + y;
+        int brow = col_block*TS + y;
         int bcol = x + i;
 
         brow = (brow < N) ? brow : N-1;
@@ -157,7 +163,7 @@ __kernel void gemm_nt(int TA, int TB, int M, int N, int K, float ALPHA,
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for(j = 0; j < BLOCK_GEMM && i+j<K; ++j){
+        for(j = 0; j < TS && i+j<K; ++j){
             val += Asub[y][j]*Bsub[j][x];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -175,8 +181,8 @@ __kernel void gemm_nn(int TA, int TB, int M, int N, int K, float ALPHA,
     A += a_off;
     B += b_off;
     C += c_off;
-    __local float Asub[BLOCK_GEMM][BLOCK_GEMM];
-    __local float Bsub[BLOCK_GEMM][BLOCK_GEMM];
+    __local float Asub[TS][TS];
+    __local float Bsub[TS][TS];
 
     int col = get_global_id(0);
     int row = get_global_id(1);
@@ -192,7 +198,7 @@ __kernel void gemm_nn(int TA, int TB, int M, int N, int K, float ALPHA,
     float orig = C[row*ldc+col];
     float val = 0;
     
-    for(i = 0; i < K; i += BLOCK_GEMM){
+    for(i = 0; i < K; i += TS){
         
         int arow = row;
         int acol = x + i;
@@ -211,7 +217,7 @@ __kernel void gemm_nn(int TA, int TB, int M, int N, int K, float ALPHA,
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for(j = 0; j < BLOCK_GEMM && i+j<K; ++j){
+        for(j = 0; j < TS && i+j<K; ++j){
             val += Asub[y][j]*Bsub[j][x];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -229,8 +235,8 @@ __kernel void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
     A += a_off;
     B += b_off;
     C += c_off;
-    __local float Asub[BLOCK_GEMM][BLOCK_GEMM];
-    __local float Bsub[BLOCK_GEMM][BLOCK_GEMM];
+    __local float Asub[TS][TS];
+    __local float Bsub[TS][TS];
 
     float val = 0;
     
@@ -240,23 +246,23 @@ __kernel void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
     int sub_row = get_local_id(1);
     int sub_col = get_local_id(0);
 
-    int row = row_block*BLOCK_GEMM + sub_row;
-    int col = col_block*BLOCK_GEMM + sub_col;
+    int row = row_block*TS + sub_row;
+    int col = col_block*TS + sub_col;
 
     int i,j;
-    for(i = 0; i < K; i += BLOCK_GEMM){
-        int arow = row_block*BLOCK_GEMM + sub_row;
+    for(i = 0; i < K; i += TS){
+        int arow = row_block*TS + sub_row;
         int acol = i + sub_col;
 
         int brow = i + sub_row;
-        int bcol = col_block*BLOCK_GEMM + sub_col;
+        int bcol = col_block*TS + sub_col;
 
         if(arow < M && acol < K)Asub[sub_row][sub_col] = TA ? A[arow + acol*lda] : A[arow*lda + acol];
         if(brow < K && bcol < N)Bsub[sub_row][sub_col] = TB ? B[brow + bcol*ldb] : B[brow*ldb + bcol];
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for(j = 0; j < BLOCK_GEMM && i+j<K; ++j){
+        for(j = 0; j < TS && i+j<K; ++j){
             val += Asub[sub_row][j]*Bsub[j][sub_col];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -283,7 +289,8 @@ float relu_gradient(float x){return (x>0);}
 float ramp_gradient(float x){return (x>0)+.1;}
 float leaky_gradient(float x){return (x>0) ? 1 : .1;}
 
-float activate(float x, ACTIVATION a) {
+float activate(float x, ACTIVATION a)
+{
     switch(a){
         case LINEAR:
             return linear_activate(x);
@@ -301,7 +308,8 @@ float activate(float x, ACTIVATION a) {
     return 0;
 }
 
-float gradient(float x, ACTIVATION a) {
+float gradient(float x, ACTIVATION a)
+{
     switch(a){
         case LINEAR:
             return linear_gradient(x);
@@ -319,18 +327,21 @@ float gradient(float x, ACTIVATION a) {
     return 0;
 }
 
-__kernel void activate_array_cl(__global float *x, int n, ACTIVATION a) {
+__kernel void activate_array_cl(__global float *x, int n, ACTIVATION a)
+{
     int i = get_global_id(0);
     x[i] = activate(x[i], a);
 }
 
-__kernel void activate_array_with_offset_cl(__global float *x, int offset, int n, ACTIVATION a) {
+__kernel void activate_array_with_offset_cl(__global float *x, int offset, int n, ACTIVATION a)
+{
     int i = get_global_id(0);
     int index = offset + i;
     x[index] = activate(x[index], a);
 }
 
-__kernel void gradient_array_cl(__global float *x, int n, ACTIVATION a, __global float *delta) {
+__kernel void gradient_array_cl(__global float *x, int n, ACTIVATION a, __global float *delta)
+{
     int i = get_global_id(0);
     delta[i] *= gradient(x[i], a);
 }
@@ -377,7 +388,8 @@ __kernel void shortcut_cl(int minw, int minh, int minc, int stride, int sample, 
 }
 
 __kernel void forward_maxpool_layer_cl(int in_h, int in_w, int in_c, int stride, int size, int pad,
-                                       __global float *input, __global float *output, __global int *indexes){
+                                       __global float *input, __global float *output, __global int *indexes)
+{
     int id = get_global_id(0);
     int h = (in_h + pad - size)/stride + 1;
     int w = (in_w + pad - size)/stride + 1;
@@ -415,7 +427,8 @@ __kernel void forward_maxpool_layer_cl(int in_h, int in_w, int in_c, int stride,
 }
 
 __kernel void upsample_cl(__global float *x, int w, int h, int c, int batch, int stride, int forward,
-                          float scale, __global float *out){
+                          float scale, __global float *out)
+{
     int i = get_global_id(0);
     int out_index = i;
     int out_w = i%(w*stride);

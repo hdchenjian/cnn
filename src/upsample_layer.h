@@ -13,7 +13,9 @@ typedef struct{
     float scale;
     float *output, *delta;
     float *delta_gpu, *output_gpu;
+#ifdef OPENCL
     cl_mem delta_cl, output_cl;
+#endif
 } upsample_layer;
 
 image get_upsample_image(const upsample_layer *layer);

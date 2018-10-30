@@ -30,7 +30,7 @@ __global__ void im2col_gpu_kernel(const int n, const float* data_im,
         int h_in = h_out * stride - pad;
         int w_in = w_out * stride - pad;
         float* data_col_ptr = data_col + (channel_out * height_col + h_out) * width_col + w_out;
-        float* data_im_ptr = data_im + (channel_in * height + h_in) * width + w_in;
+        const float* data_im_ptr = data_im + (channel_in * height + h_in) * width + w_in;
         for (int i = 0; i < ksize; ++i) {
             for (int j = 0; j < ksize; ++j) {
                 int h = h_in + i;

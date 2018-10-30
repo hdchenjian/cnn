@@ -17,6 +17,7 @@ typedef struct {
 
 extern cl_info cl;
 
+void cl_setup();
 void check_error(cl_info info);
 void cl_read_array(cl_mem mem, float *x, int n);
 void cl_write_array(cl_mem mem, float *x, int n);

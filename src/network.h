@@ -60,7 +60,9 @@ typedef struct {
     ACTIVATION activation;
     float *delta, *output;
     float *output_gpu, *delta_gpu;
+#ifdef OPENCL
     cl_mem output_cl, delta_cl;
+#endif
 } shortcut_layer;
 
 typedef struct {
@@ -68,7 +70,9 @@ typedef struct {
     int *input_layers, *input_sizes;
     float *delta, *output;
     float *output_gpu, *delta_gpu;
+#ifdef OPENCL
     cl_mem output_cl, delta_cl;
+#endif
 } route_layer;
 
 
@@ -107,7 +111,9 @@ typedef struct {
     float *input, *truth, *input_gpu, *truth_gpu;
     int *is_not_max_gpu; // for counting correct rate in forward_softmax_layer_gpu
     float *workspace, *workspace_gpu;  // for convolutional_layer image reorder
+#ifdef OPENCL
     cl_mem workspace_cl, input_cl, truth_cl, is_not_max_cl, truth_label_index_cl;
+#endif
     size_t workspace_size;
     int max_boxes;  // a image contain max_boxes groud truth box
 
@@ -135,7 +141,9 @@ typedef struct {
     float ignore_thresh, truth_thresh;
     float *biases, *bias_updates, *delta, *output, *input_cpu;
     float *output_gpu, *delta_gpu;
+#ifdef OPENCL
     cl_mem output_cl, delta_cl;
+#endif
 } yolo_layer;
 
 image get_yolo_image(const yolo_layer *layer);

@@ -227,11 +227,12 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
     for(int i = 0; i < valid_set_size; i++){
         int image_original_w, image_original_h;
         image train = load_data_detection_valid(paths[i], net->w, net->h, &image_original_w, &image_original_h);
+        double start_forward = what_time_is_it_now();
         forward_network_test(net, train.data);
-        fprintf(stderr, "%d loss: %f\n", i, net->loss);
         int nboxes = 0;
         detection *dets = get_network_boxes(net, image_original_w, image_original_h, thresh, map, 0, &nboxes);
         if (nms) do_nms_sort(dets, nboxes, net->classes, nms);
+        fprintf(stderr, "%d loss: %f, %f Seconds\n", i, net->loss, what_time_is_it_now() - start_forward);
         print_detector_detections(fps, paths[i], dets, nboxes, net->classes, image_original_w, image_original_h);
         free_image(train);
         free_ptr(dets);

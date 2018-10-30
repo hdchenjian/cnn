@@ -8,6 +8,8 @@
 
 #ifdef GPU
 #include "cuda.h"
+#elif defined(OPENCL)
+#include "opencl.h"
 #endif
 
 float *make_matrix(int rows, int cols)
@@ -15,7 +17,8 @@ float *make_matrix(int rows, int cols)
     int i;
     float *m = calloc(rows*cols, sizeof(float));
     for(i = 0; i < rows*cols; ++i){
-        m[i] = rand_uniform(0, 1);
+        m[i] = rand_uniform(0, 0.001);
+        //m[i] = i * 0.001;
     }
     return m;
 }
@@ -44,26 +47,25 @@ int test_gemm_gpu(int w, int h)
     float *a = make_matrix(h, w);
     float *b = make_matrix(h, w);
     float *c = make_matrix(h, w);
-    double start = what_time_is_it_now(), end;
-    gemm(0,0,h,w,w,1,a,w,b,w,0,c,w);
-    end = what_time_is_it_now();
-    float sum = 0;
-    for(int i = 0; i < w * h; i++) sum += c[i];
-    double cpu_time = end-start;
-    printf("Matrix Multiplication cpu %dx%d * %dx%d, sum: %f, %lf s\n", h, w, h, w, sum, end-start);
-
     float *a_gpu = cuda_make_array(a, w * h);
     float *b_gpu = cuda_make_array(b, w * h);
     float *c_gpu = cuda_make_array(0, w * h);
+    double start, end;
+    for(int i = 0; i < 10; i++){
+        gemm_gpu(0,0,h,w,w,1,a_gpu,w,b_gpu,w,0,c_gpu,w);
+    }
+    cudaThreadSynchronize();
+    int try_times = 15;
     start = what_time_is_it_now();
-    gemm_gpu(0,0,h,w,w,1,a_gpu,w,b_gpu,w,0,c_gpu,w);
+    for(int i = 0; i < try_times; i++){
+        gemm_gpu(0,0,h,w,w,1,a_gpu,w,b_gpu,w,0,c_gpu,w);
+    }
+    cudaThreadSynchronize();
     end = what_time_is_it_now();
-    double gpu_time = end-start;
     cuda_pull_array(c_gpu, c, w * h);
-    sum = 0;
+    float sum = 0;
     for(int i = 0; i < w * h; i++) sum += c[i];
-    printf("Matrix Multiplication gpu %dx%d * %dx%d, sum: %f, %lf s speedup: %f\n",
-    		h, w, h, w, sum, end-start, cpu_time/ gpu_time);
+    printf("Matrix Multiplication gpu %dx%d * %dx%d, sum: %f, %lf s\n", h, w, h, w, sum, (end-start) / try_times);
     cuda_free(a_gpu);
     cuda_free(b_gpu);
     cuda_free(c_gpu);
@@ -72,7 +74,41 @@ int test_gemm_gpu(int w, int h)
     free(c);
     return 0;
 }
+#endif
 
+#ifdef OPENCL
+void test_gemm_cl(int w, int h)
+{
+    cl_setup();
+    float *a = make_matrix(h, w);
+    float *b = make_matrix(h, w);
+    float *c = make_matrix(h, w);
+    cl_mem a_cl = cl_make_array(a, w * h);
+    cl_mem b_cl = cl_make_array(b, w * h);
+    cl_mem c_cl = cl_make_array(0, w * h);
+
+    double start, end;
+    for(int i = 0; i < 2; i++){
+        gemm_cl(0,0,h,w,w,1,a_cl,0,w,b_cl,0,w,0,c_cl,0,w);
+    }
+    int try_times = 3;
+    start = what_time_is_it_now();
+    for(int i = 0; i < try_times; i++){
+        gemm_cl(0,0,h,w,w,1,a_cl,0,w,b_cl,0,w,0,c_cl,0,w);
+    }
+    end = what_time_is_it_now();
+    cl_read_array(c_cl, c, w * h);
+    float sum = 0;
+    for(int i = 0; i < w * h; i++) sum += c[i];
+    printf("Matrix Multiplication cl %dx%d * %dx%d, sum: %f, %lf s\n",
+           h, w, h, w, sum, (end-start) / try_times);
+    clReleaseMemObject(a_cl);
+    clReleaseMemObject(b_cl);
+    clReleaseMemObject(c_cl);
+    free(a);
+    free(b);
+    free(c);
+}
 #endif
 
 void load_csv_image(char *filename, char *save_dir)
@@ -152,10 +188,14 @@ int main(int argc, char **argv)
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
-    #ifdef GPU
-    //test_gemm_gpu(1000, 1000);
-    #endif
+    int w = 4096 * 2;
+    int h = 4096 * 2;
+#ifdef GPU
+    test_gemm_gpu(w, h);
+#elif defined(OPENCL)
+    test_gemm_cl(w, h);
+#endif
     //test_image();
-    test_load_csv_image();
+    //test_load_csv_image();
     return 0;
 }

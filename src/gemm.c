@@ -114,10 +114,10 @@ void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                            M, N, K, ALPHA, A_gpu, a_off, lda, B_gpu, b_off, ldb, BETA, C_gpu, c_off, ldc, 1, &queue, 0, NULL, 0);
     check_error(cl);
 #else
-    cl_kernel      gemm_kernel = get_kernel_by_name("gemm", "-D BLOCK=" STR(BLOCK_GEMM));
-    if(!TA && !TB) gemm_kernel = get_kernel_by_name("gemm_nn", "-D BLOCK=" STR(BLOCK_GEMM));
-    if(!TA && TB)  gemm_kernel = get_kernel_by_name("gemm_nt", "-D BLOCK=" STR(BLOCK_GEMM));
-    if(TA && !TB)  gemm_kernel = get_kernel_by_name("gemm_tn", "-D BLOCK=" STR(BLOCK_GEMM));
+    cl_kernel      gemm_kernel = get_kernel_by_name("gemm", "-D BLOCK=" STR(TS));
+    if(!TA && !TB) gemm_kernel = get_kernel_by_name("gemm_nn", "-D BLOCK=" STR(TS));
+    if(!TA && TB)  gemm_kernel = get_kernel_by_name("gemm_nt", "-D BLOCK=" STR(TS));
+    if(TA && !TB)  gemm_kernel = get_kernel_by_name("gemm_tn", "-D BLOCK=" STR(TS));
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -139,8 +139,8 @@ void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(ldc), (void*) &ldc);
     check_error(cl);
 
-    const size_t global_size[] = {ceilf((float)N / BLOCK_GEMM)*BLOCK_GEMM, ceilf((float)M / BLOCK_GEMM)*BLOCK_GEMM};
-    const size_t local_size[] = {BLOCK_GEMM, BLOCK_GEMM};
+    const size_t global_size[] = {ceilf((float)N / TS)*TS, ceilf((float)M / TS)*TS};
+    const size_t local_size[] = {TS, TS};
 
     cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, local_size, 0, 0, 0);
     check_error(cl);

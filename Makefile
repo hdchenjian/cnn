@@ -3,6 +3,7 @@ DEBUG=0
 CUDNN=0
 OPENMP=1
 OPENCL=1
+CLBLAS=0
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
       -gencode arch=compute_61,code=[sm_61,compute_61]
@@ -57,6 +58,11 @@ OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o net
 
 ifeq ($(OPENCL), 1)
 OBJ+= blas_cl.o opencl.o
+endif
+
+ifeq ($(CLBLAS), 1)
+COMMON+= -DCLBLAS
+LDFLAGS= -lclBLAS
 endif
 
 ifeq ($(GPU), 1) 

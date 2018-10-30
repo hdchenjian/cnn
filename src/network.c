@@ -920,7 +920,7 @@ void forward_network_cl(network *net, cl_mem input)
             // if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_yolo_layer_cl(layer, net, input, net->test);
             input = layer->output_cl;
-            cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "yolo output diff: ");
+            //cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "yolo output diff: ");
             /*
         } else if(net->layers_type[i] == NORMALIZE){
             normalize_layer *layer = (normalize_layer *)net->layers[i];
@@ -957,7 +957,7 @@ void forward_network_test(network *net, float *input)
     } else {
         cl_write_array(net->input_cl, input, net->h * net->w * net->c * net->batch);
     }
-    forward_network(net, input);
+    //forward_network(net, input);
     forward_network_cl(net, net->input_cl);
 #else
     forward_network(net, input);
