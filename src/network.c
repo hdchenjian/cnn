@@ -512,9 +512,9 @@ void forward_network_gpu(network *net, float *input)
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_convolutional_layer_gpu(layer, input, net->workspace_gpu, net->test);
             input = layer->output_gpu;
-            //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "conv output diff: ");
-            //cuda_compare(layer->mean_gpu, layer->mean, layer->n, "conv mean diff: ");
-            //cuda_compare(layer->variance_gpu, layer->variance, layer->n, "conv variance diff: ");
+            //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "conv output diff: ", i);
+            //cuda_compare(layer->mean_gpu, layer->mean, layer->n, "conv mean diff: ", i);
+            //cuda_compare(layer->variance_gpu, layer->variance, layer->n, "conv variance diff: ", i);
             //exit(-1);
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
@@ -609,13 +609,13 @@ void backward_network_gpu(network *net, float *input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             backward_convolutional_layer_gpu(layer, prev_input, prev_delta, net->workspace_gpu, net->test);
             /*
-            cuda_compare(layer->delta_gpu, layer->delta, layer->outputs*layer->batch, "conv delta diff: ");
+            cuda_compare(layer->delta_gpu, layer->delta, layer->outputs*layer->batch, "conv delta diff: ", i);
             cuda_compare(layer->weight_updates_gpu, layer->weight_updates,
-                         layer->n * layer->size*layer->size*layer->c, "conv weight_updates diff: ");
+                         layer->n * layer->size*layer->size*layer->c, "conv weight_updates diff: ", i);
             float *prev_delta_cpu = get_network_layer_data(net, i-1, 1, 0);
-            cuda_compare(prev_delta, prev_delta_cpu, layer->w*layer->h*layer->c*layer->batch, "conv prev_delta diff: ");
+            cuda_compare(prev_delta, prev_delta_cpu, layer->w*layer->h*layer->c*layer->batch, "conv prev_delta diff: ", i);
             float *prev_input_cpu = get_network_layer_data(net, i-1, 0, 0);
-            cuda_compare(prev_input, prev_input_cpu, layer->w*layer->h*layer->c*layer->batch, "conv prev_input diff: ");
+            cuda_compare(prev_input, prev_input_cpu, layer->w*layer->h*layer->c*layer->batch, "conv prev_input diff: ", i);
             */
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
@@ -714,7 +714,7 @@ void train_network_detect(network *net, batch_detect d)
 #ifdef GPU
         cuda_push_array(net->input_gpu, net->input, net->h * net->w * net->c * net->batch);
         cuda_push_array(net->truth_gpu, net->truth, net->max_boxes * 5 * net->batch);
-        //cuda_compare(net->input_gpu, net->input, net->h * net->w * net->c *net->batch, "input diff: ");
+        //cuda_compare(net->input_gpu, net->input, net->h * net->w * net->c *net->batch, "input diff: ", i);
         //forward_network(net, net->input);
         forward_network_gpu(net, net->input_gpu);
         //exit(-1);
@@ -956,7 +956,7 @@ void forward_network_test(network *net, float *input)
     } else {
         cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
     }
-    //cuda_compare(net->input_gpu, input, net->h * net->w * net->c *net->batch, "input diff: ");
+    //cuda_compare(net->input_gpu, input, net->h * net->w * net->c *net->batch, "input diff: ", -1);
     //forward_network(net, input);
     forward_network_gpu(net, net->input_gpu);
 #elif defined(OPENCL)

@@ -115,10 +115,6 @@ void forward_softmax_layer_gpu(softmax_layer *layer, float *input_gpu, network *
     }
     softmax_gpu_me(layer->input_backup_gpu, layer->inputs, layer->batch, layer->output_gpu);
 
-    /*char cuda_compare_error_string[128] = {0};
-    sprintf(cuda_compare_error_string, "\n%s", "forward_softmax_layer_gpu output");
-    cuda_compare(layer->output_gpu, layer->output, layer->inputs*layer->batch, cuda_compare_error_string);*/
-
     if(layer->is_last_layer &&  net->truth_label_index_gpu){
         cudaError_t status = cudaMemset(net->is_not_max_gpu, 0, sizeof(int) * layer->batch);
         check_error(status);

@@ -123,13 +123,13 @@ void cuda_random(float *x_gpu, size_t n)
     check_error(cudaPeekAtLastError());
 }
 
-float cuda_compare(float *x_gpu, float *x, size_t n, char *s)
+float cuda_compare(float *x_gpu, float *x, size_t n, char *s, int i)
 {
     float *tmp = calloc(n, sizeof(float));
     cuda_pull_array(x_gpu, tmp, n);
     axpy_cpu(n, -1, x, 1, tmp, 1);
     float err = dot_cpu(n, tmp, 1, tmp, 1);
-    printf("%s, error: %f, sqrtf(error / n): %f, compare array length: %lu\n", s, err, sqrtf(err/n), n);
+    printf("%d: %s, error: %f, sqrtf(error / n): %f, compare array length: %lu\n", i, s, err, sqrtf(err/n), n);
     //n = 10;
     //err=100;
     if(n < 30 && sqrtf(err/n) > 0.1){

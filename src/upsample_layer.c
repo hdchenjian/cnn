@@ -63,7 +63,7 @@ void backward_upsample_layer(const upsample_layer *l, float * delta)
 #ifdef GPU
 void forward_upsample_layer_gpu(const upsample_layer *l, float *input)
 {
-    upsample_gpu(input, l->out_w, l->out_h, l->c, l->batch, l->stride, 1, l->scale, l->output_gpu);
+    upsample_gpu(input, l->w, l->h, l->c, l->batch, l->stride, 1, l->scale, l->output_gpu);
 }
 
 void backward_upsample_layer_gpu(const upsample_layer *l, float *delta)

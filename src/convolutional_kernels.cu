@@ -191,10 +191,6 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
     } else {
         activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
     }
-
-    /*char cuda_compare_error_string[128] = {0};
-    sprintf(cuda_compare_error_string, "\n%s", "forward_convolutional_layer output");
-    cuda_compare(layer->output_gpu, layer->output, n*m*layer->batch, cuda_compare_error_string);*/
 }
 
 void backward_batchnorm_layer_gpu(const convolutional_layer *layer, int test)

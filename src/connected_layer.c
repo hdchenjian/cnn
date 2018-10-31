@@ -332,11 +332,6 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
         forward_connected_batchnorm_layer_gpu(layer, test);
     }
     activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
-
-    /*
-    char cuda_compare_error_string[128] = {0};
-    sprintf(cuda_compare_error_string, "\n%s", "forward_connected_layer_gpu output");
-    cuda_compare(layer->output_gpu, layer->output, layer->batch * layer->outputs, cuda_compare_error_string); */
 }
 
 void backward_connected_batchnorm_layer_gpu(const connected_layer *layer, int test)
@@ -381,10 +376,6 @@ void backward_connected_layer_gpu(connected_layer *layer, float *input, float *d
     if(c) {
         gemm_gpu(0,0,m,n,k,1,a,k,b,n,1,c,n);
     }
-
-    /*char cuda_compare_error_string[128] = {0};
-    sprintf(cuda_compare_error_string, "\n%s", "backward_connected_layer_gpu delta");
-    cuda_compare(layer->delta_gpu, layer->delta, layer->batch * layer->outputs, cuda_compare_error_string);*/
 }
 
 void pull_connected_layer(const connected_layer *layer)
