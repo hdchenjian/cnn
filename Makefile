@@ -1,8 +1,8 @@
-GPU=0
+GPU=1
 DEBUG=0
-CUDNN=0
+CUDNN=1
 OPENMP=1
-OPENCL=1
+OPENCL=0
 CLBLAS=0
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_52,code=[sm_52,compute_52] \

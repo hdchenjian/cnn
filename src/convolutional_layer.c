@@ -325,11 +325,12 @@ void forward_batchnorm_layer(const convolutional_layer *layer, int test)
 
         normalize_cpu(layer->output, layer->mean, layer->variance, layer->batch, layer->n, layer->out_h*layer->out_w);
         memcpy(layer->x_norm, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
+        scale_bias(layer->output, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
     } else {
         normalize_cpu(layer->output, layer->rolling_mean, layer->rolling_variance,
                       layer->batch, layer->n, layer->out_h*layer->out_w);
+        scale_bias(layer->output, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
     }
-    scale_bias(layer->output, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
 }
 
 void activation_prelu(const convolutional_layer *layer){

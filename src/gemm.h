@@ -23,7 +23,7 @@ void gemm_gpu(int TA, int TB, int M, int N, int K, float ALPHA,
 #include <clBLAS.h>
 #endif
 
-#define TS 32
+#define TS 16
 void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,
              cl_mem A_gpu, int a_off, int lda,
              cl_mem B_gpu, int b_off, int ldb,
