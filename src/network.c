@@ -521,6 +521,7 @@ void forward_network_gpu(network *net, float *input)
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_connected_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
+            //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "connect output diff: ", i);
         }else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
@@ -620,6 +621,7 @@ void backward_network_gpu(network *net, float *input)
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer_gpu(layer, prev_input, prev_delta, net->test);
+            //cuda_compare(layer->delta_gpu, layer->delta, layer->outputs*layer->batch, "connect delta diff: ", i);
         } else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             backward_rnn_layer_gpu(layer, prev_input, prev_delta, net->test);
@@ -752,7 +754,9 @@ void train_network(network *net, float *input, int *truth_label_index)
         forward_network_gpu(net, net->input_gpu);
         //backward_network(net, input);
         backward_network_gpu(net, net->input_gpu);
+        //update_network(net);
         update_network_gpu(net);
+        //exit(-1);
 #else
         float *input_data;
         if(net->w == 0 || net->h == 0 || net->c == 0) {
