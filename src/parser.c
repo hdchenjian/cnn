@@ -64,6 +64,24 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     return layer;
 }
 
+batchnorm_layer *parse_batchnorm(struct list *options, network *net, int count)
+{
+    int h,w,c;
+    if (count == 0) {
+        h = net->h;
+        w = net->w;
+        c = net->c;
+    } else {
+        image m = get_network_image_layer(net, count - 1);
+        h = m.h;
+        w = m.w;
+        c = m.c;
+        if (h == 0) error("Layer before batchnorm layer must output image.");
+    }
+    batchnorm_layer *layer = make_batchnorm_layer(net->batch, net->subdivisions, w, h, c);
+    return layer;
+}
+
 rnn_layer *parse_rnn(struct list *options, network *net, int count)
 {
     int outputs = option_find_int(options, "output",1);
@@ -556,6 +574,10 @@ network *parse_network_cfg(char *filename)
             convolutional_layer *layer = parse_convolutional(options, net, count);
             total_bflop += layer->bflop;
             net->layers_type[count] = CONVOLUTIONAL;
+            net->layers[count] = layer;
+        } else if(strcmp(s->type, "[batchnorm]")==0){
+            batchnorm_layer *layer = parse_batchnorm(options, net, count);
+            net->layers_type[count] = BATCHNORM;
             net->layers[count] = layer;
         } else if(strcmp(s->type, "[connected]")==0){
             connected_layer *layer = parse_connected(options, net, count);

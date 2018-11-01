@@ -38,6 +38,8 @@ void free_network(network *net)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             free_convolutional_layer(net->layers[i]);
+        }else if(net->layers_type[i] == BATCHNORM){
+            free_batchnorm_layer(net->layers[i]);
         } else if(net->layers_type[i] == CONNECTED){
             free_connected_layer(net->layers[i]);
         } else if(net->layers_type[i] == RNN){
@@ -205,6 +207,11 @@ void forward_network(network *net, float *input)
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_convolutional_layer(layer, input, net->workspace, net->test);
             input = layer->output;
+        } else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
+            forward_batchnorm_layer(layer, input, net->test);
+            input = layer->output;
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
@@ -289,14 +296,9 @@ void update_network(network *net)
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             update_convolutional_layer(layer, net->learning_rate, net->momentum, net->decay);
-            /*
-            if(i == 0){
-                int num = 5;
-                for(int b = 0; b < num; ++b){
-                    printf("weight: %d %f\n", b, layer->weight_updates[b]);
-                }
-            }
-            */
+        } else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            update_batchnorm_layer(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer(layer, net->learning_rate, net->momentum, net->decay);
@@ -331,6 +333,12 @@ float *get_network_layer_data(network *net, int i, int data_type, int is_gpu)
 {
     if(net->layers_type[i] == CONVOLUTIONAL){
         convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+        if(is_gpu)
+            return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
+        else
+            return data_type == 0 ? layer->output : layer->delta;
+    } else if(net->layers_type[i] == BATCHNORM){
+        batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
         if(is_gpu)
             return data_type == 0 ? layer->output_gpu : layer->delta_gpu;
         else
@@ -441,15 +449,9 @@ void backward_network(network *net, float *input)
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             backward_convolutional_layer(layer, prev_input, prev_delta, net->workspace, net->test);
-
-            /*
-            if(i == 0){
-                int num = 5;
-                for(int b = 0; b < num; ++b){
-                    printf("weight_updates: %d %.19ff\n", b, layer->weight_updates[b]);
-                }
-            }
-            */
+        } else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            backward_batchnorm_layer(layer, prev_delta, net->test);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer(layer, prev_input, prev_delta, net->test);
@@ -516,6 +518,11 @@ void forward_network_gpu(network *net, float *input)
             //cuda_compare(layer->mean_gpu, layer->mean, layer->n, "conv mean diff: ", i);
             //cuda_compare(layer->variance_gpu, layer->variance, layer->n, "conv variance diff: ", i);
             //exit(-1);
+        } else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
+            forward_batchnorm_layer_gpu(layer, input, net->test);
+            input = layer->output_gpu;
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
@@ -618,6 +625,9 @@ void backward_network_gpu(network *net, float *input)
             float *prev_input_cpu = get_network_layer_data(net, i-1, 0, 0);
             cuda_compare(prev_input, prev_input_cpu, layer->w*layer->h*layer->c*layer->batch, "conv prev_input diff: ", i);
             */
+        } else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            backward_batchnorm_layer_gpu(layer, prev_delta, net->test);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             backward_connected_layer_gpu(layer, prev_input, prev_delta, net->test);
@@ -674,6 +684,9 @@ void update_network_gpu(network *net)
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             update_convolutional_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
+        } else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            update_batchnorm_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             update_connected_layer_gpu(layer, net->learning_rate, net->momentum, net->decay);
@@ -853,6 +866,9 @@ cl_mem get_network_layer_data_cl(network *net, int i, int data_type)
         gru_layer *layer = (gru_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
         */
+    } else if(net->layers_type[i] == BATCHNORM){
+        batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+        return data_type == 0 ? layer->output_cl : layer->delta_cl;
     } else if(net->layers_type[i] == ROUTE){
         route_layer *layer = (route_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
@@ -906,6 +922,11 @@ void forward_network_cl(network *net, cl_mem input)
             forward_connected_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
             */
+        } else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            forward_batchnorm_layer_cl(layer, input, net->workspace_cl, net->test);
+            input = layer->output_cl;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
@@ -982,6 +1003,9 @@ int get_network_output_size_layer(network *net, int i)
     if(net->layers_type[i] == CONVOLUTIONAL){
         convolutional_layer *layer = (convolutional_layer *)net->layers[i];
         return layer->out_w * layer->out_h * layer->n;
+    } else if(net->layers_type[i] == BATCHNORM){
+        batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+        return layer->out_w * layer->out_h * layer->out_c;
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
         return layer->outputs;
@@ -1038,6 +1062,9 @@ image get_network_image_layer(network *net, int i)
     if(net->layers_type[i] == CONVOLUTIONAL){
         convolutional_layer *layer = (convolutional_layer *)net->layers[i];
         return get_convolutional_image(layer);
+    } else if(net->layers_type[i] == BATCHNORM){
+        batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+        return get_batchnorm_image(layer);
     } else if(net->layers_type[i] == MAXPOOL){
         maxpool_layer *layer = (maxpool_layer *)net->layers[i];
         return get_maxpool_image(layer);
@@ -1075,6 +1102,34 @@ image get_network_image_layer(network *net, int i)
         printf("get_network_image_layer layers_type error, layer: %d\n", i);
         exit(-1);
     }
+}
+
+void save_batchnorm_weights(const batchnorm_layer *l, FILE *fp, int gpu_index)
+{
+#ifdef GPU
+    if(gpu_index >= 0){
+        pull_batchnorm_layer(l);
+    }
+#endif
+    fwrite(l->biases, sizeof(float), l->c, fp);
+    fwrite(l->scales, sizeof(float), l->c, fp);
+    fwrite(l->rolling_mean, sizeof(float), l->c, fp);
+    fwrite(l->rolling_variance, sizeof(float), l->c, fp);
+}
+
+void load_batchnorm_weights(const batchnorm_layer *l, FILE *fp, int gpu_index)
+{
+    fread(l->biases, sizeof(float), l->c, fp);
+    fread(l->scales, sizeof(float), l->c, fp);
+    fread(l->rolling_mean, sizeof(float), l->c, fp);
+    fread(l->rolling_variance, sizeof(float), l->c, fp);
+#ifdef GPU
+    if(gpu_index >= 0){
+        push_batchnorm_layer(l);
+    }
+#elif defined(OPENCL)
+    push_batchnorm_layer_cl(l);
+#endif
 }
 
 void save_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_index)
@@ -1167,6 +1222,8 @@ void save_weights(network *net, char *filename)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             save_convolutional_weights((convolutional_layer *)net->layers[i], fp, net->gpu_index);
+        } else if(net->layers_type[i] == BATCHNORM){
+            save_batchnorm_weights((batchnorm_layer *)net->layers[i], fp, net->gpu_index);
         } else if(net->layers_type[i] == CONNECTED){
             save_connected_weights((connected_layer *)net->layers[i], fp, net->gpu_index);
         } else if(net->layers_type[i] == RNN){
@@ -1215,6 +1272,8 @@ void load_weights(network *net, char *filename)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == CONVOLUTIONAL){
             load_convolutional_weights((convolutional_layer *)net->layers[i], fp, net->gpu_index);
+        } else if(net->layers_type[i] == BATCHNORM){
+            load_batchnorm_weights((batchnorm_layer *)net->layers[i], fp, net->gpu_index);
         } else if(net->layers_type[i] == CONNECTED){
             load_connected_weights((connected_layer *)net->layers[i], fp, net->gpu_index);
         } else if(net->layers_type[i] == RNN){

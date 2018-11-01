@@ -6,6 +6,7 @@
 #include "utils.h"
 
 #include "convolutional_layer.h"
+#include "batchnorm_layer.h"
 #include "connected_layer.h"
 #include "rnn_layer.h"
 #include "lstm_layer.h"
@@ -38,6 +39,7 @@ enum learning_rate_policy{
 
 enum LAYER_TYPE{
     CONVOLUTIONAL,
+    BATCHNORM,
     CONNECTED,
     RNN,
     LSTM,

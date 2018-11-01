@@ -24,6 +24,11 @@ void normalize_cpu(float *x, float *mean, float *variance, int batch, int filter
 
 void normalize_delta_cpu(float *x, float *mean, float *variance, float *mean_delta, float *variance_delta,
                          int batch, int filters, int spatial, float *delta);
+void scale_bias(float *output, float *scales, int batch, int n, int size);
+void mean_delta_cpu(float *delta, float *variance, int batch, int filters, int spatial, float *mean_delta);
+void  variance_delta_cpu(float *x, float *delta, float *mean, float *variance, int batch, int filters,
+                         int spatial, float *variance_delta);
+void backward_scale_cpu(float *x_norm, float *delta, int batch, int n, int size, float *scale_updates);
 
 void smooth_l1_cpu(int n, float *pred, float *truth, float *delta, float *error);
 void l2_cpu(int batch, int n, float *pred, int *truth_label_index, float *delta, float *error);
@@ -60,7 +65,6 @@ void fast_variance_gpu(float *x, float *mean, int batch, int filters, int spatia
 void fast_mean_gpu(float *x, int batch, int filters, int spatial, float *mean);
 void scale_bias_gpu(float *output, float *biases, int batch, int n, int size);
 void backward_scale_gpu(float *x_norm, float *delta, int batch, int n, int size, float *scale_updates);
-void scale_bias_gpu(float *output, float *biases, int batch, int n, int size);
 
 void smooth_l1_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void l2_gpu(int batch, int n, float *pred, int *truth_label_index_gpu, float *delta, float *error);
