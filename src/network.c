@@ -523,12 +523,15 @@ void forward_network_gpu(network *net, float *input)
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_batchnorm_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
+            //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "batchnorm output diff: ", i);
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_connected_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
             //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "connect output diff: ", i);
+            //cuda_compare(layer->mean_gpu, layer->mean, layer->outputs, "connect mean diff: ", i);
+            //cuda_compare(layer->variance_gpu, layer->variance, layer->outputs, "connect variance diff: ", i);
         }else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
@@ -549,11 +552,13 @@ void forward_network_gpu(network *net, float *input)
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_route_layer_gpu(layer, net);
             input = layer->output_gpu;
+            //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "route output diff: ", i);
         }else if(net->layers_type[i] == SHORTCUT){
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_shortcut_layer_gpu(layer, input, net);
             input = layer->output_gpu;
+            //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "shortcut output diff: ", i);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
@@ -588,6 +593,7 @@ void forward_network_gpu(network *net, float *input)
             if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_softmax_layer_gpu(layer, input, net);
             input = layer->output_gpu;
+            //cuda_compare(layer->output_gpu, layer->output, layer->outputs*layer->batch, "softmax output diff: ", i);
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
             forward_cost_layer_gpu(layer, input, net);
