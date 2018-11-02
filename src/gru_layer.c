@@ -30,38 +30,38 @@ gru_layer *make_gru_layer(int batch, int inputs, int outputs, int steps, int bat
     fprintf(stderr, "\t");
     l->uz = make_connected_layer(inputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                 bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                sigma, batch_normalize);
+                                sigma, batch_normalize, 1);
     l->uz->batch = batch;
 
     fprintf(stderr, "\t");
     l->ur = make_connected_layer(inputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                 bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                sigma, batch_normalize);
+                                sigma, batch_normalize, 1);
     l->ur->batch = batch;
 
     fprintf(stderr, "\t");
     l->uh = make_connected_layer(inputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                 bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                sigma, batch_normalize);
+                                sigma, batch_normalize, 1);
     l->uh->batch = batch;
     
     fprintf(stderr, "\t");
     l->wz = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                 bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                sigma, batch_normalize);
+                                sigma, batch_normalize, 1);
     l->wz->batch = batch;
 
 
     fprintf(stderr, "\t");
     l->wr = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                 bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                sigma, batch_normalize);
+                                sigma, batch_normalize, 1);
     l->wr->batch = batch;
 
     fprintf(stderr, "\t");
     l->wh = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                 bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                sigma, batch_normalize);
+                                sigma, batch_normalize, 1);
     l->wh->batch = batch;
 
     l->output = calloc(outputs*batch*steps, sizeof(float));

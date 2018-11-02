@@ -157,7 +157,7 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
     connected_layer *layer = make_connected_layer(input, output, net->batch, 1, activation, weight_normalize, bias_term,
                                                   lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                                  sigma, batch_normalize);
+                                                  sigma, batch_normalize, net->subdivisions);
     return layer;
 }
 

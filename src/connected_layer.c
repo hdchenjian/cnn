@@ -12,7 +12,7 @@ image get_connected_image(const connected_layer *layer)
 connected_layer *make_connected_layer(int inputs, int outputs, int batch, int steps, ACTIVATION activation,
                                       int weight_normalize, int bias_term, float lr_mult, float lr_decay_mult,
                                       float bias_mult, float bias_decay_mult, int weight_filler, float sigma,
-                                      int batch_normalize)
+                                      int batch_normalize, int subdivisions)
 {
     connected_layer *layer = calloc(1, sizeof(connected_layer));
     layer->bflop = (2.0F * inputs * outputs) / 1000000000.0F;
@@ -27,6 +27,7 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
     layer->bias_term = bias_term;
     layer->inputs = inputs;
     layer->outputs = outputs;
+    layer->subdivisions = subdivisions;
     layer->batch = batch;
     layer->steps = steps;
     layer->output = calloc(batch*outputs, sizeof(float));
@@ -147,10 +148,11 @@ void forward_connected_batchnorm_layer(const connected_layer *layer, int test)
 
         normalize_cpu(layer->output, layer->mean, layer->variance, layer->batch, layer->outputs, 1);
         memcpy(layer->x_norm, layer->output, layer->batch * layer->outputs * sizeof(float));
+        scale_bias(layer->output, layer->scales, layer->batch, layer->outputs, 1);
     } else {
         normalize_cpu(layer->output, layer->rolling_mean, layer->rolling_variance, layer->batch, layer->outputs, 1);
+        scale_bias(layer->output, layer->scales, layer->batch, layer->outputs, 1);
     }
-    scale_bias(layer->output, layer->scales, layer->batch, layer->outputs, 1);
 }
 
 void forward_connected_layer(connected_layer *layer, float *input, int test)
@@ -203,22 +205,23 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
 
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
+    int batch = layer->subdivisions * layer->batch;
     for(int i = 0; i < layer->outputs; i ++){
-        layer->bias_updates[i] += -decay * layer->bias_decay_mult * (layer->batch * layer->steps) * layer->biases[i];
-        layer->biases[i] += learning_rate * layer->bias_mult / (layer->batch * layer->steps) * layer->bias_updates[i];
+        layer->bias_updates[i] += -decay * layer->bias_decay_mult * (batch* layer->steps) * layer->biases[i];
+        layer->biases[i] += learning_rate * layer->bias_mult / (batch* layer->steps) * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->inputs*layer->outputs;
     for(int i = 0; i < size; i ++){
-        layer->weight_updates[i] += -decay * layer->lr_decay_mult *(layer->batch * layer->steps)*layer->weights[i];
-        layer->weights[i] += learning_rate * layer->lr_mult / (layer->batch * layer->steps) * layer->weight_updates[i];
+        layer->weight_updates[i] += -decay * layer->lr_decay_mult *(batch* layer->steps)*layer->weights[i];
+        layer->weights[i] += learning_rate * layer->lr_mult / (batch* layer->steps) * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;
     }
 
     if(layer->batch_normalize){
         for(int i = 0; i < layer->outputs; i ++){
-            layer->scales[i] += learning_rate / layer->batch * layer->scale_updates[i];
+            layer->scales[i] += learning_rate / batch* layer->scale_updates[i];
             layer->scale_updates[i] *= momentum;
         }
     }
@@ -280,14 +283,19 @@ void backward_connected_layer(connected_layer *layer, float *input, float *delta
 
 void update_connected_layer_gpu(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
-    axpy_gpu(layer->outputs, -decay * layer->bias_decay_mult *layer->batch, layer->biases_gpu, 1, layer->bias_updates_gpu, 1);
-    axpy_gpu(layer->outputs, learning_rate * layer->bias_mult /layer->batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
+    int batch = layer->subdivisions * layer->batch;
+    axpy_gpu(layer->outputs, -decay * layer->bias_decay_mult *batch, layer->biases_gpu, 1, layer->bias_updates_gpu, 1);
+    axpy_gpu(layer->outputs, learning_rate * layer->bias_mult /batch, layer->bias_updates_gpu, 1, layer->biases_gpu, 1);
     scal_gpu(layer->outputs, momentum, layer->bias_updates_gpu, 1);
 
-    axpy_gpu(layer->inputs*layer->outputs, -decay * layer->lr_decay_mult * layer->batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
-    axpy_gpu(layer->inputs*layer->outputs, learning_rate * layer->lr_mult / layer->batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
+    axpy_gpu(layer->inputs*layer->outputs, -decay * layer->lr_decay_mult * batch, layer->weights_gpu, 1, layer->weight_updates_gpu, 1);
+    axpy_gpu(layer->inputs*layer->outputs, learning_rate * layer->lr_mult / batch, layer->weight_updates_gpu, 1, layer->weights_gpu, 1);
     scal_gpu(layer->inputs*layer->outputs, momentum, layer->weight_updates_gpu, 1);
 
+    if(layer->batch_normalize){
+        axpy_gpu(layer->outputs, learning_rate/batch, layer->scale_updates_gpu, 1, layer->scales_gpu, 1);
+        scal_gpu(layer->outputs, momentum, layer->scale_updates_gpu, 1);
+    }
 }
 
 void forward_connected_batchnorm_layer_gpu(const connected_layer *layer, int test)
@@ -305,11 +313,12 @@ void forward_connected_batchnorm_layer_gpu(const connected_layer *layer, int tes
 
         normalize_gpu(layer->output_gpu, layer->mean_gpu, layer->variance_gpu, layer->batch, layer->outputs, 1);
         copy_gpu(layer->batch * layer->outputs, layer->output_gpu, 1, layer->x_norm_gpu, 1);
+        scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->outputs, 1);
     } else {
         normalize_gpu(layer->output_gpu, layer->rolling_mean_gpu, layer->rolling_variance_gpu,
                       layer->batch, layer->outputs, 1);
+        scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->outputs, 1);
     }
-    scale_bias_gpu(layer->output_gpu, layer->scales_gpu, layer->batch, layer->outputs, 1);
 }
 
 void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
@@ -325,11 +334,11 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
     float * b = layer->weights_gpu;
     float * c = layer->output_gpu;
     gemm_gpu(0, 1, m, n, k, 1, a, k, b, k, 0, c, n);
-    if(layer->bias_term){
-        add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
-    }
     if(layer->batch_normalize){
         forward_connected_batchnorm_layer_gpu(layer, test);
+    }
+    if(layer->bias_term){
+        add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
     }
     activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
 }

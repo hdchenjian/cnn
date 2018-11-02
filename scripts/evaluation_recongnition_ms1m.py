@@ -33,7 +33,8 @@ for line in f.readlines():
 
 
 features = []
-f = open("features_mxnet.txt", 'rU')
+#f = open("features_mxnet.txt", 'rU')
+f = open("features.txt", 'rU')
 for line in f.readlines():
     line = line.strip('\n')
     line = line.split(' ')

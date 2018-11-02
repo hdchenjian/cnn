@@ -28,19 +28,19 @@ rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVAT
     fprintf(stderr, "\t");
     l->input_layer = make_connected_layer(inputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                           bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                          sigma, batch_normalize);
+                                          sigma, batch_normalize, 1);
     l->input_layer->batch = batch;
 
     fprintf(stderr, "\t");
     l->self_layer = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                          bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                         sigma, batch_normalize);
+                                         sigma, batch_normalize, 1);
     l->self_layer->batch = batch;
 
     fprintf(stderr, "\t");
     l->output_layer = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
                                            bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                          sigma, batch_normalize);
+                                           sigma, batch_normalize, 1);
     l->output_layer->batch = batch;
 
     l->outputs = outputs;
