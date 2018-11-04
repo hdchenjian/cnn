@@ -392,6 +392,9 @@ void pull_convolutional_layer(const convolutional_layer *layer)
         cuda_pull_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
         cuda_pull_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->n);
     }
+    if (layer->activation == PRELU){
+        cuda_pull_array(layer->slope_gpu, layer->slope, layer->n);
+    }
 }
 
 void push_convolutional_layer(const convolutional_layer *layer)
@@ -405,5 +408,8 @@ void push_convolutional_layer(const convolutional_layer *layer)
         cuda_push_array(layer->scales_gpu, layer->scales, layer->n);
         cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
         cuda_push_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->n);
+    }
+    if (layer->activation == PRELU){
+        cuda_push_array(layer->slope_gpu, layer->slope, layer->n);
     }
 }

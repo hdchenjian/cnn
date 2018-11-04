@@ -239,13 +239,16 @@ void cl_read_array(cl_mem mem, float *x, int n)
     check_error(cl);
 }
 
-float cl_compare_array(cl_mem mem, float *x, int n, char *s)
+float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i)
 {
     float *x_cl = calloc(n, sizeof(float));
     cl_read_array(mem, x_cl, n);
+    if(i == 0){
+        for(int j = 0; j < 10; j++) printf("%d %f %f\n", i, x[j], x_cl[j]);
+    }
     axpy_cpu(n, -1, x, 1, x_cl, 1);
     float err = dot_cpu(n, x_cl, 1, x_cl, 1);
-    printf("%s, error: %f, sqrtf(error / n): %f, compare array length: %d\n", s, err, sqrtf(err/n), n);
+    printf("%d: %s, error: %f, sqrtf(error / n): %f, compare array length: %d\n", i, s, err, sqrtf(err/n), n);
     free(x_cl);
     return err;
 }

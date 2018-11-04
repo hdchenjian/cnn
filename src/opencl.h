@@ -26,7 +26,7 @@ cl_mem cl_make_int_array(int *x, int n);
 void cl_copy_array(cl_mem src, cl_mem dst, int n);
 void cl_copy_array_with_offset(cl_mem src, cl_mem dst, int n,  size_t src_offset, size_t dst_offset);
 cl_mem cl_sub_array(cl_mem src, int offset, int size);
-float cl_compare_array(cl_mem mem, float *x, int n, char *s);
+float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i);
 cl_kernel get_kernel_by_name(char *kernelname, char *options);
 void cl_memset_array(cl_mem mem, int n);
 #endif

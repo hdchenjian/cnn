@@ -205,8 +205,9 @@ void forward_network(network *net, float *input)
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
-            forward_convolutional_layer(layer, input, net->workspace, net->test);
+            forward_convolutional_layer(layer, input, net->workspace, net->test, i);
             input = layer->output;
+            //if(i == 0) break;
         } else if(net->layers_type[i] == BATCHNORM){
             batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
@@ -776,6 +777,18 @@ void train_network(network *net, float *input, int *truth_label_index)
         //update_network(net);
         update_network_gpu(net);
         //exit(-1);
+#elif defined(OPENCL)
+        if(net->w == 0 || net->h == 0 || net->c == 0) {
+            printf("RNN OPENCL not implement!\n");
+            exit(-1);
+        } else {
+            cl_write_array(net->input_cl, input, net->h * net->w * net->c * net->batch);
+        }
+        cl_compare_array(net->input_cl, input, net->h * net->w * net->c * net->batch, "input data diff: ", -1);
+        net->test = 1;
+        forward_network(net, input);
+        forward_network_cl(net, net->input_cl);
+        exit(-1);
 #else
         float *input_data;
         if(net->w == 0 || net->h == 0 || net->c == 0) {
@@ -832,23 +845,6 @@ detection *get_network_boxes(network *net, int w, int h, float thresh, int *map,
     detection *dets = make_network_boxes(net, thresh, num);
     fill_network_boxes(net, w, h, thresh, map, relative, dets);
     return dets;
-}
-
-void valid_network(network *net, float *input, int *truth_label_index)
-{
-    net->truth_label_index = truth_label_index;
-#ifdef GPU
-    if(net->w == 0 || net->h == 0 || net->c == 0) {
-        cuda_push_array(net->input_gpu, input, net->time_steps * net->batch * net->inputs);
-    } else {
-        cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
-    }
-    cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
-    forward_network_gpu(net, net->input_gpu);
-#else
-    forward_network(net, input);
-#endif
-    net->accuracy_count += net->batch;
 }
 
 #ifdef OPENCL
@@ -919,8 +915,12 @@ void forward_network_cl(network *net, cl_mem input)
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
-            forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test);
+            forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test, i);
             input = layer->output_cl;
+            cl_compare_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n, "variance output diff: ", i);
+            cl_compare_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n, "mean output diff: ", i);
+            cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "conv output diff: ", i);
+            if(i == 0) break;
             /*
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
@@ -931,8 +931,9 @@ void forward_network_cl(network *net, cl_mem input)
         } else if(net->layers_type[i] == BATCHNORM){
             batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
-            forward_batchnorm_layer_cl(layer, input, net->workspace_cl, net->test);
+            forward_batchnorm_layer_cl(layer, input, net->test);
             input = layer->output_cl;
+            cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "batchnorm output diff: ", i);
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
@@ -978,6 +979,33 @@ void forward_network_cl(network *net, cl_mem input)
     }
 }
 #endif
+
+void valid_network(network *net, float *input, int *truth_label_index)
+{
+    net->truth_label_index = truth_label_index;
+#ifdef GPU
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        cuda_push_array(net->input_gpu, input, net->time_steps * net->batch * net->inputs);
+    } else {
+        cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
+    }
+    cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
+    forward_network_gpu(net, net->input_gpu);
+#elif defined(OPENCL)
+    if(net->w == 0 || net->h == 0 || net->c == 0) {
+        printf("RNN OPENCL not implement!\n");
+        exit(-1);
+    } else {
+        cl_write_array(net->input_cl, input, net->h * net->w * net->c * net->batch);
+    }
+    forward_network(net, input);
+    forward_network_cl(net, net->input_cl);
+    exit(-1);
+#else
+    forward_network(net, input);
+#endif
+    net->accuracy_count += net->batch;
+}
 
 void forward_network_test(network *net, float *input)
 {
@@ -1151,6 +1179,9 @@ void save_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
         fwrite(l->rolling_mean, sizeof(float), l->n, fp);
         fwrite(l->rolling_variance, sizeof(float), l->n, fp);
     }
+    if (l->activation == PRELU){
+        fwrite(l->slope, sizeof(float), l->n, fp);
+    }
     fwrite(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
 }
 
@@ -1161,6 +1192,9 @@ void load_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
         fread(l->scales, sizeof(float), l->n, fp);
         fread(l->rolling_mean, sizeof(float), l->n, fp);
         fread(l->rolling_variance, sizeof(float), l->n, fp);
+    }
+    if (l->activation == PRELU){
+        fread(l->slope, sizeof(float), l->n, fp);
     }
     fread(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
 #ifdef GPU

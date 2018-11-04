@@ -212,8 +212,8 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         layer->mean_delta_cl = cl_make_array(layer->mean, n);
         layer->variance_delta_cl = cl_make_array(layer->variance, n);
         layer->variance_cl = cl_make_array(layer->variance, n);
-        layer->rolling_mean_cl = cl_make_array(layer->mean, n);
-        layer->rolling_variance_cl = cl_make_array(layer->variance, n);
+        layer->rolling_mean_cl = cl_make_array(layer->rolling_mean, n);
+        layer->rolling_variance_cl = cl_make_array(layer->rolling_variance, n);
         layer->x_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
         layer->x_norm_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
     }
@@ -299,7 +299,7 @@ void col2im_cpu(float* data_col, int channels,  int height,  int width, int ksiz
     }
 }
 
-void forward_conv_batchnorm_layer(const convolutional_layer *layer, int test)
+void forward_conv_batchnorm_layer(const convolutional_layer *layer, int test, int index)
 {
     if(0 == test){    // 0: train, 1: valid
         memcpy(layer->x, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
@@ -317,6 +317,7 @@ void forward_conv_batchnorm_layer(const convolutional_layer *layer, int test)
     } else {
         normalize_cpu(layer->output, layer->rolling_mean, layer->rolling_variance,
                       layer->batch, layer->n, layer->out_h*layer->out_w);
+        //if(index == 0) return;
         scale_bias(layer->output, layer->scales, layer->batch, layer->n, layer->out_h*layer->out_w);
     }
 }
@@ -331,7 +332,7 @@ void activation_prelu(const convolutional_layer *layer){
       }
 }
 
-void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test)
+void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test, int index)
 {
     int m = layer->n;
     int n = layer->out_h * layer->out_w;
@@ -351,8 +352,9 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
     if(layer->batch_normalize){
-        forward_conv_batchnorm_layer(layer, test);
+        forward_conv_batchnorm_layer(layer, test, index);
     }
+    //if(index == 0) return;
     for(int b = 0; b < layer->batch; ++b){
         for(int i = 0; i < layer->n; ++i){
             for(int j = 0; j < n; ++j){
@@ -360,26 +362,14 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
             }
         }
     }
+    //if(index == 0) return;
 
     if(layer->activation == PRELU){
-        /*int num = 5;
-        for(int b = 0; b < num; ++b){
-            printf("%d %f\n", b, layer->output[b]);
-        }
-        */
         activation_prelu(layer);
     } else if (layer->activation == LINEAR) {
     } else {
         for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
     }
-
-    /*
-    float max = -FLT_MAX, min = FLT_MAX;
-    for(int i = 0; i < layer->batch * m*n; ++i){
-    	if(layer->output[i] > max) max = layer->output[i];
-    	if(layer->output[i] < min) min = layer->output[i];
-    }
-    printf("forward_convolutional_layer max: %f, min: %f\n", max, min);*/
 }
 
 void backward_conv_batchnorm_layer(const convolutional_layer *layer, int test)
@@ -497,23 +487,6 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
 }
 
 #ifdef OPENCL
-
-void add_bias_cl(const convolutional_layer *layer)
-{
-    int size = layer->out_h * layer->out_w;
-    cl_kernel kernel = get_kernel_by_name("convolutional_bias_cl", "-D BLOCK=32");
-    cl_uint i = 0;
-    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->n), (void*) &layer->n);
-    cl.error = clSetKernelArg(kernel, i++, sizeof(size), (void*) &size);
-    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->biases_cl), (void*) &layer->biases_cl);
-    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->output_cl), (void*) &layer->output_cl);
-    check_error(cl);
-
-    const size_t global_size[] = {layer->n*size, layer->batch};
-    cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 2, 0, global_size, 0, 0, 0, 0);
-    check_error(cl);
-}
-
 void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
                int ksize,  int stride,  int pad, cl_mem data_col)
 {
@@ -537,7 +510,7 @@ void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width
     check_error(cl);
 }
 
-void forward_conv_batchnorm_layer_cl(const convolutional_layer *layer, int test)
+void forward_conv_batchnorm_layer_cl(const convolutional_layer *layer, int test, int index)
 {
     if(0 == test){    // 0: train, 1: valid
         copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->x_cl, 1);
@@ -554,16 +527,17 @@ void forward_conv_batchnorm_layer_cl(const convolutional_layer *layer, int test)
                       layer->out_h*layer->out_w);
         copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->x_norm_cl, 1);
         scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->n, layer->out_h*layer->out_w);
-        add_bias_cl(layer);
+        add_bias_cl(layer->batch, layer->out_h * layer->out_w, layer->n, layer->biases_cl, layer->output_cl);
     } else {
         normalize_cl(layer->output_cl, layer->rolling_mean_cl, layer->rolling_variance_cl,
                      layer->batch, layer->n, layer->out_h*layer->out_w);
+        //if(index == 0) return;
         scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->n, layer->out_h*layer->out_w);
-        add_bias_cl(layer);
+        add_bias_cl(layer->batch, layer->out_h * layer->out_w, layer->n, layer->biases_cl, layer->output_cl);
     }
 }
 
-void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test)
+void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test, int index)
 {
     int m = layer->n;
     int n = layer->out_h * layer->out_w;
@@ -582,15 +556,16 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
         }
     }
     if (layer->batch_normalize) {
-        forward_conv_batchnorm_layer_cl(layer, test);
+        forward_conv_batchnorm_layer_cl(layer, test, index);
     } else {
-        add_bias_cl(layer);
+        add_bias_cl(layer->batch, layer->out_h * layer->out_w, layer->n, layer->biases_cl, layer->output_cl);
     }
+    //if(index == 0) return;
+
     if(layer->activation == PRELU){
         copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->bottom_data_cl, 1);
-        int size = layer->batch * layer->out_h * layer->out_w * layer->n;
         int dim = layer->out_h * layer->out_w;
-        activate_prelu_array_cl(layer->output_cl, layer->slope_cl, size, layer->n, dim);
+        activate_prelu_array_cl(layer->output_cl, layer->slope_cl, layer->batch, layer->n, dim);
     } else if (layer->activation == LINEAR) {
     } else {
         activate_array_cl(layer->output_cl, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
@@ -609,6 +584,9 @@ void pull_convolutional_layer_cl(const convolutional_layer *layer)
         cl_read_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n);
         cl_read_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n);
     }
+    if (layer->activation == PRELU){
+        cl_read_array(layer->slope_cl, layer->slope, layer->n);
+    }
 }
 
 void push_convolutional_layer_cl(const convolutional_layer *layer)
@@ -620,8 +598,13 @@ void push_convolutional_layer_cl(const convolutional_layer *layer)
     cl_write_array(layer->bias_updates_cl, layer->bias_updates, layer->n);
     if (layer->batch_normalize){
         cl_write_array(layer->scales_cl, layer->scales, layer->n);
+        //cl_write_array(layer->mean_cl, layer->mean, layer->n);
+        //cl_write_array(layer->variance_cl, layer->variance, layer->n);
         cl_write_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n);
         cl_write_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n);
+    }
+    if (layer->activation == PRELU){
+        cl_write_array(layer->slope_cl, layer->slope, layer->n);
     }
 }
 #endif
