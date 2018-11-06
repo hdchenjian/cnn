@@ -358,7 +358,7 @@ __kernel void scale_bias_cl(__global float *output, __global float * biases, int
 __kernel void normalize_cl(__global float *x, __global float *mean, __global float *variance, int batch, int filters, int spatial){
     int index = get_global_id(0);
     int f = (index/spatial)%filters;
-    x[index] = (x[index] - mean[f])/(sqrt(variance[f]) + .000001f);
+    x[index] = (x[index] - mean[f])/sqrt(variance[f] + .00002f);
 }
 
 __kernel void activate_prelu_array_cl(__global float *x, __global float *slope_cl, int batch, int filters, int spatial){

@@ -201,6 +201,7 @@ float update_current_learning_rate(network *net)
 void forward_network(network *net, float *input)
 {
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
+        //printf("forward_network layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
@@ -844,6 +845,8 @@ void valid_network(network *net, float *input, int *truth_label_index)
         cuda_push_array(net->input_gpu, input, net->h * net->w * net->c * net->batch);
     }
     cuda_push_array_int(net->truth_label_index_gpu, net->truth_label_index, net->batch);
+    //cuda_compare(net->input_gpu, input, net->h * net->w * net->c *net->batch, "input diff: ", -1);
+    //forward_network(net, input);
     forward_network_gpu(net, net->input_gpu);
 #else
     forward_network(net, input);
@@ -1117,18 +1120,18 @@ void save_batchnorm_weights(const batchnorm_layer *l, FILE *fp, int gpu_index)
         pull_batchnorm_layer(l);
     }
 #endif
-    fwrite(l->biases, sizeof(float), l->c, fp);
-    fwrite(l->scales, sizeof(float), l->c, fp);
     fwrite(l->rolling_mean, sizeof(float), l->c, fp);
     fwrite(l->rolling_variance, sizeof(float), l->c, fp);
+    fwrite(l->scales, sizeof(float), l->c, fp);
+    fwrite(l->biases, sizeof(float), l->c, fp);
 }
 
 void load_batchnorm_weights(const batchnorm_layer *l, FILE *fp, int gpu_index)
 {
-    fread(l->biases, sizeof(float), l->c, fp);
-    fread(l->scales, sizeof(float), l->c, fp);
     fread(l->rolling_mean, sizeof(float), l->c, fp);
     fread(l->rolling_variance, sizeof(float), l->c, fp);
+    fread(l->scales, sizeof(float), l->c, fp);
+    fread(l->biases, sizeof(float), l->c, fp);
 #ifdef GPU
     if(gpu_index >= 0){
         push_batchnorm_layer(l);
@@ -1145,24 +1148,34 @@ void save_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
         pull_convolutional_layer(l);
     }
 #endif
-    fwrite(l->biases, sizeof(float), l->n, fp);
+    fwrite(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
     if (l->batch_normalize){
-        fwrite(l->scales, sizeof(float), l->n, fp);
         fwrite(l->rolling_mean, sizeof(float), l->n, fp);
         fwrite(l->rolling_variance, sizeof(float), l->n, fp);
+        fwrite(l->scales, sizeof(float), l->n, fp);
+        fwrite(l->biases, sizeof(float), l->n, fp);
+    } else {
+        fwrite(l->biases, sizeof(float), l->n, fp);
     }
-    fwrite(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
+    if(l->activation == PRELU){
+        fwrite(l->slope, sizeof(float), l->n, fp);
+    }
 }
 
 void load_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_index)
 {
-    fread(l->biases, sizeof(float), l->n, fp);
+    fread(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
     if (l->batch_normalize){
-        fread(l->scales, sizeof(float), l->n, fp);
         fread(l->rolling_mean, sizeof(float), l->n, fp);
         fread(l->rolling_variance, sizeof(float), l->n, fp);
+        fread(l->scales, sizeof(float), l->n, fp);
+        fread(l->biases, sizeof(float), l->n, fp);
+    } else {
+        fread(l->biases, sizeof(float), l->n, fp);
     }
-    fread(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
+    if(l->activation == PRELU){
+        fread(l->slope, sizeof(float), l->n, fp);
+    }
 #ifdef GPU
     if(gpu_index >= 0){
         push_convolutional_layer(l);
@@ -1179,23 +1192,27 @@ void save_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
         pull_connected_layer(l);
     }
 #endif
-    fwrite(l->biases, sizeof(float), l->outputs, fp);
     fwrite(l->weights, sizeof(float), l->outputs*l->inputs, fp);
     if(l->batch_normalize){
-        fwrite(l->scales, sizeof(float), l->outputs, fp);
         fwrite(l->rolling_mean, sizeof(float), l->outputs, fp);
         fwrite(l->rolling_variance, sizeof(float), l->outputs, fp);
+        fwrite(l->scales, sizeof(float), l->outputs, fp);
+        fwrite(l->biases, sizeof(float), l->outputs, fp);
+    } else {
+        fwrite(l->biases, sizeof(float), l->outputs, fp);
     }
 }
 
 void load_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
 {
-    fread(l->biases, sizeof(float), l->outputs, fp);
     fread(l->weights, sizeof(float), l->outputs*l->inputs, fp);
     if(l->batch_normalize){
-        fread(l->scales, sizeof(float), l->outputs, fp);
         fread(l->rolling_mean, sizeof(float), l->outputs, fp);
         fread(l->rolling_variance, sizeof(float), l->outputs, fp);
+        fread(l->scales, sizeof(float), l->outputs, fp);
+        fread(l->biases, sizeof(float), l->outputs, fp);
+    } else {
+        fread(l->biases, sizeof(float), l->outputs, fp);
     }
 #ifdef GPU
     if(gpu_index >= 0){

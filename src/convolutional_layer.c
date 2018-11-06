@@ -321,8 +321,10 @@ void forward_conv_batchnorm_layer(const convolutional_layer *layer, int test)
     }
 }
 
-void activation_prelu(const convolutional_layer *layer){
-    memcpy(layer->bottom_data, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
+void activation_prelu(const convolutional_layer *layer, int test){
+    if(0 == test){    // 0: train, 1: valid
+        memcpy(layer->bottom_data, layer->output, layer->batch * layer->out_h * layer->out_w * layer->n * sizeof(float));
+    }
     int count = layer->batch * layer->out_h * layer->out_w * layer->n;
     int dim = layer->out_h * layer->out_w;
     for (int i = 0; i < count; ++i) {
@@ -341,7 +343,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         float *a = layer->weights;
         float *b = workspace;
         float *c = layer->output + i * m * n;
-        if (layer->size == 1){
+        if (layer->size == 1 && layer->stride == 1){
             b = in + i * layer->w * layer->h * layer->c;
         } else {
             memset(workspace, 0, n*k*sizeof(float));
@@ -350,6 +352,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         }
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
+
     if(layer->batch_normalize){
         forward_conv_batchnorm_layer(layer, test);
     }
@@ -362,18 +365,22 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     }
 
     if(layer->activation == PRELU){
-        /*int num = 5;
-        for(int b = 0; b < num; ++b){
-            printf("%d %f\n", b, layer->output[b]);
-        }
-        */
-        activation_prelu(layer);
+        activation_prelu(layer, test);
     } else if (layer->activation == LINEAR) {
     } else {
         for(int i = 0; i < layer->batch * m*n; ++i) layer->output[i] = activate(layer->output[i], layer->activation);
     }
 
     /*
+    int count = 0;
+    for(int i = 0; i < m*n && count < 10; i++){
+        if(layer->output[i] > 0.001){
+            printf("%d %f %f\n", i, layer->output[i], in[i]);
+            count += 1;
+        }
+    }
+    for(int i = 0; i < layer->n; i++) printf("%d %f %f %f %f\n", i, layer->rolling_mean[i], layer->rolling_variance[i], layer->scales[i], layer->biases[i]);
+    exit(-1);
     float max = -FLT_MAX, min = FLT_MAX;
     for(int i = 0; i < layer->batch * m*n; ++i){
     	if(layer->output[i] > max) max = layer->output[i];
@@ -435,7 +442,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
         float *b = workspace;
         float *c = layer->weight_updates;
         float *im  = input + j*layer->c*layer->h*layer->w;
-        if(layer->size == 1){
+        if(layer->size == 1 && layer->stride == 1){
             b = im;
         } else {
             memset(workspace, 0, n*k*sizeof(float));
@@ -451,7 +458,7 @@ void backward_convolutional_layer(const convolutional_layer *layer, float *input
             a = layer->weights;
             b = layer->delta + j * n * k;
             c = workspace;
-            if (layer->size == 1) {
+            if (layer->size == 1 && layer->stride == 1) {
                 c = delta + j * layer->h * layer->w * layer->c;
             } else {
                 memset(workspace, 0, m*n*sizeof(float));
@@ -572,7 +579,7 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
         cl_mem a = layer->weights_cl;
         cl_mem b = workspace;
         cl_mem c = layer->output_cl;
-        if (layer->size == 1){
+        if (layer->size == 1 && layer->stride == 1){
             b = in;
             gemm_cl(0,0,m,n,k,1,a,0,k,b, i * layer->w * layer->h * layer->c, n,0,c,i*n*m,n);
         } else {
@@ -609,6 +616,9 @@ void pull_convolutional_layer_cl(const convolutional_layer *layer)
         cl_read_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n);
         cl_read_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n);
     }
+    if(layer->activation == PRELU){
+        cl_read_array(layer->slope_cl, layer->slope, layer->n);
+    }
 }
 
 void push_convolutional_layer_cl(const convolutional_layer *layer)
@@ -622,6 +632,9 @@ void push_convolutional_layer_cl(const convolutional_layer *layer)
         cl_write_array(layer->scales_cl, layer->scales, layer->n);
         cl_write_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n);
         cl_write_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n);
+    }
+    if(layer->activation == PRELU){
+        cl_write_array(layer->slope_cl, layer->slope, layer->n);
     }
 }
 #endif

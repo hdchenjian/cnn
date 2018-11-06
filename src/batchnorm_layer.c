@@ -143,6 +143,24 @@ void forward_batchnorm_layer(const batchnorm_layer *layer, float *input, int tes
                       layer->batch, layer->c, layer->out_h*layer->out_w);
         scale_bias(layer->output, layer->scales, layer->batch, layer->c, layer->out_h*layer->out_w);
     }
+    for(int b = 0; b < layer->batch; ++b){
+        for(int i = 0; i < layer->c; ++i){
+            for(int j = 0; j < layer->out_h*layer->out_w; ++j){
+                layer->output[(b*layer->c + i)*layer->out_h*layer->out_w + j] += layer->biases[i];
+            }
+        }
+    }
+    /*
+    int count = 0;
+    for(int i = 0; i < layer->outputs && count < 10; i++){
+        if(layer->output[i] > 0.001){
+            printf("%d %f\n", i, layer->output[i]);
+            count += 1;
+        }
+    }
+    for(int i = 0; i < layer->c; i++) printf("%d %f %f %f %f\n", i, layer->rolling_mean[i], layer->rolling_variance[i], layer->scales[i], layer->biases[i]);
+    exit(-1);
+    */
 }
 
 void backward_batchnorm_layer(const batchnorm_layer *layer, float* delta, int test)
@@ -183,12 +201,14 @@ void update_batchnorm_layer(const batchnorm_layer *layer, float learning_rate, f
 
 void pull_batchnorm_layer(const batchnorm_layer *l)
 {
+    cuda_pull_array(l->biases_gpu, l->biases, l->c);
     cuda_pull_array(l->scales_gpu, l->scales, l->c);
     cuda_pull_array(l->rolling_mean_gpu, l->rolling_mean, l->c);
     cuda_pull_array(l->rolling_variance_gpu, l->rolling_variance, l->c);
 }
 void push_batchnorm_layer(const batchnorm_layer *l)
 {
+    cuda_push_array(l->biases_gpu, l->biases, l->c);
     cuda_push_array(l->scales_gpu, l->scales, l->c);
     cuda_push_array(l->rolling_mean_gpu, l->rolling_mean, l->c);
     cuda_push_array(l->rolling_variance_gpu, l->rolling_variance, l->c);

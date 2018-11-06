@@ -155,7 +155,7 @@ void fix_cudnn_kernel_size_1_forward(const convolutional_layer *layer, float *in
         float *a = layer->weights_gpu;
         float *b = workspace;
         float *c = layer->output_gpu + i*n*m;
-        if (layer->size == 1){
+        if (layer->size == 1 && layer->stride == 1){
             b = in + i * layer->w * layer->h * layer->c;
         } else {
             cudaError_t status = cudaMemset(workspace, 0, sizeof(float) * n* k);
@@ -190,7 +190,9 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->n, layer->out_w*layer->out_h);
     }
     if(layer->activation == PRELU){
-        copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->bottom_data_gpu, 1);
+        if(0 == test){    // 0: train, 1: valid
+            copy_gpu(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_gpu, 1, layer->bottom_data_gpu, 1);
+        }
         int size = layer->batch * layer->out_h * layer->out_w * layer->n;
         int dim = layer->out_h * layer->out_w;
         activate_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->output_gpu, layer->slope_gpu, size, layer->n, dim);
@@ -279,7 +281,7 @@ void fix_cudnn_kernel_size_1_backward(const convolutional_layer *layer, float *i
         float *c = layer->weight_updates_gpu;
 
         float *im  = input + i*layer->c*layer->h*layer->w;
-        if(layer->size == 1){
+        if(layer->size == 1 && layer->stride == 1){
             b = im;
         } else {
             cudaError_t status = cudaMemset(workspace, 0, sizeof(float) * n* k);
@@ -296,7 +298,7 @@ void fix_cudnn_kernel_size_1_backward(const convolutional_layer *layer, float *i
             a = layer->weights_gpu;
             b = layer->delta_gpu + i * n * k;
             c = workspace;
-            if (layer->size == 1) {
+            if (layer->size == 1 && layer->stride == 1) {
                 c = delta + i * layer->h * layer->w * layer->c;
             } else {
                 cudaError_t status = cudaMemset(workspace, 0, sizeof(float) * m * n);
@@ -392,6 +394,9 @@ void pull_convolutional_layer(const convolutional_layer *layer)
         cuda_pull_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
         cuda_pull_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->n);
     }
+    if(layer->activation == PRELU){
+        cuda_pull_array(layer->slope_gpu, layer->slope, layer->n);
+    }
 }
 
 void push_convolutional_layer(const convolutional_layer *layer)
@@ -405,5 +410,8 @@ void push_convolutional_layer(const convolutional_layer *layer)
         cuda_push_array(layer->scales_gpu, layer->scales, layer->n);
         cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
         cuda_push_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->n);
+    }
+    if(layer->activation == PRELU){
+        cuda_push_array(layer->slope_gpu, layer->slope, layer->n);
     }
 }

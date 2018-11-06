@@ -188,11 +188,13 @@ int main(int argc, char **argv)
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
+#ifdef GPU
     int w = 4096 * 2;
     int h = 4096 * 2;
-#ifdef GPU
     test_gemm_gpu(w, h);
 #elif defined(OPENCL)
+    int w = 4096 * 2;
+    int h = 4096 * 2;
     test_gemm_cl(w, h);
 #endif
     //test_image();

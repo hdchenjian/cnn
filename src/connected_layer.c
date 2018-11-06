@@ -190,8 +190,10 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
     }
 
     int all_outputs = layer->outputs * layer->batch;
-    for(int i = 0; i < all_outputs; ++i){
-        layer->output[i] = activate(layer->output[i], layer->activation);
+    if (layer->activation != LINEAR) {
+        for(int i = 0; i < all_outputs; ++i){
+            layer->output[i] = activate(layer->output[i], layer->activation);
+        }
     }
 
     /*
@@ -340,7 +342,9 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
     if(layer->bias_term){
         add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
     }
-    activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
+    if (layer->activation != LINEAR) {
+        activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
+    }
 }
 
 void backward_connected_batchnorm_layer_gpu(const connected_layer *layer, int test)
