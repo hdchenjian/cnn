@@ -63,6 +63,22 @@ batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h,
     cudnnSetTensor4dDescriptor(l->dstTensorDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, l->batch, l->out_c, l->out_h, l->out_w); 
     cudnnSetTensor4dDescriptor(l->normTensorDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, l->out_c, 1, 1); 
     #endif
+#elif defined(OPENCL)
+    l->biases_cl = cl_make_array(l->biases, c);
+    l->bias_updates_cl = cl_make_array(l->bias_updates, c);
+    l->delta_cl = cl_make_array(l->delta, batch * l->out_h * l->out_w * c);
+    l->output_cl = cl_make_array(l->output, batch * l->out_h * l->out_w * c);
+    l->scales_cl = cl_make_array(l->scales, c);
+    l->scale_updates_cl = cl_make_array(l->scale_updates, c);
+
+    l->mean_cl = cl_make_array(l->mean, c);
+    l->mean_delta_cl = cl_make_array(l->mean, c);
+    l->variance_delta_cl = cl_make_array(l->variance, c);
+    l->variance_cl = cl_make_array(l->variance, c);
+    l->rolling_mean_cl = cl_make_array(l->mean, c);
+    l->rolling_variance_cl = cl_make_array(l->variance, c);
+    l->x_cl = cl_make_array(l->output, l->batch * l->out_h * l->out_w * c);
+    l->x_norm_cl = cl_make_array(l->output, l->batch * l->out_h * l->out_w * c);
 #endif
     return l;
 }
@@ -122,6 +138,28 @@ void free_batchnorm_layer(void *input)
     free_ptr(layer);
 }
 
+void add_bias(float *output, float *biases, int batch, int n, int size)
+{
+    int i,j,b;
+    for(b = 0; b < batch; ++b){
+        for(i = 0; i < n; ++i){
+            for(j = 0; j < size; ++j){
+                output[(b*n + i)*size + j] += biases[i];
+            }
+        }
+    }
+}
+
+void backward_bias(float *bias_updates, float *delta, int batch, int n, int size)
+{
+    int i,b;
+    for(b = 0; b < batch; ++b){
+        for(i = 0; i < n; ++i){
+            bias_updates[i] += sum_array(delta+size*(i+b*n), size);
+        }
+    }
+}
+
 void forward_batchnorm_layer(const batchnorm_layer *layer, float *input, int test)
 {
     copy_cpu(layer->outputs*layer->batch, input, 1, layer->output, 1);
@@ -138,10 +176,12 @@ void forward_batchnorm_layer(const batchnorm_layer *layer, float *input, int tes
         normalize_cpu(layer->output, layer->mean, layer->variance, layer->batch, layer->c, layer->out_h*layer->out_w);
         memcpy(layer->x_norm, layer->output, layer->batch * layer->out_h * layer->out_w * layer->c * sizeof(float));
         scale_bias(layer->output, layer->scales, layer->batch, layer->c, layer->out_h*layer->out_w);
+        add_bias(layer->output, layer->biases, layer->batch, layer->out_c, layer->out_h*layer->out_w);
     } else {
         normalize_cpu(layer->output, layer->rolling_mean, layer->rolling_variance,
                       layer->batch, layer->c, layer->out_h*layer->out_w);
         scale_bias(layer->output, layer->scales, layer->batch, layer->c, layer->out_h*layer->out_w);
+        add_bias(layer->output, layer->biases, layer->batch, layer->out_c, layer->out_h*layer->out_w);
     }
     for(int b = 0; b < layer->batch; ++b){
         for(int i = 0; i < layer->c; ++i){
@@ -171,6 +211,7 @@ void backward_batchnorm_layer(const batchnorm_layer *layer, float* delta, int te
         //layer->mean = layer->rolling_mean;
         //layer->variance = layer->rolling_variance;
     }
+    backward_bias(layer->bias_updates, layer->delta, layer->batch, layer->out_c, layer->out_w*layer->out_h);
     backward_scale_cpu(layer->x_norm, layer->delta, layer->batch, layer->c, layer->out_w*layer->out_h, layer->scale_updates);
     scale_bias(layer->delta, layer->scales, layer->batch, layer->c, layer->out_h*layer->out_w);
 
@@ -295,5 +336,42 @@ void update_batchnorm_layer_gpu(const batchnorm_layer *layer, float learning_rat
 
     axpy_gpu(layer->c, learning_rate / batch, layer->scale_updates_gpu, 1, layer->scales_gpu, 1);
     scal_gpu(layer->c, momentum, layer->scale_updates_gpu, 1);
+}
+
+#elif defined(OPENCL)
+void forward_batchnorm_layer_cl(const batchnorm_layer *layer, cl_mem input_cl, int test)
+{
+    copy_cl(layer->outputs*layer->batch, input_cl, 1, layer->output_cl, 1);
+    if(0 == test){    // 0: train, 1: valid
+        copy_cl(layer->batch * layer->out_h * layer->out_w * layer->c, layer->output_cl, 1, layer->x_cl, 1);
+        fast_mean_cl(layer->output_cl, layer->batch, layer->c, layer->out_h*layer->out_w, layer->mean_cl);
+        fast_variance_cl(layer->output_cl, layer->mean_cl, layer->batch, layer->c, layer->out_h*layer->out_w,
+                          layer->variance_cl);
+
+        scal_cl(layer->c, .99, layer->rolling_mean_cl, 1);
+        axpy_cl(layer->c, .01, layer->mean_cl, 1, layer->rolling_mean_cl, 1);
+        scal_cl(layer->c, .99, layer->rolling_variance_cl, 1);
+        axpy_cl(layer->c, .01, layer->variance_cl, 1, layer->rolling_variance_cl, 1);
+
+        normalize_cl(layer->output_cl, layer->mean_cl, layer->variance_cl, layer->batch, layer->c,
+                      layer->out_h*layer->out_w);
+        copy_cl(layer->batch * layer->out_h * layer->out_w * layer->c, layer->output_cl, 1, layer->x_norm_cl, 1);
+        scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->c, layer->out_h*layer->out_w);
+        add_bias_cl(layer->batch, layer->out_h * layer->out_w, layer->c, layer->biases_cl, layer->output_cl);
+    } else {
+        normalize_cl(layer->output_cl, layer->rolling_mean_cl, layer->rolling_variance_cl,
+                     layer->batch, layer->c, layer->out_h*layer->out_w);
+        scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->c, layer->out_h*layer->out_w);
+        add_bias_cl(layer->batch, layer->out_h * layer->out_w, layer->c, layer->biases_cl, layer->output_cl);
+    }
+
+}
+
+void push_batchnorm_layer_cl(const batchnorm_layer *l)
+{
+    cl_write_array(l->biases_cl, l->biases, l->c);
+    cl_write_array(l->scales_cl, l->scales, l->c);
+    cl_write_array(l->rolling_mean_cl, l->rolling_mean, l->c);
+    cl_write_array(l->rolling_variance_cl, l->rolling_variance, l->c);
 }
 #endif

@@ -361,7 +361,7 @@ __kernel void normalize_cl(__global float *x, __global float *mean, __global flo
     x[index] = (x[index] - mean[f])/sqrt(variance[f] + .00002f);
 }
 
-__kernel void activate_prelu_array_cl(__global float *x, __global float *slope_cl, int batch, int filters, int spatial){
+__kernel void activate_prelu_array_cl(__global float *x, __global float *slope_cl, int filters, int spatial){
     int i = get_global_id(0);
     int cc = (i / spatial) % filters;
     x[i] = max(x[i], 0.0F) + slope_cl[cc] * min(x[i], 0.0F);

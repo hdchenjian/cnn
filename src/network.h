@@ -221,6 +221,7 @@ detection *get_network_boxes(network *net, int w, int h, float thresh, int *map,
 
 #ifdef OPENCL
 cl_mem get_network_layer_data_cl(network *net, int i, int data_type);
+void forward_network_cl(network *net, cl_mem input);
 #endif
 #endif
 

@@ -129,3 +129,18 @@ void shortcut_cl(int batch, int w1, int h1, int c1, cl_mem add, int w2, int h2, 
     check_error(cl);
 
 }
+
+void add_bias_cl(int batch, int spatial, int channel, cl_mem biases_cl, cl_mem output_cl)
+{
+    cl_kernel kernel = get_kernel_by_name("convolutional_bias_cl", "-D BLOCK=32");
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(channel), (void*) &channel);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(spatial), (void*) &spatial);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(biases_cl), (void*) &biases_cl);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(output_cl), (void*) &output_cl);
+    check_error(cl);
+
+    const size_t global_size[] = {channel*spatial, batch};
+    cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 2, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}

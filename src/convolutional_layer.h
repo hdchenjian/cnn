@@ -56,7 +56,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
                                               float lr_mult, float lr_decay_mult, float bias_mult, float bias_decay_mult,
                                               int weight_filler, float sigma, int subdivisions);
 void free_convolutional_layer(void *input);
-void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test);
+void forward_convolutional_layer(const convolutional_layer *layer, float *in, float *workspace, int test, int index);
 void backward_convolutional_layer(const convolutional_layer *layer, float *input, float *delta, float *workspace, int test);
 void update_convolutional_layer(const convolutional_layer *layer, float learning_rate, float momentum, float decay);
 
@@ -83,7 +83,7 @@ void add_bias_gpu(float *output, float *biases, int batch, int n, int size);
 void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int size);
 
 #elif defined(OPENCL)
-void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test);
+void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test, int index);
 void push_convolutional_layer_cl(const convolutional_layer *layer);
 #endif
 #endif

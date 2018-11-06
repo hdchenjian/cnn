@@ -27,10 +27,10 @@ typedef struct {
         x_norm_cl, scales_cl, scale_updates_cl;
     cl_mem biases_cl, bias_updates_cl, delta_cl, output_cl;
 #endif
-    #ifdef CUDNN
+#ifdef CUDNN
     cudnnTensorDescriptor_t normTensorDesc;
     cudnnTensorDescriptor_t dstTensorDesc;
-    #endif
+#endif
 } batchnorm_layer;
 
 batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h, int c);
@@ -46,6 +46,9 @@ void backward_batchnorm_layer_gpu(const batchnorm_layer *layer, float *delta_gpu
 void pull_batchnorm_layer(const batchnorm_layer *l);
 void push_batchnorm_layer(const batchnorm_layer *l);
 void update_batchnorm_layer_gpu(const batchnorm_layer *layer, float learning_rate, float momentum, float decay);
+#elif defined(OPENCL)
+void forward_batchnorm_layer_cl(const batchnorm_layer *layer, cl_mem input_cl, int test);
+void push_batchnorm_layer_cl(const batchnorm_layer *l);
 #endif
 
 #endif
