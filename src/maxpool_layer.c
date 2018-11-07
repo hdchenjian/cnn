@@ -9,10 +9,11 @@ image get_maxpool_image(const maxpool_layer *layer)
     return float_to_image(h,w,c,NULL);
 }
 
-maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int batch, int padding)
+maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int batch, int padding, int test)
 {
     fprintf(stderr, "Maxpool:            %d x %d x %d inputs, size: %d, %d stride\n", w,h,c,size,stride);
     maxpool_layer *layer = calloc(1, sizeof(maxpool_layer));
+    layer->test = test;
     layer->h = h;
     layer->w = w;
     layer->c = c;
@@ -24,15 +25,21 @@ maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int
     layer->out_h = (h + padding - size)/stride + 1;
     layer->outputs = layer->out_h * layer->out_w * c;
     layer->output = calloc(batch * layer->outputs, sizeof(float));
-    layer->delta = calloc(batch * layer->outputs, sizeof(float));
-    layer->indexes = calloc(layer->outputs * batch, sizeof(int));
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->delta = calloc(batch * layer->outputs, sizeof(float));
+        layer->indexes = calloc(layer->outputs * batch, sizeof(int));
+    }
 #ifdef GPU
-    layer->indexes_gpu = cuda_make_int_array(0, layer->outputs * batch);
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->indexes_gpu = cuda_make_int_array(0, layer->outputs * batch);
+        layer->delta_gpu = cuda_make_array(layer->delta, layer->outputs * batch);
+    }
     layer->output_gpu = cuda_make_array(layer->output, layer->outputs * batch);
-    layer->delta_gpu = cuda_make_array(layer->delta, layer->outputs * batch);
 #elif defined(OPENCL)
-    layer->indexes_cl = cl_make_int_array(0, layer->outputs * batch);
-    layer->delta_cl =  cl_make_array(layer->delta, layer->outputs*batch);
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->indexes_cl = cl_make_int_array(0, layer->outputs * batch);
+        layer->delta_cl =  cl_make_array(layer->delta, layer->outputs*batch);
+    }
     layer->output_cl = cl_make_array(layer->output, layer->outputs*batch);
 #endif
     return layer;
@@ -68,7 +75,9 @@ void forward_maxpool_layer(const maxpool_layer *layer, float *in)
                         }
                     }
                     layer->output[out_index] = max;
-                    layer->indexes[out_index] = max_i;
+                    if(0 == layer->test){    // 0: train, 1: valid
+                        layer->indexes[out_index] = max_i;
+                    }
                 }
             }
         }
@@ -109,6 +118,7 @@ void forward_maxpool_layer_cl(const maxpool_layer *layer, cl_mem in_cl){
     cl.error = clSetKernelArg(kernel, i++, sizeof(in_cl), (void*)&in_cl);
     cl.error = clSetKernelArg(kernel, i++, sizeof(layer->output_cl), (void*)&layer->output_cl);
     cl.error = clSetKernelArg(kernel, i++, sizeof(layer->indexes_cl), (void*)&layer->indexes_cl);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(layer->test), (void*)&layer->test);
     check_error(cl);
     const size_t global_size[] = {layer->out_h *layer->out_w * layer->c * layer->batch};
     cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 1, 0, global_size, 0, 0, 0, 0);

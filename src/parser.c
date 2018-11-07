@@ -220,7 +220,7 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
     }
     int size = option_find_int(options, "size", stride);
     int padding = option_find_int(options, "padding", size-1);
-    maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding);
+    maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding, net->test);
     return layer;
 }
 

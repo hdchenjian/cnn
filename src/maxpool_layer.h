@@ -9,7 +9,7 @@
 #endif
 
 typedef struct {
-    int h,w,c,stride,batch, outputs, out_h, out_w, pad, size;
+    int h,w,c,stride,batch, outputs, out_h, out_w, pad, size, test;
     float *delta, *output;
     int *indexes, *indexes_gpu;
     float *output_gpu, *delta_gpu;
@@ -19,7 +19,7 @@ typedef struct {
 } maxpool_layer;
 
 image get_maxpool_image(const maxpool_layer *layer);
-maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int batch, int padding);
+maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int batch, int padding, int test);
 void forward_maxpool_layer(const maxpool_layer *layer, float *in);
 void backward_maxpool_layer(const maxpool_layer *layer, float *delta);
 

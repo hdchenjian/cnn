@@ -384,7 +384,7 @@ __kernel void shortcut_cl(int minw, int minh, int minc, int stride, int sample, 
 }
 
 __kernel void forward_maxpool_layer_cl(int in_h, int in_w, int in_c, int stride, int size, int pad,
-                                       __global float *input, __global float *output, __global int *indexes)
+                                       __global float *input, __global float *output, __global int *indexes, int test)
 {
     int id = get_global_id(0);
     int h = (in_h + pad - size)/stride + 1;
@@ -419,7 +419,9 @@ __kernel void forward_maxpool_layer_cl(int in_h, int in_w, int in_c, int stride,
         }
     }
     output[out_index] = max;
-    indexes[out_index] = max_i;
+    if(0 == l->test){    // 0: train, 1: valid
+        indexes[out_index] = max_i;
+    }
 }
 
 __kernel void upsample_cl(__global float *x, int w, int h, int c, int batch, int stride, int forward,
