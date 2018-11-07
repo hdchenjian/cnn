@@ -57,7 +57,7 @@ enum LAYER_TYPE{
 };
 
 typedef struct {
-    int w, h, c, out_w, out_h, out_c, index, batch, outputs;
+    int w, h, c, out_w, out_h, out_c, index, batch, outputs, test;
     float prev_layer_weight, shortcut_layer_weight;
     ACTIVATION activation;
     float *delta, *output;
@@ -68,7 +68,7 @@ typedef struct {
 } shortcut_layer;
 
 typedef struct {
-    int batch, n, inputs, outputs, out_w, out_h, out_c;
+    int batch, n, inputs, outputs, out_w, out_h, out_c, test;
     int *input_layers, *input_sizes;
     float *delta, *output;
     float *output_gpu, *delta_gpu;
@@ -179,7 +179,7 @@ void backward_softmax_layer_gpu(const softmax_layer *layer, float *delta_gpu);
 #endif
 
 image get_route_image(const route_layer *layer);
-route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_size, network *net);
+route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_size, network *net, int test);
 void forward_route_layer(const route_layer *l, network *net);
 void backward_route_layer(const route_layer *l, network *net);
 #ifdef GPU
@@ -191,7 +191,7 @@ void forward_route_layer_cl(const route_layer *l, network *net);
 
 image get_shortcut_image(const shortcut_layer *layer);
 shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, int out_w,int out_h,int out_c,
-                                    ACTIVATION activation, float prev_layer_weight, float shortcut_layer_weight);
+                                    ACTIVATION activation, float prev_layer_weight, float shortcut_layer_weight, int test);
 void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net);
 void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net);
 #ifdef GPU
@@ -206,7 +206,7 @@ void reset_rnn_state(network *net, int b);
 void reset_lstm_state(network *net, int b);
 void reset_gru_state(network *net, int b);
 network *make_network(int n);
-network *load_network(char *cfg, char *weights);
+network *load_network(char *cfg, char *weights, int test);
 void free_network(network *net);
 void train_network(network *net, float *input, int *truth_label_index);
 void train_network_detect(network *net, batch_detect d);

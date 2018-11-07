@@ -1,5 +1,55 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+'''
+agedb: 0.2
+threshold:  0.18
+('TP, TN, FP, FN: ', 5844.0, 5878.0, 122.0, 156.0)
+('precise', 0.9795507877975193)
+('precise positive', 0.9741465031488233)
+('recall', 0.974)
+threshold:  0.2
+('TP, TN, FP, FN: ', 5826.0, 5938.0, 62.0, 174.0)
+('precise', 0.9894701086956522)
+('precise positive', 0.9715314136125655)
+('recall', 0.971)
+threshold:  0.22
+('TP, TN, FP, FN: ', 5809.0, 5964.0, 36.0, 191.0)
+('precise', 0.9938408896492729)
+('precise positive', 0.9689683184402924)
+('recall', 0.9681666666666666)
+
+lfw: 0.2
+('max_score, min_score', 0.9706068935400003, -0.2566314181129999)
+threshold:  0.18
+('TP, TN, FP, FN: ', 5984.0, 5959.0, 41.0, 16.0)
+('precise', 0.9931950207468879)
+('precise positive', 0.9973221757322176)
+('recall', 0.9973333333333333)
+threshold:  0.2
+('TP, TN, FP, FN: ', 5984.0, 5981.0, 19.0, 16.0)
+('precise', 0.9968349158753956)
+('precise positive', 0.9973319993329999)
+('recall', 0.9973333333333333)
+threshold:  0.22
+('TP, TN, FP, FN: ', 5982.0, 5988.0, 12.0, 18.0)
+('precise', 0.997997997997998)
+('precise positive', 0.997002997002997)
+
+
+cfp_fp: 0.18
+('max_score, min_score', 0.8174587230269997, -0.22729761289799985)
+threshold:  0.18
+('TP, TN, FP, FN: ', 6799.0, 6944.0, 56.0, 201.0)
+('precise', 0.9918307804522246)
+('precise positive', 0.9718684394681596)
+('recall', 0.9712857142857143)
+threshold:  0.2
+('TP, TN, FP, FN: ', 6748.0, 6977.0, 23.0, 252.0)
+('precise', 0.9966031605375868)
+('precise positive', 0.9651404066952552)
+('recall', 0.964)
+
+'''
 
 import os
 import random
@@ -11,7 +61,8 @@ def get_score(a, b):
        sum += a[i] * b[i]
     return sum
 
-valid_set_path = '/media/iim/disk/darknet/faces_emore/'
+valid_set_path = '/var/darknet/face_data/'
+valid_set_path = '/var/darknet/insightface/src/lfw/'
 all_label = []
 negtive_paire = []
 positive_paire = []
@@ -48,7 +99,7 @@ print('test image num: ', len(test_files), 'features num: ', len(features),
 
 threshold = 0.0
 print_score = True
-while threshold < 0.25:
+while threshold < 0.45:
     print "threshold: ", threshold
     TP = 0
     TN = 0
@@ -112,6 +163,7 @@ while threshold < 0.25:
                 os.system('cp ' + test_files[2*index +1] + ' min_score_fn2.jpg')
         else:
             print('error\n')
+            print(score, threshold, all_label[index])
             exit()
 
     print('TP, TN, FP, FN: ', TP, TN, FP, FN)

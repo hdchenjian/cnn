@@ -8,13 +8,14 @@ image get_route_image(const route_layer *layer)
     return float_to_image(h,w,c,NULL);
 }
 
-route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_sizes, network *net)
+route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_sizes, network *net, int test)
 {
     route_layer *l = calloc(1, sizeof(route_layer));
     l->batch = batch;
     l->n = n;
     l->input_layers = input_layers;
     l->input_sizes = input_sizes;
+    l->test = test;
     int i;
     int outputs = 0;
     char input_layer_str[128] = {0};
@@ -39,14 +40,22 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
 
     l->outputs = outputs;
     l->inputs = outputs;
-    l->delta =  calloc(outputs*batch, sizeof(float));
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta =  calloc(outputs*batch, sizeof(float));
+    }
+#ifndef FORWARD_GPU
     l->output = calloc(outputs*batch, sizeof(float));;
+#endif
 
 #ifdef GPU
-    l->delta_gpu =  cuda_make_array(l->delta, outputs*batch);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta_gpu =  cuda_make_array(l->delta, outputs*batch);
+    }
     l->output_gpu = cuda_make_array(l->output, outputs*batch);
 #elif defined(OPENCL)
-    l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
+    }
     l->output_cl = cl_make_array(l->output, l->outputs*batch);
 #endif
     fprintf(stderr, "Route:              %d x %d x %d -> %d x %d x %d, %d inputs, layer: %s\n",

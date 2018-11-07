@@ -16,7 +16,7 @@
 #endif
 
 typedef struct {
-    int h, w, c, batch, subdivisions, inputs, outputs, out_h, out_w, out_c;
+    int h, w, c, batch, subdivisions, inputs, outputs, out_h, out_w, out_c, test;
     float *biases, *bias_updates, *delta, *output;
     float *mean, *mean_delta, *variance, *variance_delta, *rolling_mean, *rolling_variance, *x, *x_norm, *scales, *scale_updates;
     float *mean_gpu, *mean_delta_gpu, *variance_gpu, *variance_delta_gpu, *rolling_mean_gpu, *rolling_variance_gpu, *x_gpu,
@@ -33,7 +33,7 @@ typedef struct {
 #endif
 } batchnorm_layer;
 
-batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h, int c);
+batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h, int c, int test);
 void forward_batchnorm_layer(const batchnorm_layer *layer, float *input, int test);
 void backward_batchnorm_layer(const batchnorm_layer *layer, float*delta, int test);
 void update_batchnorm_layer(const batchnorm_layer *layer, float learning_rate, float momentum, float decay);

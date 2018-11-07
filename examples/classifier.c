@@ -47,7 +47,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
     //fprintf(stderr, "train data base name: %s\n", base);
     //fprintf(stderr, "the number of GPU: %d\n", ngpus);
     srand(time(0));
-    network *net = load_network(cfgfile, weightfile);
+    network *net = load_network(cfgfile, weightfile, 0);
     net->output_layer = net->n - 1;
     struct list *options = read_data_cfg(datacfg);
     char *backup_directory = option_find_str(options, "backup", "/backup/");
@@ -241,7 +241,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
 void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 {
     srand(time(0));
-    network *net = load_network(cfgfile, weightfile);
+    network *net = load_network(cfgfile, weightfile, 1);
     struct list *options = read_data_cfg(datacfg);
     char *label_list = option_find_str(options, "labels_test", "data/labels.list");
     int label_num = 0;
@@ -253,7 +253,6 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     char **paths = NULL;
     struct list *plist = NULL;
     int train_data_type = option_find_int(options, "train_data_type", 1);    //  0: csv, 1: load to memory
-    net->test = 1;      // 0: train, 1: valid
 
     batch *all_valid_data = NULL;
     if(0 == train_data_type) {
@@ -301,6 +300,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
             train = random_batch(paths, net->batch, labels, net->classes, valid_set_size, net->w, net->h, net->c,
                                  net->hue, net->saturation, net->exposure, net->flip, net->mean_value, net->scale,
                                  net->test);
+            //for(int i = 0; i < train.w * train.h * train.c; ++i) train.data[i] = -0.98828125;
             valid_network(net, train.data, train.truth_label_index);
             free_batch(&train);
         }
@@ -323,7 +323,9 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 #endif
         for(int i = 0; i < network_output_size; i++){
             fprintf(fp, "%f ", network_output[i]);
+            //if(i < 10) printf("%f\n", network_output[i]);
         }
+        //break;
         fprintf(fp, "\n");
 
         float loss = net->loss;
@@ -336,7 +338,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         } else {
             avg_loss = avg_loss*.9 + loss*.1;
         }
-        if(1 || count == valid_set_size - 1){
+        if(count % 100 == 0 || count == valid_set_size - 1){
             printf("count: %d, accuracy: %.3f, loss: %f, avg_loss: %f\n",
                    count, net->correct_num / (net->accuracy_count + 0.00001F), loss, avg_loss);
         }

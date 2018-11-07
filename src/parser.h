@@ -21,5 +21,5 @@
 #endif
 
 struct list *read_data_cfg(char *filename);
-network *parse_network_cfg(char *filename);
+network *parse_network_cfg(char *filename, int test);
 #endif

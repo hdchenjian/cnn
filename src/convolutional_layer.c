@@ -82,7 +82,7 @@ size_t get_workspace_size(convolutional_layer *layer){
 convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int size, int stride, int batch,
                                               ACTIVATION activation, size_t *workspace_size, int batch_normalize, int pad,
                                               float lr_mult, float lr_decay_mult, float bias_mult, float bias_decay_mult,
-                                              int weight_filler, float sigma, int subdivisions)
+                                              int weight_filler, float sigma, int subdivisions, int test)
 {
     convolutional_layer *layer = calloc(1, sizeof(convolutional_layer));
     layer->lr_mult = lr_mult;
@@ -97,6 +97,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->stride = stride;
     layer->batch = batch;
     layer->subdivisions = subdivisions;
+    layer->test = test;
     layer->weights = calloc(c*n*size*size, sizeof(float));
     if(weight_filler == 1){   // xavier
         float scale = sqrtf(2.0F/(size*size*c));
@@ -114,9 +115,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         exit(-1);
     }
 
-    layer->weight_updates = calloc(c*n*size*size, sizeof(float));
     layer->biases = calloc(n, sizeof(float));
-    layer->bias_updates = calloc(n, sizeof(float));
     int padding = 0;
     if(pad) padding = size / 2;
     layer->pad = padding;
@@ -125,64 +124,70 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     // 2.0F: multiplication add
     layer->bflop = (2.0F * layer->size*layer->size*layer->c * layer->n * layer->out_h*layer->out_w) / 1000000000.0F;
     layer->outputs = layer->out_h * layer->out_w * layer->n;
+#ifndef FORWARD_GPU
     layer->output = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
-    layer->delta  = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+#endif
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->delta  = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+        layer->weight_updates = calloc(c*n*size*size, sizeof(float));
+        layer->bias_updates = calloc(n, sizeof(float));
+    }
     layer->activation = activation;
     if(layer->activation == PRELU){
-        layer->bottom_data = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
-        layer->slope = calloc(n, sizeof(float));
-        for(int i = 0; i < n; i++){
-            layer->slope[i] = 0.25F;
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->bottom_data = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+            layer->slope_updates = calloc(n, sizeof(float));
         }
-        layer->slope_updates = calloc(n, sizeof(float));
+        layer->slope = calloc(n, sizeof(float));
+        for(int i = 0; i < n; i++) layer->slope[i] = 0.25F;
     }
 
     layer->batch_normalize = batch_normalize;
     if(batch_normalize){
         layer->scales = calloc(n, sizeof(float));
-        layer->scale_updates = calloc(n, sizeof(float));
-        for(int i = 0; i < n; ++i){
-            layer->scales[i] = 1;
-        }
-
-        layer->mean = calloc(n, sizeof(float));
-        layer->variance = calloc(n, sizeof(float));
-
-        layer->mean_delta = calloc(n, sizeof(float));
-        layer->variance_delta = calloc(n, sizeof(float));
-
         layer->rolling_mean = calloc(n, sizeof(float));
         layer->rolling_variance = calloc(n, sizeof(float));
-        layer->x = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
-        layer->x_norm = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->scale_updates = calloc(n, sizeof(float));
+            for(int i = 0; i < n; ++i) layer->scales[i] = 1;
+            layer->mean = calloc(n, sizeof(float));
+            layer->variance = calloc(n, sizeof(float));
+            layer->mean_delta = calloc(n, sizeof(float));
+            layer->variance_delta = calloc(n, sizeof(float));
+            layer->x = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+            layer->x_norm = calloc(batch * layer->out_h * layer->out_w * n, sizeof(float));
+        }
     }
 
 #ifdef GPU
     layer->weights_gpu = cuda_make_array(layer->weights, c*n*size*size);
-    layer->weight_updates_gpu = cuda_make_array(layer->weight_updates, c*n*size*size);
-
     layer->biases_gpu = cuda_make_array(layer->biases, n);
-    layer->bias_updates_gpu = cuda_make_array(layer->bias_updates, n);
-
-    layer->delta_gpu = cuda_make_array(layer->delta, batch * layer->out_h * layer->out_w * n);
     layer->output_gpu = cuda_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
-
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->weight_updates_gpu = cuda_make_array(layer->weight_updates, c*n*size*size);
+        layer->bias_updates_gpu = cuda_make_array(layer->bias_updates, n);
+        layer->delta_gpu = cuda_make_array(layer->delta, batch * layer->out_h * layer->out_w * n);
+    }
     if(batch_normalize){
         layer->scales_gpu = cuda_make_array(layer->scales, n);
-        layer->scale_updates_gpu = cuda_make_array(layer->scale_updates, n);
-        layer->mean_gpu = cuda_make_array(layer->mean, n);
-        layer->mean_delta_gpu = cuda_make_array(layer->mean, n);
-        layer->variance_delta_gpu = cuda_make_array(layer->variance, n);
-        layer->variance_gpu = cuda_make_array(layer->variance, n);
         layer->rolling_mean_gpu = cuda_make_array(layer->mean, n);
         layer->rolling_variance_gpu = cuda_make_array(layer->variance, n);
-        layer->x_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
-        layer->x_norm_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->scale_updates_gpu = cuda_make_array(layer->scale_updates, n);
+            layer->mean_gpu = cuda_make_array(layer->mean, n);
+            layer->mean_delta_gpu = cuda_make_array(layer->mean, n);
+            layer->variance_delta_gpu = cuda_make_array(layer->variance, n);
+            layer->variance_gpu = cuda_make_array(layer->variance, n);
+            layer->x_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+            layer->x_norm_gpu = cuda_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+        }
     }
     if(layer->activation == PRELU){
-        layer->bottom_data_gpu = cuda_make_array(layer->bottom_data, batch * layer->out_h * layer->out_w * n);
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->bottom_data_gpu = cuda_make_array(layer->bottom_data, batch * layer->out_h * layer->out_w * n);
+            layer->slope_updates_gpu = cuda_make_array(layer->slope_updates, n);
+        }
         layer->slope_gpu = cuda_make_array(layer->slope, n);
-        layer->slope_updates_gpu = cuda_make_array(layer->slope_updates, n);
     }
     #ifdef CUDNN
     cudnnCreateTensorDescriptor(&layer->normTensorDesc);
@@ -197,30 +202,33 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     #endif
 #elif defined(OPENCL)
     layer->weights_cl = cl_make_array(layer->weights, c*n*size*size);
-    layer->weight_updates_cl = cl_make_array(layer->weight_updates, c*n*size*size);
-
     layer->biases_cl = cl_make_array(layer->biases, n);
-    layer->bias_updates_cl = cl_make_array(layer->bias_updates, n);
-
-    layer->delta_cl = cl_make_array(layer->delta, batch * layer->out_h * layer->out_w * n);
     layer->output_cl = cl_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
-
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->weight_updates_cl = cl_make_array(layer->weight_updates, c*n*size*size);
+        layer->bias_updates_cl = cl_make_array(layer->bias_updates, n);
+        layer->delta_cl = cl_make_array(layer->delta, batch * layer->out_h * layer->out_w * n);
+    }
     if(batch_normalize){
         layer->scales_cl = cl_make_array(layer->scales, n);
-        layer->scale_updates_cl = cl_make_array(layer->scale_updates, n);
-        layer->mean_cl = cl_make_array(layer->mean, n);
-        layer->mean_delta_cl = cl_make_array(layer->mean, n);
-        layer->variance_delta_cl = cl_make_array(layer->variance, n);
-        layer->variance_cl = cl_make_array(layer->variance, n);
         layer->rolling_mean_cl = cl_make_array(layer->rolling_mean, n);
         layer->rolling_variance_cl = cl_make_array(layer->rolling_variance, n);
-        layer->x_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
-        layer->x_norm_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->scale_updates_cl = cl_make_array(layer->scale_updates, n);
+            layer->mean_cl = cl_make_array(layer->mean, n);
+            layer->mean_delta_cl = cl_make_array(layer->mean, n);
+            layer->variance_delta_cl = cl_make_array(layer->variance, n);
+            layer->variance_cl = cl_make_array(layer->variance, n);
+            layer->x_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+            layer->x_norm_cl = cl_make_array(layer->output, layer->batch * layer->out_h * layer->out_w * n);
+        }
     }
     if(layer->activation == PRELU){
-        layer->bottom_data_cl = cl_make_array(layer->bottom_data, batch * layer->out_h * layer->out_w * n);
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->bottom_data_cl = cl_make_array(layer->bottom_data, batch * layer->out_h * layer->out_w * n);
+            layer->slope_updates_cl = cl_make_array(layer->slope_updates, n);
+        }
         layer->slope_cl = cl_make_array(layer->slope, n);
-        layer->slope_updates_cl = cl_make_array(layer->slope_updates, n);
     }
 #endif
 
@@ -597,8 +605,8 @@ void pull_convolutional_layer_cl(const convolutional_layer *layer)
     int size = layer->size*layer->size*layer->c*layer->n;
     cl_read_array(layer->weights_cl, layer->weights, size);
     cl_read_array(layer->biases_cl, layer->biases, layer->n);
-    cl_read_array(layer->weight_updates_cl, layer->weight_updates, size);
-    cl_read_array(layer->bias_updates_cl, layer->bias_updates, layer->n);
+    //cl_read_array(layer->weight_updates_cl, layer->weight_updates, size);
+    //cl_read_array(layer->bias_updates_cl, layer->bias_updates, layer->n);
     if (layer->batch_normalize){
         cl_read_array(layer->scales_cl, layer->scales, layer->n);
         cl_read_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n);
@@ -614,8 +622,8 @@ void push_convolutional_layer_cl(const convolutional_layer *layer)
     int size = layer->size*layer->size*layer->c*layer->n;
     cl_write_array(layer->weights_cl, layer->weights, size);
     cl_write_array(layer->biases_cl, layer->biases, layer->n);
-    cl_write_array(layer->weight_updates_cl, layer->weight_updates, size);
-    cl_write_array(layer->bias_updates_cl, layer->bias_updates, layer->n);
+    //cl_write_array(layer->weight_updates_cl, layer->weight_updates, size);
+    //cl_write_array(layer->bias_updates_cl, layer->bias_updates, layer->n);
     if (layer->batch_normalize){
         cl_write_array(layer->scales_cl, layer->scales, layer->n);
         //cl_write_array(layer->mean_cl, layer->mean, layer->n);

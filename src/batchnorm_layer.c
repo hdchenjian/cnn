@@ -11,52 +11,56 @@ image get_batchnorm_image(const batchnorm_layer *layer)
     return float_to_image(h,w,c,NULL);
 }
 
-batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h, int c)
+batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h, int c, int test)
 {
     fprintf(stderr, "BatchNorm:          %d x %d x %d\n", w,h,c);
     batchnorm_layer *l = calloc(1, sizeof(batchnorm_layer));
     l->batch = batch;
     l->subdivisions = subdivisions;
+    l->test = test;
     l->h = l->out_h = h;
     l->w = l->out_w = w;
     l->c = l->out_c = c;
+#ifndef FORWARD_GPU
     l->output = calloc(h * w * c * batch, sizeof(float));
-    l->delta  = calloc(h * w * c * batch, sizeof(float));
+#endif
+
     l->inputs = w*h*c;
     l->outputs = l->inputs;
-
     l->scales = calloc(c, sizeof(float));
     for(int i = 0; i < c; ++i) l->scales[i] = 1;
-    l->scale_updates = calloc(c, sizeof(float));
     l->biases = calloc(c, sizeof(float));
-    l->bias_updates = calloc(c, sizeof(float));
-
-    l->mean = calloc(c, sizeof(float));
-    l->variance = calloc(c, sizeof(float));
     l->rolling_mean = calloc(c, sizeof(float));
     l->rolling_variance = calloc(c, sizeof(float));
 
-    l->mean_delta = calloc(c, sizeof(float));
-    l->variance_delta = calloc(c, sizeof(float));
-    l->x = calloc(batch * l->out_h * l->out_w * l->out_c, sizeof(float));
-    l->x_norm = calloc(batch * l->out_h * l->out_w * l->out_c, sizeof(float));
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta  = calloc(h * w * c * batch, sizeof(float));
+        l->scale_updates = calloc(c, sizeof(float));
+        l->bias_updates = calloc(c, sizeof(float));
+        l->mean = calloc(c, sizeof(float));
+        l->variance = calloc(c, sizeof(float));
+        l->mean_delta = calloc(c, sizeof(float));
+        l->variance_delta = calloc(c, sizeof(float));
+        l->x = calloc(batch * l->out_h * l->out_w * l->out_c, sizeof(float));
+        l->x_norm = calloc(batch * l->out_h * l->out_w * l->out_c, sizeof(float));
+    }
 #ifdef GPU
     l->output_gpu = cuda_make_array(l->output, h * w * c * batch);
-    l->delta_gpu = cuda_make_array(l->delta, h * w * c * batch);
-    l->biases_gpu = cuda_make_array(l->biases, c);
-    l->bias_updates_gpu = cuda_make_array(l->bias_updates, c);
     l->scales_gpu = cuda_make_array(l->scales, c);
-    l->scale_updates_gpu = cuda_make_array(l->scale_updates, c);
-
-    l->mean_gpu = cuda_make_array(l->mean, c);
-    l->variance_gpu = cuda_make_array(l->variance, c);
+    l->biases_gpu = cuda_make_array(l->biases, c);
     l->rolling_mean_gpu = cuda_make_array(l->mean, c);
     l->rolling_variance_gpu = cuda_make_array(l->variance, c);
-
-    l->mean_delta_gpu = cuda_make_array(l->mean, c);
-    l->variance_delta_gpu = cuda_make_array(l->variance, c);
-    l->x_gpu = cuda_make_array(l->output, l->batch*l->outputs);
-    l->x_norm_gpu = cuda_make_array(l->output, l->batch*l->outputs);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta_gpu = cuda_make_array(l->delta, h * w * c * batch);
+        l->bias_updates_gpu = cuda_make_array(l->bias_updates, c);
+        l->scale_updates_gpu = cuda_make_array(l->scale_updates, c);
+        l->mean_gpu = cuda_make_array(l->mean, c);
+        l->variance_gpu = cuda_make_array(l->variance, c);
+        l->mean_delta_gpu = cuda_make_array(l->mean, c);
+        l->variance_delta_gpu = cuda_make_array(l->variance, c);
+        l->x_gpu = cuda_make_array(l->output, l->batch*l->outputs);
+        l->x_norm_gpu = cuda_make_array(l->output, l->batch*l->outputs);
+    }
     #ifdef CUDNN
     cudnnCreateTensorDescriptor(&l->normTensorDesc);
     cudnnCreateTensorDescriptor(&l->dstTensorDesc);
@@ -64,21 +68,23 @@ batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h,
     cudnnSetTensor4dDescriptor(l->normTensorDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, l->out_c, 1, 1); 
     #endif
 #elif defined(OPENCL)
-    l->biases_cl = cl_make_array(l->biases, c);
-    l->bias_updates_cl = cl_make_array(l->bias_updates, c);
-    l->delta_cl = cl_make_array(l->delta, batch * l->out_h * l->out_w * c);
     l->output_cl = cl_make_array(l->output, batch * l->out_h * l->out_w * c);
     l->scales_cl = cl_make_array(l->scales, c);
-    l->scale_updates_cl = cl_make_array(l->scale_updates, c);
-
-    l->mean_cl = cl_make_array(l->mean, c);
-    l->mean_delta_cl = cl_make_array(l->mean, c);
-    l->variance_delta_cl = cl_make_array(l->variance, c);
-    l->variance_cl = cl_make_array(l->variance, c);
+    l->biases_cl = cl_make_array(l->biases, c);
     l->rolling_mean_cl = cl_make_array(l->mean, c);
     l->rolling_variance_cl = cl_make_array(l->variance, c);
-    l->x_cl = cl_make_array(l->output, l->batch * l->out_h * l->out_w * c);
-    l->x_norm_cl = cl_make_array(l->output, l->batch * l->out_h * l->out_w * c);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->bias_updates_cl = cl_make_array(l->bias_updates, c);
+        l->delta_cl = cl_make_array(l->delta, batch * l->out_h * l->out_w * c);
+        l->scale_updates_cl = cl_make_array(l->scale_updates, c);
+
+        l->mean_cl = cl_make_array(l->mean, c);
+        l->mean_delta_cl = cl_make_array(l->mean, c);
+        l->variance_delta_cl = cl_make_array(l->variance, c);
+        l->variance_cl = cl_make_array(l->variance, c);
+        l->x_cl = cl_make_array(l->output, l->batch * l->out_h * l->out_w * c);
+        l->x_norm_cl = cl_make_array(l->output, l->batch * l->out_h * l->out_w * c);
+    }
 #endif
     return l;
 }
@@ -183,24 +189,6 @@ void forward_batchnorm_layer(const batchnorm_layer *layer, float *input, int tes
         scale_bias(layer->output, layer->scales, layer->batch, layer->c, layer->out_h*layer->out_w);
         add_bias(layer->output, layer->biases, layer->batch, layer->out_c, layer->out_h*layer->out_w);
     }
-    for(int b = 0; b < layer->batch; ++b){
-        for(int i = 0; i < layer->c; ++i){
-            for(int j = 0; j < layer->out_h*layer->out_w; ++j){
-                layer->output[(b*layer->c + i)*layer->out_h*layer->out_w + j] += layer->biases[i];
-            }
-        }
-    }
-    /*
-    int count = 0;
-    for(int i = 0; i < layer->outputs && count < 10; i++){
-        if(layer->output[i] > 0.001){
-            printf("%d %f\n", i, layer->output[i]);
-            count += 1;
-        }
-    }
-    for(int i = 0; i < layer->c; i++) printf("%d %f %f %f %f\n", i, layer->rolling_mean[i], layer->rolling_variance[i], layer->scales[i], layer->biases[i]);
-    exit(-1);
-    */
 }
 
 void backward_batchnorm_layer(const batchnorm_layer *layer, float* delta, int test)

@@ -1,3 +1,4 @@
+FORWARD_GPU=1
 GPU=1
 DEBUG=0
 CUDNN=1
@@ -24,6 +25,11 @@ ARFLAGS=rcs
 LDFLAGS= -lm -pthread
 COMMON= -Iinclude/ -Isrc/
 CFLAGS=-Wall -Wno-unknown-pragmas -Wfatal-errors -fPIC --std=gnu11 -Wunused-but-set-variable -Wno-unused-result
+
+ifeq ($(FORWARD_GPU), 1)
+COMMON+= -DFORWARD_GPU
+CFLAGS+= -DFORWARD_GPU
+endif
 
 ifeq ($(OPENMP), 1) 
 CFLAGS+= -fopenmp

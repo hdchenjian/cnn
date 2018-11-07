@@ -77,7 +77,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
     wint_t *text = parse_tokens(filename, &train_set_size);
     char *backup_directory = "/var/darknet/weight";
     char *base = basecfg(cfgfile);
-    network *net = load_network(cfgfile, weightfile);
+    network *net = load_network(cfgfile, weightfile, 0);
     net->output_layer = net->n - 1;
     fprintf(stderr, "Learning Rate: %g, Momentum: %g, Decay: %g, Inputs: %d, batch: %d, time_steps: %d, classes: %d\n",
             net->learning_rate, net->momentum, net->decay, net->inputs, net->batch, net->time_steps, net->classes);
@@ -152,8 +152,8 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
 {
     setlocale(LC_ALL, "");
     srand(time(0));
-    network *net = load_network(cfgfile, weightfile);
-    net->test = 1;      // 0: train, 1: valid
+    network *net = load_network(cfgfile, weightfile, 1);
+    //net->test = 1;      // 0: train, 1: valid
 
     int c = 0;
     int len = strlen(seed);

@@ -39,7 +39,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
 {
     char *base = basecfg(cfgfile);
     srand(time(0));
-    network *net = load_network(cfgfile, weightfile);
+    network *net = load_network(cfgfile, weightfile, 0);
     net->output_layer = net->n - 1;
 
     struct list *options = read_data_cfg(datacfg);
@@ -191,8 +191,7 @@ void print_detector_detections(FILE **fps, char *id, detection *dets, int total,
 void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
 {
     srand(time(0));
-    network *net = load_network(cfgfile, weightfile);
-    net->test = 1;      // 0: train, 1: valid
+    network *net = load_network(cfgfile, weightfile, 1);
     net->output_layer = net->n - 1;
 
     struct list *options = read_data_cfg(datacfg);

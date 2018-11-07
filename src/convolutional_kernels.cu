@@ -387,8 +387,10 @@ void pull_convolutional_layer(const convolutional_layer *layer)
 {
     cuda_pull_array(layer->weights_gpu, layer->weights, layer->size*layer->size*layer->c*layer->n);
     cuda_pull_array(layer->biases_gpu, layer->biases, layer->n);
-    cuda_pull_array(layer->weight_updates_gpu, layer->weight_updates, layer->size*layer->size*layer->c*layer->n);
-    cuda_pull_array(layer->bias_updates_gpu, layer->bias_updates, layer->n);
+    if(0 == layer->test){    // 0: train, 1: valid
+        cuda_pull_array(layer->weight_updates_gpu, layer->weight_updates, layer->size*layer->size*layer->c*layer->n);
+        cuda_pull_array(layer->bias_updates_gpu, layer->bias_updates, layer->n);
+    }
     if (layer->batch_normalize){
         cuda_pull_array(layer->scales_gpu, layer->scales, layer->n);
         cuda_pull_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);
@@ -404,8 +406,10 @@ void push_convolutional_layer(const convolutional_layer *layer)
     int size = layer->size*layer->size*layer->c*layer->n;
     cuda_push_array(layer->weights_gpu, layer->weights, size);
     cuda_push_array(layer->biases_gpu, layer->biases, layer->n);
-    cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, size);
-    cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->n);
+    if(0 == layer->test){    // 0: train, 1: valid
+        cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, size);
+        cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->n);
+    }
     if (layer->batch_normalize){
         cuda_push_array(layer->scales_gpu, layer->scales, layer->n);
         cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->n);

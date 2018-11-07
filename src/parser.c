@@ -60,7 +60,7 @@ convolutional_layer *parse_convolutional(struct list *options, network *net, int
     convolutional_layer *layer = make_convolutional_layer(h, w, c, n, size, stride, net->batch, activation,
                                                           &(net->workspace_size), batch_normalize, pad,
                                                           lr_mult, lr_decay_mult, bias_mult, bias_decay_mult,
-                                                          weight_filler, sigma, net->subdivisions);
+                                                          weight_filler, sigma, net->subdivisions, net->test);
     return layer;
 }
 
@@ -78,7 +78,7 @@ batchnorm_layer *parse_batchnorm(struct list *options, network *net, int count)
         c = m.c;
         if (h == 0) error("Layer before batchnorm layer must output image.");
     }
-    batchnorm_layer *layer = make_batchnorm_layer(net->batch, net->subdivisions, w, h, c);
+    batchnorm_layer *layer = make_batchnorm_layer(net->batch, net->subdivisions, w, h, c, net->test);
     return layer;
 }
 
@@ -180,7 +180,7 @@ route_layer *parse_route(struct list *options, network *net, int count)
         sizes[i] = get_network_output_size_layer(net, index);
     }
 
-    route_layer *layer = make_route_layer(net->batch, n, layers, sizes, net);
+    route_layer *layer = make_route_layer(net->batch, n, layers, sizes, net, net->test);
     return layer;
 }
 
@@ -199,7 +199,7 @@ shortcut_layer *parse_shortcut(struct list *options, network *net, int count)
         net->batch, index, shortcut_layer_output_image.w, shortcut_layer_output_image.h,
         shortcut_layer_output_image.c,
         previous_layer_output_image.w, previous_layer_output_image.h, previous_layer_output_image.c,
-        activation, prev_layer_weight, shortcut_layer_weight);
+        activation, prev_layer_weight, shortcut_layer_weight, net->test);
     return layer;
 }
 
@@ -552,10 +552,11 @@ void parse_net_options(struct list *options, network *net)
     net->learning_rate_init = net->learning_rate;
 }
 
-network *parse_network_cfg(char *filename)
+network *parse_network_cfg(char *filename, int test)
 {
     struct list *sections = read_cfg(filename);
     network *net = make_network(sections->size - 1);
+    net->test = test;
     struct node *n = sections->front;
     struct section *s = (struct section *)n->val;
     if(!(strcmp(s->type, "[network]")==0)) error("First section must be [network]");

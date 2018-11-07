@@ -1,5 +1,5 @@
 #include "network.h"
-network *parse_network_cfg(char *filename);
+network *parse_network_cfg(char *filename, int test);
 
 network *make_network(int n)
 {
@@ -24,9 +24,9 @@ network *make_network(int n)
     return net;
 }
 
-network *load_network(char *cfg, char *weights)
+network *load_network(char *cfg, char *weights, int test)
 {
-    network *net = parse_network_cfg(cfg);
+    network *net = parse_network_cfg(cfg, test);
     if(weights && weights[0] != 0){
         load_weights(net, weights);
     }
@@ -509,6 +509,7 @@ void backward_network(network *net, float *input)
 void forward_network_gpu(network *net, float *input)
 {
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
+        //printf("forward_network layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             //cudaError_t status = cudaMemset(net->workspace_gpu, 0, net->workspace_size);
