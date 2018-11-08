@@ -60,7 +60,7 @@ COMMON+= -DOPENCL -I/usr/local/cuda-8.0/targets/x86_64-linux/include
 LDFLAGS+= -L/usr/local/cuda-8.0/targets/x86_64-linux/lib -lOpenCL
 endif
 
-OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o normalize_layer.o rnn_layer.o lstm_layer.o gru_layer.o upsample_layer.o yolo_layer.o batchnorm_layer.o
+OBJ=cuda.o utils.o gemm.o image.o box.o blas.o data.o tree.o list.o parser.o network.o option_list.o activations.o convolutional_layer.o maxpool_layer.o softmax_layer.o avgpool_layer.o cost_layer.o connected_layer.o dropout_layer.o route_layer.o shortcut_layer.o normalize_layer.o rnn_layer.o lstm_layer.o gru_layer.o upsample_layer.o yolo_layer.o batchnorm_layer.o detector.o classifier.o
 
 ifeq ($(OPENCL), 1)
 OBJ+= blas_cl.o opencl.o
@@ -76,7 +76,7 @@ LDFLAGS+= -lstdc++
 OBJ+=blas_kernels.o convolutional_kernels.o activation_kernels.o maxpool_layer_kernels.o dropout_layer_kernals.o avgpool_layer_kernals.o
 endif
 
-EXECOBJA=classifier.o cnn.o rnn.o detector.o
+EXECOBJA=cnn.o rnn.o
 EXECOBJ = $(addprefix $(OBJDIR), $(EXECOBJA))
 EXECOBJA_TEST=test.o
 EXECOBJ_TEST = $(addprefix $(OBJDIR), $(EXECOBJA_TEST))

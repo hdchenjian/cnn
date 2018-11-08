@@ -361,6 +361,68 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
     }
 }
 
+network *net_recognition = NULL;
+void init_recognition(const char *cfgfile, const char *weightfile)
+{
+    srand(time(0));
+    net_recognition = load_network(cfgfile, weightfile, 1);
+    fprintf(stderr, "net->classes: %d, net->batch: %d\n", net_recognition->classes, net_recognition->batch);
+}
+
+void run_recognition(float *image_data, int face_num, float *feature)
+{
+    if(net_recognition == NULL){
+        printf("error: please call init_recognition first\n");
+        return;
+    }
+    int net_batch = 5;
+    int forward_times = 1;
+    if(face_num <= net_batch) {
+        forward_times = 1;
+    } else {
+        if(face_num % net_batch == 0) forward_times = face_num / net_batch;
+        else forward_times = face_num / net_batch + 1;
+    }
+    int *truth_label_index = calloc(face_num, sizeof(int));
+    int *truth_label_index_bak = truth_label_index;
+    int network_output_size = get_network_output_size_layer(net_recognition, net_recognition->output_layer);
+#ifdef GPU
+    float *network_output = malloc(net_batch * network_output_size * sizeof(float));
+#endif
+    for(int i = 0; i < forward_times; i++){
+        if(face_num <= net_batch){ net_recognition->batch = face_num;
+        } else {
+            if(face_num % net_batch == 0) {
+                net_recognition->batch = net_batch;
+            } else {
+                if(i < forward_times - 1) net_recognition->batch = net_batch;
+                else net_recognition->batch = face_num % net_batch;
+            }
+        }
+        valid_network(net_recognition, image_data, truth_label_index_bak);
+        image_data += net_recognition->batch * net_recognition->w * net_recognition->h * net_recognition->c;
+        truth_label_index_bak += net_recognition->batch;
+#ifndef GPU
+        float *network_output = get_network_layer_data(net_recognition, net_recognition->output_layer, 0, 0);
+#elif defined(GPU)
+        float *network_output_gpu = get_network_layer_data(net_recognition, net_recognition->output_layer, 0, 1);
+        cuda_pull_array(network_output_gpu, network_output, network_output_size * net_batch);
+#endif
+        //printf("network_output_size %d\n", network_output_size);
+        memcpy(feature, network_output, net_recognition->batch * network_output_size * sizeof(float));
+    }
+#ifdef GPU
+    free(network_output);
+#endif
+    free(truth_label_index);
+}
+
+void uninit_recognition()
+{
+    if(net_recognition) free_network(net_recognition);
+    else printf("error: please call init_recognition first\n");
+}
+
 void run_classifier(int argc, char **argv)
 {
     double time_start = what_time_is_it_now();;

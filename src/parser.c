@@ -431,7 +431,7 @@ struct list *read_data_cfg(char *filename)
     return options;
 }
 
-struct list *read_cfg(char *filename)
+struct list *read_cfg(const char *filename)
 {
     FILE *file = fopen(filename, "r");
     if(file == 0){
@@ -552,7 +552,7 @@ void parse_net_options(struct list *options, network *net)
     net->learning_rate_init = net->learning_rate;
 }
 
-network *parse_network_cfg(char *filename, int test)
+network *parse_network_cfg(const char *filename, int test)
 {
     struct list *sections = read_cfg(filename);
     network *net = make_network(sections->size - 1);

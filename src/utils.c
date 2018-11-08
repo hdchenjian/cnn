@@ -43,7 +43,7 @@ int *read_intlist(char *gpu_list, int *ngpus, int d)
     return gpus;
 }
 
-void file_error(char *s)
+void file_error(const char *s)
 {
     fprintf(stderr, "Couldn't open file: %s\n", s);
     exit(0);

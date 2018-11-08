@@ -206,7 +206,7 @@ void reset_rnn_state(network *net, int b);
 void reset_lstm_state(network *net, int b);
 void reset_gru_state(network *net, int b);
 network *make_network(int n);
-network *load_network(char *cfg, char *weights, int test);
+network *load_network(const char *cfg, const char *weights, int test);
 void free_network(network *net);
 void train_network(network *net, float *input, int *truth_label_index);
 void train_network_detect(network *net, batch_detect d);
@@ -216,7 +216,7 @@ int get_network_output_size_layer(network *net, int i);
 image get_network_image_layer(network *net, int i);
 float update_current_learning_rate(network * net);
 void save_weights(network *net, char *filename);
-void load_weights(network *net, char *filename);
+void load_weights(network *net, const char *filename);
 detection *get_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, int *num);
 
 #ifdef OPENCL

@@ -40,7 +40,6 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
     char *base = basecfg(cfgfile);
     srand(time(0));
     network *net = load_network(cfgfile, weightfile, 0);
-    net->output_layer = net->n - 1;
 
     struct list *options = read_data_cfg(datacfg);
     char *backup_directory = option_find_str(options, "backup", "/backup/");
@@ -192,7 +191,6 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
 {
     srand(time(0));
     network *net = load_network(cfgfile, weightfile, 1);
-    net->output_layer = net->n - 1;
 
     struct list *options = read_data_cfg(datacfg);
     char *label_list = option_find_str(options, "names", "data/names.list");
@@ -247,6 +245,77 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
         free_list_contents(plist);
         free_list(plist);
     }
+}
+
+network *net_detect = NULL;
+void init_detector(const char *cfgfile, const char *weightfile)
+{
+    srand(time(0));
+    net_detect = load_network(cfgfile, weightfile, 1);
+    //fprintf(stderr, "net->classes: %d, net->batch: %d\n", net->classes, net->batch);
+    if(net_detect->batch != 1){
+        printf("\nerror: net->batch != 1\n");
+        exit(-1);
+    }
+}
+
+void run_detection(float *image_data, int width, int height, int channel, int image_original_w, int image_original_h,
+                   int *detection_bbox, int max_bbox_num, int *total_bbox_num)
+{
+    if(net_detect == NULL){
+        printf("error: please call init_detector first\n");
+        return;
+    }
+    float thresh = .3;
+    float nms = .45;
+    int *map = 0;
+    image input;
+    input.data = image_data;
+    input.w = width;
+    input.h = height;
+    input.c = channel;
+    image train = make_empty_image(net_detect->w, net_detect->h, input.c);
+    train.data = malloc(train.h * train.w * train.c * sizeof(float));
+    fill_image(train, 0.5f);
+    embed_image(input, train, (net_detect->w - input.w) / 2, (net_detect->h - input.h) / 2);
+
+    forward_network_test(net_detect, train.data);
+    free_image(train);
+    int nboxes = 0;
+    detection *dets = get_network_boxes(net_detect, image_original_w, image_original_h, thresh, map, 0, &nboxes);
+    if (nms) do_nms_sort(dets, nboxes, net_detect->classes, nms);
+
+    int bbox_num = 0;
+    for(int i = 0; i < nboxes; ++i){
+        float xmin = dets[i].bbox.x - dets[i].bbox.w/2. + 1;
+        float xmax = dets[i].bbox.x + dets[i].bbox.w/2. + 1;
+        float ymin = dets[i].bbox.y - dets[i].bbox.h/2. + 1;
+        float ymax = dets[i].bbox.y + dets[i].bbox.h/2. + 1;
+        if (xmin < 1) xmin = 1;
+        if (ymin < 1) ymin = 1;
+        if (xmax > image_original_w) xmax = image_original_w;
+        if (ymax > image_original_h) ymax = image_original_h;
+        for(int j = 0; j < net_detect->classes; ++j){
+            if (dets[i].prob[j] && bbox_num < max_bbox_num){
+                detection_bbox[bbox_num * 4] = xmin;
+                detection_bbox[bbox_num * 4 + 1] = ymin;
+                detection_bbox[bbox_num * 4 + 2] = xmax;
+                detection_bbox[bbox_num * 4 + 3] = ymax;
+                bbox_num += 1;
+            }
+        }
+    }
+    *total_bbox_num = bbox_num;
+    for(int i = 0; i < nboxes; ++i){
+        free_ptr(dets[i].prob);
+    }
+    free_ptr(dets);
+}
+
+void uninit_detector()
+{
+    if(net_detect) free_network(net_detect);
+    else printf("error: please call init_detector first\n");
 }
 
 void run_detector(int argc, char **argv)
