@@ -172,6 +172,7 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     static cl_kernel kernel_shortcut_cl = 0;
     static cl_kernel kernel_forward_maxpool_layer_cl = 0;
     static cl_kernel kernel_upsample_cl = 0;
+    static cl_kernel kernel_l2normalize_cl = 0;
     if(strcmp(kernelname, "convolutional_bias_cl") == 0){
         if(!kernel_convolutional_bias) kernel_convolutional_bias = get_kernel(kernelname, options);
         return kernel_convolutional_bias;
@@ -226,6 +227,9 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     } else if(strcmp(kernelname, "upsample_cl") == 0){
         if(!kernel_upsample_cl) kernel_upsample_cl = get_kernel(kernelname, options);
         return kernel_upsample_cl;
+    } else if(strcmp(kernelname, "l2normalize_cl") == 0){
+        if(!kernel_l2normalize_cl) kernel_l2normalize_cl = get_kernel(kernelname, options);
+        return kernel_l2normalize_cl;
     } else {
         printf("get_kernel_by_name kernelname: %s, not found\n", kernelname);
         exit(-1);
@@ -248,7 +252,9 @@ float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i)
     }
     axpy_cpu(n, -1, x, 1, x_cl, 1);
     float err = dot_cpu(n, x_cl, 1, x_cl, 1);
-    printf("%d: %s, error: %f, sqrtf(error / n): %f, compare array length: %d\n", i, s, err, sqrtf(err/n), n);
+    printf("%d: %s, error: %f, ", i, s, err);
+    if(err < 0.00001) printf("\n");
+    else printf(" sqrtf(error / n): %f, compare array length: %d\n", sqrtf(err/n), n);
     free(x_cl);
     return err;
 }

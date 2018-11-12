@@ -1,8 +1,8 @@
 #include "normalize_layer.h"
 
-normalize_layer *make_normalize_layer(int w, int h, int c, int batch)
+normalize_layer *make_normalize_layer(int w, int h, int c, int batch, int test)
 {
-	int inputs = w * h * c;
+    int inputs = w * h * c;
     fprintf(stderr, "Normalize:          %d x %d x %d, %d inputs\n", w, h, c, inputs);
     normalize_layer *l = calloc(1, sizeof(normalize_layer));
     l->w = w;
@@ -11,20 +11,29 @@ normalize_layer *make_normalize_layer(int w, int h, int c, int batch)
     l->inputs = inputs;
     l->outputs = inputs;
     l->batch = batch;
+    l->test = test;
+#ifndef FORWARD_GPU
     l->output = calloc(inputs*batch, sizeof(float));
-    l->delta = calloc(inputs*batch, sizeof(float));
-    l->norm_data = calloc(batch * l->w * l->h, sizeof(float));
+#endif
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta = calloc(inputs*batch, sizeof(float));
+        l->norm_data = calloc(batch * l->w * l->h, sizeof(float));
+    }
 #ifdef GPU
     l->output_gpu = cuda_make_array(l->output, inputs*batch);
-    l->delta_gpu = cuda_make_array(l->delta, inputs*batch);
-    l->norm_data_gpu = cuda_make_array(l->norm_data, l->w * l->h * batch);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta_gpu = cuda_make_array(l->delta, inputs*batch);
+        l->norm_data_gpu = cuda_make_array(l->norm_data, l->w * l->h * batch);
+    }
+#elif defined(OPENCL)
+    l->output_cl = cl_make_array(l->output, inputs*batch);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta_cl = cl_make_array(l->delta, inputs*batch);
+        l->norm_data_cl = cl_make_array(l->norm_data, l->w * l->h * batch);
+    }
 #endif
     return l;
 } 
-
-void resize_normalize_layer(const normalize_layer *l, int inputs)
-{
-}
 
 void forward_normalize_layer(const normalize_layer *l, float *input)
 {
@@ -56,4 +65,10 @@ void backward_normalize_layer_gpu(const normalize_layer *l, float *delta)
     backward_l2normalize_gpu(l->batch, l->c, l->w*l->h, l->norm_data_gpu, l->output_gpu, l->delta_gpu, delta);
 }
 
+#elif defined(OPENCL)
+void forward_normalize_layer_cl(const normalize_layer *l, cl_mem input)
+{
+    copy_cl(l->batch * l->inputs, input, 1, l->output_cl, 1);
+    l2normalize_cl(l->output_cl, l->batch, l->c, l->w*l->h, l->norm_data_cl);
+}
 #endif

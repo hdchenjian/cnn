@@ -132,15 +132,31 @@ void shortcut_cl(int batch, int w1, int h1, int c1, cl_mem add, int w2, int h2, 
 
 void add_bias_cl(int batch, int spatial, int channel, cl_mem biases_cl, cl_mem output_cl)
 {
-    cl_kernel kernel = get_kernel_by_name("convolutional_bias_cl", "-D BLOCK=32");
+    cl_kernel kernel = get_kernel_by_name("convolutional_bias_cl", 0);
     cl_uint i = 0;
-    cl.error = clSetKernelArg(kernel, i++, sizeof(channel), (void*) &channel);
-    cl.error = clSetKernelArg(kernel, i++, sizeof(spatial), (void*) &spatial);
-    cl.error = clSetKernelArg(kernel, i++, sizeof(biases_cl), (void*) &biases_cl);
-    cl.error = clSetKernelArg(kernel, i++, sizeof(output_cl), (void*) &output_cl);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(channel), (void*)&channel);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(spatial), (void*)&spatial);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(biases_cl), (void*)&biases_cl);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(output_cl), (void*)&output_cl);
     check_error(cl);
 
     const size_t global_size[] = {channel*spatial, batch};
     cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 2, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+void l2normalize_cl(cl_mem x, int batch, int filters, int spatial, cl_mem norm_data)
+{
+    cl_kernel kernel = get_kernel_by_name("l2normalize_cl", 0);
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(x), (void*)&x);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(batch), (void*)&batch);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(filters), (void*)&filters);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(spatial), (void*)&spatial);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(norm_data), (void*)&norm_data);
+    check_error(cl);
+
+    const size_t global_size[] = {batch*spatial};
+    cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 1, 0, global_size, 0, 0, 0, 0);
     check_error(cl);
 }

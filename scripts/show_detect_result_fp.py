@@ -27,7 +27,6 @@ failed_count = 0
 face_failed_count = 0
 face_count = 0
 for line in f.readlines():
-    count += 1
     line = line.strip('\n')
     img = cv2.imread(line)
     if line not in image_name_to_gt:

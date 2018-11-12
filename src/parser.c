@@ -157,7 +157,7 @@ connected_layer *parse_connected(struct list *options, network *net, int count)
     int batch_normalize = option_find_int(options, "batch_normalize", 0);
     connected_layer *layer = make_connected_layer(input, output, net->batch, 1, activation, weight_normalize, bias_term,
                                                   lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
-                                                  sigma, batch_normalize, net->subdivisions);
+                                                  sigma, batch_normalize, net->subdivisions, net->test);
     return layer;
 }
 
@@ -239,7 +239,7 @@ upsample_layer *parse_upsample(struct list *options, network *net, int count)
         c = m.c;
         if(h == 0) error("Layer before upsample layer must output image.");
     }
-    upsample_layer *layer = make_upsample_layer(net->batch, w, h, c, stride);
+    upsample_layer *layer = make_upsample_layer(net->batch, w, h, c, stride, net->test);
     return layer;
 }
 
@@ -318,7 +318,7 @@ normalize_layer *parse_normalize(struct list *options, network *net, int count)
         c = m.c;
         if(h == 0) error("Layer before normalize layer must output image.");
     }
-    normalize_layer *layer = make_normalize_layer(h,w,c,net->batch);
+    normalize_layer *layer = make_normalize_layer(h,w,c,net->batch, net->test);
     return layer;
 }
 

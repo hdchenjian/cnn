@@ -6,7 +6,7 @@ image get_upsample_image(const upsample_layer *layer)
     return float_to_image(layer->out_h, layer->out_w, layer->out_c, NULL);
 }
 
-upsample_layer *make_upsample_layer(int batch, int w, int h, int c, int stride)
+upsample_layer *make_upsample_layer(int batch, int w, int h, int c, int stride, int test)
 {
     upsample_layer *l = calloc(1, sizeof(upsample_layer));
     l->batch = batch;
@@ -20,14 +20,24 @@ upsample_layer *make_upsample_layer(int batch, int w, int h, int c, int stride)
     l->stride = stride;
     l->outputs = l->out_w*l->out_h*l->out_c;
     l->inputs = l->w*l->h*l->c;
-    l->delta =  calloc(l->outputs*batch, sizeof(float));
+    l->test = test;
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta =  calloc(l->outputs*batch, sizeof(float));
+    }
+#ifndef FORWARD_GPU
     l->output = calloc(l->outputs*batch, sizeof(float));;
+#endif
+
 
 #ifdef GPU
-    l->delta_gpu =  cuda_make_array(l->delta, l->outputs*batch);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta_gpu =  cuda_make_array(l->delta, l->outputs*batch);
+    }
     l->output_gpu = cuda_make_array(l->output, l->outputs*batch);
 #elif defined(OPENCL)
-    l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
+    if(0 == l->test){    // 0: train, 1: valid
+        l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
+    }
     l->output_cl = cl_make_array(l->output, l->outputs*batch);
 #endif
     fprintf(stderr, "upsample          %4d x%4d x%4d   ->  %4d x%4d x%4d, stride: %d\n", w, h, c, l->out_w, l->out_h, l->out_c, stride);

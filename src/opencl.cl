@@ -419,7 +419,7 @@ __kernel void forward_maxpool_layer_cl(int in_h, int in_w, int in_c, int stride,
         }
     }
     output[out_index] = max;
-    if(0 == l->test){    // 0: train, 1: valid
+    if(0 == test){    // 0: train, 1: valid
         indexes[out_index] = max_i;
     }
 }
@@ -443,4 +443,24 @@ __kernel void upsample_cl(__global float *x, int w, int h, int c, int batch, int
     int in_index = b*w*h*c + in_c*w*h + in_h*w + in_w;
     if(forward) out[out_index] = scale * x[in_index];
     //else atomicAdd(x+in_index, scale * out[out_index]);
+}
+
+__kernel void l2normalize_cl(__global float *x, int batch, int filters, int spatial, __global float *norm_data)
+{
+    int index_ = get_global_id(0);
+    int b = index_ / spatial;
+    int i = index_ % spatial;
+    int f;
+    float sum = 1e-6;
+    for(f = 0; f < filters; ++f){
+        int index = b*filters*spatial + f*spatial + i;
+        sum += (x[index] * x[index]);
+    }
+    sum = sqrt(sum);
+    //if(sum == 0) sum = 1;
+    //norm_data[b * spatial + i] = sum;
+    for(f = 0; f < filters; ++f){
+        int index = b*filters*spatial + f*spatial + i;
+        x[index] /= sum;
+    }
 }

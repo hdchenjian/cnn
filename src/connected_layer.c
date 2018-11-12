@@ -12,7 +12,7 @@ image get_connected_image(const connected_layer *layer)
 connected_layer *make_connected_layer(int inputs, int outputs, int batch, int steps, ACTIVATION activation,
                                       int weight_normalize, int bias_term, float lr_mult, float lr_decay_mult,
                                       float bias_mult, float bias_decay_mult, int weight_filler, float sigma,
-                                      int batch_normalize, int subdivisions)
+                                      int batch_normalize, int subdivisions, int test)
 {
     connected_layer *layer = calloc(1, sizeof(connected_layer));
     layer->bflop = (2.0F * inputs * outputs) / 1000000000.0F;
@@ -28,10 +28,12 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
     layer->inputs = inputs;
     layer->outputs = outputs;
     layer->subdivisions = subdivisions;
+    layer->test = test;
     layer->batch = batch;
     layer->steps = steps;
+#ifndef FORWARD_GPU
     layer->output = calloc(batch*outputs, sizeof(float));
-    layer->delta = calloc(batch*outputs, sizeof(float));
+#endif
 
     layer->weights = calloc(inputs*outputs, sizeof(float));  // layer->outputs is the number of rows
     if(weight_filler == 1){   // xavier
@@ -43,51 +45,78 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
         fprintf(stderr, "weight_filler not support\n");
         exit(-1);
     }
-    layer->weight_updates = calloc(inputs*outputs, sizeof(float));
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->delta = calloc(batch*outputs, sizeof(float));
+        layer->weight_updates = calloc(inputs*outputs, sizeof(float));
+        layer->bias_updates = calloc(outputs, sizeof(float));
+    }
     layer->biases = calloc(outputs, sizeof(float));
-    layer->bias_updates = calloc(outputs, sizeof(float));
     layer->activation = activation;
 
     if(layer->batch_normalize){
         layer->scales = calloc(outputs, sizeof(float));
-        layer->scale_updates = calloc(outputs, sizeof(float));
-        for(int i = 0; i < outputs; ++i){
-            layer->scales[i] = 1;
-        }
-
-        layer->mean = calloc(outputs, sizeof(float));
-        layer->variance = calloc(outputs, sizeof(float));
-
-        layer->mean_delta = calloc(outputs, sizeof(float));
-        layer->variance_delta = calloc(outputs, sizeof(float));
-
         layer->rolling_mean = calloc(outputs, sizeof(float));
         layer->rolling_variance = calloc(outputs, sizeof(float));
-        layer->x = calloc(batch * outputs, sizeof(float));
-        layer->x_norm = calloc(batch * outputs, sizeof(float));
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->scale_updates = calloc(outputs, sizeof(float));
+            for(int i = 0; i < outputs; ++i){
+                layer->scales[i] = 1;
+            }
+
+            layer->mean = calloc(outputs, sizeof(float));
+            layer->variance = calloc(outputs, sizeof(float));
+            layer->mean_delta = calloc(outputs, sizeof(float));
+            layer->variance_delta = calloc(outputs, sizeof(float));
+            layer->x = calloc(batch * outputs, sizeof(float));
+            layer->x_norm = calloc(batch * outputs, sizeof(float));
+        }
     }
 #ifdef GPU
     layer->biases_gpu = cuda_make_array(layer->biases, outputs);
-    layer->bias_updates_gpu = cuda_make_array(layer->bias_updates, outputs);
     layer->weights_gpu = cuda_make_array(layer->weights, outputs*inputs);
-    layer->weight_updates_gpu = cuda_make_array(layer->weight_updates, outputs*inputs);
     layer->output_gpu = cuda_make_array(layer->output, outputs*batch);
-    layer->delta_gpu = cuda_make_array(layer->delta, outputs*batch);
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->bias_updates_gpu = cuda_make_array(layer->bias_updates, outputs);
+        layer->weight_updates_gpu = cuda_make_array(layer->weight_updates, outputs*inputs);
+        layer->delta_gpu = cuda_make_array(layer->delta, outputs*batch);
+    }
 
     if(layer->batch_normalize){
         layer->scales_gpu = cuda_make_array(layer->scales, outputs);
-        layer->scale_updates_gpu = cuda_make_array(layer->scale_updates, outputs);
-
-        layer->mean_gpu = cuda_make_array(layer->mean, outputs);
-        layer->variance_gpu = cuda_make_array(layer->variance, outputs);
-
-        layer->mean_delta_gpu = cuda_make_array(layer->mean_delta, outputs);
-        layer->variance_delta_gpu = cuda_make_array(layer->variance_delta, outputs);
-
         layer->rolling_mean_gpu = cuda_make_array(layer->rolling_mean, outputs);
         layer->rolling_variance_gpu = cuda_make_array(layer->rolling_variance, outputs);
-        layer->x_gpu = cuda_make_array(layer->output, batch * outputs);
-        layer->x_norm_gpu = cuda_make_array(layer->output, batch * outputs);
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->scale_updates_gpu = cuda_make_array(layer->scale_updates, outputs);
+            layer->mean_gpu = cuda_make_array(layer->mean, outputs);
+            layer->variance_gpu = cuda_make_array(layer->variance, outputs);
+            layer->mean_delta_gpu = cuda_make_array(layer->mean_delta, outputs);
+            layer->variance_delta_gpu = cuda_make_array(layer->variance_delta, outputs);
+            layer->x_gpu = cuda_make_array(layer->output, batch * outputs);
+            layer->x_norm_gpu = cuda_make_array(layer->output, batch * outputs);
+        }
+    }
+#elif defined(OPENCL)
+    layer->biases_cl = cl_make_array(layer->biases, outputs);
+    layer->weights_cl = cl_make_array(layer->weights, outputs*inputs);
+    layer->output_cl = cl_make_array(layer->output, outputs*batch);
+    if(0 == layer->test){    // 0: train, 1: valid
+        layer->bias_updates_cl = cl_make_array(layer->bias_updates, outputs);
+        layer->weight_updates_cl = cl_make_array(layer->weight_updates, outputs*inputs);
+        layer->delta_cl = cl_make_array(layer->delta, outputs*batch);
+    }
+    if(batch_normalize){
+        layer->scales_cl = cl_make_array(layer->scales, outputs);
+        layer->rolling_mean_cl = cl_make_array(layer->rolling_mean, outputs);
+        layer->rolling_variance_cl = cl_make_array(layer->rolling_variance, outputs);
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->scale_updates_cl = cl_make_array(layer->scale_updates, outputs);
+            layer->mean_cl = cl_make_array(layer->mean, outputs);
+            layer->variance_cl = cl_make_array(layer->variance, outputs);
+            layer->mean_delta_cl = cl_make_array(layer->mean_delta, outputs);
+            layer->variance_delta_cl = cl_make_array(layer->variance_delta, outputs);
+            layer->x_cl = cl_make_array(layer->output, layer->batch * outputs);
+            layer->x_norm_cl = cl_make_array(layer->output, layer->batch * outputs);
+        }
     }
 #endif
 
@@ -130,6 +159,23 @@ void free_connected_layer(void *input)
     if(layer->rolling_variance_gpu) cuda_free(layer->rolling_variance_gpu);
     if(layer->x_gpu) cuda_free(layer->x_gpu);
     if(layer->x_norm_gpu) cuda_free(layer->x_norm_gpu);
+#elif defined(OPENCL)
+    if(layer->weights_cl) clReleaseMemObject(layer->weights_cl);
+    if(layer->weight_updates_cl) clReleaseMemObject(layer->weight_updates_cl);
+    if(layer->biases_cl) clReleaseMemObject(layer->biases_cl);
+    if(layer->bias_updates_cl) clReleaseMemObject(layer->bias_updates_cl);
+    if(layer->output_cl) clReleaseMemObject(layer->output_cl);
+    if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
+    if(layer->scales_cl) clReleaseMemObject(layer->scales_cl);
+    if(layer->scale_updates_cl) clReleaseMemObject(layer->scale_updates_cl);
+    if(layer->mean_cl) clReleaseMemObject(layer->mean_cl);
+    if(layer->mean_delta_cl) clReleaseMemObject(layer->mean_delta_cl);
+    if(layer->variance_cl) clReleaseMemObject(layer->variance_cl);
+    if(layer->variance_delta_cl) clReleaseMemObject(layer->variance_delta_cl);
+    if(layer->rolling_mean_cl) clReleaseMemObject(layer->rolling_mean_cl);
+    if(layer->rolling_variance_cl) clReleaseMemObject(layer->rolling_variance_cl);
+    if(layer->x_cl) clReleaseMemObject(layer->x_cl);
+    if(layer->x_norm_cl) clReleaseMemObject(layer->x_norm_cl);
 #endif
     free_ptr(layer);
 }
@@ -332,9 +378,9 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
     int m = layer->batch;
     int n = layer->outputs;
     int k = layer->inputs;
-    float * a = input;
-    float * b = layer->weights_gpu;
-    float * c = layer->output_gpu;
+    float *a = input;
+    float *b = layer->weights_gpu;
+    float *c = layer->output_gpu;
     gemm_gpu(0, 1, m, n, k, 1, a, k, b, k, 0, c, n);
     if(layer->batch_normalize){
         forward_connected_batchnorm_layer_gpu(layer, test);
@@ -417,4 +463,68 @@ void push_connected_layer(const connected_layer *layer)
     }
 }
 
+#elif defined(OPENCL)
+void forward_connected_batchnorm_layer_cl(const connected_layer *layer, int test)
+{
+    if(0 == test){    // 0: train, 1: valid
+        copy_cl(layer->batch * layer->outputs, layer->output_cl, 1, layer->x_cl, 1);
+        fast_mean_cl(layer->output_cl, layer->batch, layer->outputs, 1, layer->mean_cl);
+        fast_variance_cl(layer->output_cl, layer->mean_cl, layer->batch, layer->outputs, 1,
+                          layer->variance_cl);
+
+        scal_cl(layer->outputs, .99, layer->rolling_mean_cl, 1);
+        axpy_cl(layer->outputs, .01, layer->mean_cl, 1, layer->rolling_mean_cl, 1);
+        scal_cl(layer->outputs, .99, layer->rolling_variance_cl, 1);
+        axpy_cl(layer->outputs, .01, layer->variance_cl, 1, layer->rolling_variance_cl, 1);
+
+        normalize_cl(layer->output_cl, layer->mean_cl, layer->variance_cl, layer->batch, layer->outputs, 1);
+        copy_cl(layer->batch * layer->outputs, layer->output_cl, 1, layer->x_norm_cl, 1);
+        scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->outputs, 1);
+    } else {
+        normalize_cl(layer->output_cl, layer->rolling_mean_cl, layer->rolling_variance_cl,
+                      layer->batch, layer->outputs, 1);
+        scale_bias_cl(layer->output_cl, layer->scales_cl, layer->batch, layer->outputs, 1);
+    }
+}
+
+void forward_connected_layer_cl(connected_layer *layer, cl_mem input, int test)
+{
+    if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid
+        //weight_normalize_gpu(layer->inputs, layer->outputs, layer->weights_gpu);
+    }
+
+    int m = layer->batch;
+    int n = layer->outputs;
+    int k = layer->inputs;
+    cl_mem a = input;
+    cl_mem b = layer->weights_cl;
+    cl_mem c = layer->output_cl;
+    gemm_cl(0, 1, m, n, k, 1, a, 0, k, b, 0, k, 0, c, 0, n);
+    if(layer->batch_normalize){
+        forward_connected_batchnorm_layer_cl(layer, test);
+    }
+    if(layer->bias_term){
+        add_bias_cl(layer->batch, 1, layer->outputs, layer->biases_cl, layer->output_cl);
+    }
+    if (layer->activation != LINEAR) {
+        activate_array_cl(layer->output_cl, layer->outputs*layer->batch, layer->activation);
+    }
+
+}
+
+void push_connected_layer_cl(const connected_layer *layer)
+{
+    int size = layer->inputs*layer->outputs;
+    cl_write_array(layer->weights_cl, layer->weights, size);
+    cl_write_array(layer->biases_cl, layer->biases, layer->outputs);
+    //cl_write_array(layer->weight_updates_cl, layer->weight_updates, size);
+    //cl_write_array(layer->bias_updates_cl, layer->bias_updates, layer->outputs);
+    if (layer->batch_normalize){
+        cl_write_array(layer->scales_cl, layer->scales, layer->outputs);
+        //cl_write_array(layer->mean_cl, layer->mean, layer->outputs);
+        //cl_write_array(layer->variance_cl, layer->variance, layer->outputs);
+        cl_write_array(layer->rolling_mean_cl, layer->rolling_mean, layer->outputs);
+        cl_write_array(layer->rolling_variance_cl, layer->rolling_variance, layer->outputs);
+    }
+}
 #endif

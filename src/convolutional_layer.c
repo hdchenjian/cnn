@@ -591,7 +591,9 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
     //if(index == 0) return;
 
     if(layer->activation == PRELU){
-        copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->bottom_data_cl, 1);
+        if(0 == layer->test){    // 0: train, 1: valid
+            copy_cl(layer->batch * layer->out_h * layer->out_w * layer->n, layer->output_cl, 1, layer->bottom_data_cl, 1);
+        }
         int dim = layer->out_h * layer->out_w;
         activate_prelu_array_cl(layer->output_cl, layer->slope_cl, layer->batch, layer->n, dim);
     } else if (layer->activation == LINEAR) {

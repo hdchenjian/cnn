@@ -24,7 +24,9 @@ maxpool_layer *make_maxpool_layer(int h, int w, int c, int size, int stride, int
     layer->out_w = (w + padding - size)/stride + 1;
     layer->out_h = (h + padding - size)/stride + 1;
     layer->outputs = layer->out_h * layer->out_w * c;
+#ifndef FORWARD_GPU
     layer->output = calloc(batch * layer->outputs, sizeof(float));
+#endif
     if(0 == layer->test){    // 0: train, 1: valid
         layer->delta = calloc(batch * layer->outputs, sizeof(float));
         layer->indexes = calloc(layer->outputs * batch, sizeof(int));

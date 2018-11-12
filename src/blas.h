@@ -96,5 +96,6 @@ void fast_variance_cl(cl_mem x, cl_mem mean, int batch, int filters, int spatial
 void activate_prelu_array_cl(cl_mem x, cl_mem slope_cl, int batch, int filters, int spatial);
 void shortcut_cl(int batch, int w1, int h1, int c1, cl_mem add, int w2, int h2, int c2, float s1, float s2, cl_mem out);
 void add_bias_cl(int batch, int spatial, int channel, cl_mem biases_cl, cl_mem output_cl);
+void l2normalize_cl(cl_mem x, int batch, int filters, int spatial, cl_mem norm_data);
 #endif
 #endif
