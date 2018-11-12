@@ -175,6 +175,81 @@ void free_network(network *net)
     free_ptr(net);
 }
 
+void free_network_weight_bias_cpu(network *net)
+{
+    for(int i = 0; i < net->n; ++i){
+        if(net->layers_type[i] == CONVOLUTIONAL){
+            convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            if(layer->weights) free_ptr(layer->weights);
+            if(layer->biases) free_ptr(layer->biases);
+            if(layer->output) free_ptr(layer->output);
+            if(layer->scales) free_ptr(layer->scales);
+            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
+            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+            if(layer->slope) free_ptr(layer->slope);
+        }else if(net->layers_type[i] == BATCHNORM){
+            batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->biases) free_ptr(layer->biases);
+            if(layer->scales) free_ptr(layer->scales);
+            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
+            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+        } else if(net->layers_type[i] == CONNECTED){
+            connected_layer *layer = (connected_layer *)net->layers[i];
+            if(layer->weights) free_ptr(layer->weights);
+            if(layer->output) free_ptr(layer->output);
+            if(layer->biases) free_ptr(layer->biases);
+            if(layer->scales) free_ptr(layer->scales);
+            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
+            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+        } else if(net->layers_type[i] == RNN){
+        } else if(net->layers_type[i] == LSTM){
+        } else if(net->layers_type[i] == GRU){
+        } else if(net->layers_type[i] == ROUTE){
+            route_layer *layer = (route_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+        } else if(net->layers_type[i] == SHORTCUT){
+            shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+        } else if(net->layers_type[i] == MAXPOOL){
+            maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->indexes) free_ptr(layer->indexes);
+        } else if(net->layers_type[i] == UPSAMPLE){
+            upsample_layer *layer = (upsample_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+        } else if(net->layers_type[i] == YOLO){
+        } else if(net->layers_type[i] == AVGPOOL){
+        } else if(net->layers_type[i] == NORMALIZE){
+            normalize_layer *layer = (normalize_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->norm_data) free_ptr(layer->norm_data);
+        } else if(net->layers_type[i] == DROPOUT){
+            dropout_layer *layer = (dropout_layer *)net->layers[i];
+            if(layer->rand) free_ptr(layer->rand);
+        } else if(net->layers_type[i] == SOFTMAX){
+            softmax_layer *layer = (softmax_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->loss) free_ptr(layer->loss);
+            if(layer->cost) free_ptr(layer->cost);
+        } else if(net->layers_type[i] == COST){
+            cost_layer *layer = (cost_layer *)net->layers[i];
+            if(layer->output) free_ptr(layer->output);
+            if(layer->delta) free_ptr(layer->delta);
+            if(layer->cost) free_ptr(layer->cost);
+        } else {
+            printf("free_network layers_type error, layer: %d\n", i);
+            exit(-1);
+        }
+    }
+    if(net->workspace) free_ptr(net->workspace);
+}
+
 float update_current_learning_rate(network *net)
 {
     switch (net->policy) {

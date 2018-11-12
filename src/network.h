@@ -208,6 +208,7 @@ void reset_gru_state(network *net, int b);
 network *make_network(int n);
 network *load_network(const char *cfg, const char *weights, int test);
 void free_network(network *net);
+void free_network_weight_bias_cpu(network *net);
 void train_network(network *net, float *input, int *truth_label_index);
 void train_network_detect(network *net, batch_detect d);
 void valid_network(network *net, float *input, int *truth_label_index);

@@ -364,9 +364,14 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 network *net_recognition = NULL;
 void init_recognition(const char *cfgfile, const char *weightfile)
 {
+    if(net_recognition != NULL){
+        printf("error: has call init_recognition already\n");
+        return;
+    }
     srand(time(0));
     net_recognition = load_network(cfgfile, weightfile, 1);
     fprintf(stderr, "net->classes: %d, net->batch: %d\n", net_recognition->classes, net_recognition->batch);
+    free_network_weight_bias_cpu(net_recognition);
 }
 
 void run_recognition(float *image_data, int face_num, float *feature)

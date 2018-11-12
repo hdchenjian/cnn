@@ -250,6 +250,10 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
 network *net_detect = NULL;
 void init_detector(const char *cfgfile, const char *weightfile)
 {
+    if(net_detect != NULL){
+        printf("error: has call init_detector already\n");
+        return;
+    }
     srand(time(0));
     net_detect = load_network(cfgfile, weightfile, 1);
     //fprintf(stderr, "net->classes: %d, net->batch: %d\n", net->classes, net->batch);
@@ -257,6 +261,7 @@ void init_detector(const char *cfgfile, const char *weightfile)
         printf("\nerror: net->batch != 1\n");
         exit(-1);
     }
+    free_network_weight_bias_cpu(net_detect);
 }
 
 void run_detection(float *image_data, int width, int height, int channel, int image_original_w, int image_original_h,
