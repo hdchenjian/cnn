@@ -23,14 +23,16 @@ typedef struct{
     float *output, *delta;
     float *weights, *weight_updates, *biases, *bias_updates;
     float *weights_gpu, *weight_updates_gpu, *biases_gpu, *bias_updates_gpu, *delta_gpu, *output_gpu;
-    cl_mem weights_cl, weight_updates_cl, biases_cl, bias_updates_cl, delta_cl, output_cl;
     ACTIVATION activation;
     float lr_mult, lr_decay_mult, bias_mult, bias_decay_mult;
     float *mean, *mean_delta, *variance, *variance_delta, *rolling_mean, *rolling_variance, *x, *x_norm, *scales, *scale_updates;
     float *mean_gpu, *mean_delta_gpu, *variance_gpu, *variance_delta_gpu, *rolling_mean_gpu, *rolling_variance_gpu, *x_gpu,
         *x_norm_gpu, *scales_gpu, *scale_updates_gpu;
+#ifdef OPENCL
+    cl_mem weights_cl, weight_updates_cl, biases_cl, bias_updates_cl, delta_cl, output_cl;
     cl_mem mean_cl, mean_delta_cl, variance_cl, variance_delta_cl, rolling_mean_cl, rolling_variance_cl, x_cl,
         x_norm_cl, scales_cl, scale_updates_cl;
+#endif
 } connected_layer;
 
 connected_layer *make_connected_layer(int inputs, int outputs, int batch, int steps, ACTIVATION activation, int weight_normalize,
