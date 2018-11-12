@@ -454,8 +454,10 @@ void push_connected_layer(const connected_layer *layer)
 {
     cuda_push_array(layer->weights_gpu, layer->weights, layer->inputs*layer->outputs);
     cuda_push_array(layer->biases_gpu, layer->biases, layer->outputs);
-    cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
-    cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
+    if(0 == layer->test){    // 0: train, 1: valid
+        cuda_push_array(layer->weight_updates_gpu, layer->weight_updates, layer->inputs*layer->outputs);
+        cuda_push_array(layer->bias_updates_gpu, layer->bias_updates, layer->outputs);
+    }
     if (layer->batch_normalize){
         cuda_push_array(layer->scales_gpu, layer->scales, layer->outputs);
         cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->outputs);

@@ -14,22 +14,22 @@ normalize_layer *make_normalize_layer(int w, int h, int c, int batch, int test)
     l->test = test;
 #ifndef FORWARD_GPU
     l->output = calloc(inputs*batch, sizeof(float));
+    l->norm_data = calloc(batch * l->w * l->h, sizeof(float));
 #endif
     if(0 == l->test){    // 0: train, 1: valid
         l->delta = calloc(inputs*batch, sizeof(float));
-        l->norm_data = calloc(batch * l->w * l->h, sizeof(float));
     }
 #ifdef GPU
     l->output_gpu = cuda_make_array(l->output, inputs*batch);
+    l->norm_data_gpu = cuda_make_array(l->norm_data, l->w * l->h * batch);
     if(0 == l->test){    // 0: train, 1: valid
         l->delta_gpu = cuda_make_array(l->delta, inputs*batch);
-        l->norm_data_gpu = cuda_make_array(l->norm_data, l->w * l->h * batch);
     }
 #elif defined(OPENCL)
     l->output_cl = cl_make_array(l->output, inputs*batch);
+    l->norm_data_cl = cl_make_array(l->norm_data, l->w * l->h * batch);
     if(0 == l->test){    // 0: train, 1: valid
         l->delta_cl = cl_make_array(l->delta, inputs*batch);
-        l->norm_data_cl = cl_make_array(l->norm_data, l->w * l->h * batch);
     }
 #endif
     return l;
