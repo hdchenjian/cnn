@@ -159,7 +159,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
     save_weights(net, buff);
     free_network(net);
-    if(paths) free_ptr(paths);
+    if(paths) free_ptr((void *)&paths);
     if(plist){
         free_list_contents(plist);
         free_list(plist);
@@ -232,7 +232,7 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
         fprintf(stderr, "%d loss: %f, %f Seconds\n", i, net->loss, what_time_is_it_now() - start_forward);
         print_detector_detections(fps, paths[i], dets, nboxes, net->classes, image_original_w, image_original_h);
         free_image(train);
-        free_ptr(dets);
+        free_ptr((void *)&dets);
     }
     for(int j = 0; j < net->classes; ++j){
         if(fps) fclose(fps[j]);
@@ -240,7 +240,7 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
     fprintf(stderr, "Total Detection Time: %f Seconds\n", what_time_is_it_now() - start);
     free_network(net);
     free_ptrs((void**)labels, net->classes);
-    if(paths) free_ptr(paths);
+    if(paths) free_ptr((void *)&paths);
     if(plist){
         free_list_contents(plist);
         free_list(plist);
@@ -248,6 +248,14 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile)
 }
 
 network *net_detect = NULL;
+
+
+void uninit_detector()
+{
+    if(net_detect) free_network(net_detect);
+    else printf("error: please call init_detector first\n");
+}
+
 void init_detector(const char *cfgfile, const char *weightfile)
 {
     if(net_detect != NULL){
@@ -259,6 +267,7 @@ void init_detector(const char *cfgfile, const char *weightfile)
     //fprintf(stderr, "net->classes: %d, net->batch: %d\n", net->classes, net->batch);
     if(net_detect->batch != 1){
         printf("\nerror: net->batch != 1\n");
+        uninit_detector();
         exit(-1);
     }
     free_network_weight_bias_cpu(net_detect);
@@ -312,15 +321,9 @@ void run_detection(float *image_data, int width, int height, int channel, int im
     }
     *total_bbox_num = bbox_num;
     for(int i = 0; i < nboxes; ++i){
-        free_ptr(dets[i].prob);
+        free_ptr((void *)&(dets[i].prob));
     }
-    free_ptr(dets);
-}
-
-void uninit_detector()
-{
-    if(net_detect) free_network(net_detect);
-    else printf("error: please call init_detector first\n");
+    free_ptr((void *)&dets);
 }
 
 void run_detector(int argc, char **argv)

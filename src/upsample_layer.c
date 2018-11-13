@@ -47,8 +47,8 @@ upsample_layer *make_upsample_layer(int batch, int w, int h, int c, int stride, 
 void free_upsample_layer(void *input)
 {
     upsample_layer *layer = (upsample_layer *)input;
-    if(layer->output) free_ptr(layer->output);
-    if(layer->delta) free_ptr(layer->delta);
+    if(layer->output) free_ptr((void *)&(layer->output));
+    if(layer->delta) free_ptr((void *)&(layer->delta));
 #ifdef GPU
     if(layer->output_gpu) cuda_free(layer->output_gpu);
     if(layer->delta_gpu) cuda_free(layer->delta_gpu);
@@ -56,7 +56,7 @@ void free_upsample_layer(void *input)
     if(layer->output_cl) clReleaseMemObject(layer->output_cl);
     if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
 #endif
-    free_ptr(layer);
+    free_ptr((void *)&layer);
 }
 
 void forward_upsample_layer(const upsample_layer *l, float *input)

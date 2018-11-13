@@ -112,22 +112,22 @@ lstm_layer *make_lstm_layer(int batch, int inputs, int outputs, int steps, int b
 void free_lstm_layer(void *input)
 {
     lstm_layer *layer = (lstm_layer *)input;
-    if(layer->output) free_ptr(layer->output);
-    if(layer->delta) free_ptr(layer->delta);
-    if(layer->prev_output) free_ptr(layer->prev_output);
-    if(layer->cell_cpu) free_ptr(layer->cell_cpu);
-    if(layer->prev_cell_cpu) free_ptr(layer->prev_cell_cpu);
-    if(layer->f_cpu) free_ptr(layer->f_cpu);
-    if(layer->i_cpu) free_ptr(layer->i_cpu);
-    if(layer->g_cpu) free_ptr(layer->g_cpu);
-    if(layer->o_cpu) free_ptr(layer->o_cpu);
-    if(layer->c_cpu) free_ptr(layer->c_cpu);
-    if(layer->h_cpu) free_ptr(layer->h_cpu);
-    if(layer->c_cpu_bak) free_ptr(layer->c_cpu_bak);
-    if(layer->h_cpu_bak) free_ptr(layer->h_cpu_bak);
-    if(layer->temp_cpu) free_ptr(layer->temp_cpu);
-    if(layer->temp2_cpu) free_ptr(layer->temp2_cpu);
-    if(layer->temp3_cpu) free_ptr(layer->temp3_cpu);
+    if(layer->output) free_ptr((void *)&(layer->output));
+    if(layer->delta) free_ptr((void *)&(layer->delta));
+    if(layer->prev_output) free_ptr((void *)&(layer->prev_output));
+    if(layer->cell_cpu) free_ptr((void *)&(layer->cell_cpu));
+    if(layer->prev_cell_cpu) free_ptr((void *)&(layer->prev_cell_cpu));
+    if(layer->f_cpu) free_ptr((void *)&(layer->f_cpu));
+    if(layer->i_cpu) free_ptr((void *)&(layer->i_cpu));
+    if(layer->g_cpu) free_ptr((void *)&(layer->g_cpu));
+    if(layer->o_cpu) free_ptr((void *)&(layer->o_cpu));
+    if(layer->c_cpu) free_ptr((void *)&(layer->c_cpu));
+    if(layer->h_cpu) free_ptr((void *)&(layer->h_cpu));
+    if(layer->c_cpu_bak) free_ptr((void *)&(layer->c_cpu_bak));
+    if(layer->h_cpu_bak) free_ptr((void *)&(layer->h_cpu_bak));
+    if(layer->temp_cpu) free_ptr((void *)&(layer->temp_cpu));
+    if(layer->temp2_cpu) free_ptr((void *)&(layer->temp2_cpu));
+    if(layer->temp3_cpu) free_ptr((void *)&(layer->temp3_cpu));
 
     free_connected_layer(layer->wf);
     free_connected_layer(layer->wi);
@@ -155,7 +155,7 @@ void free_lstm_layer(void *input)
     if(layer->temp2_gpu) cuda_free(layer->temp2_gpu);
     if(layer->temp3_gpu) cuda_free(layer->temp3_gpu);
 #endif
-    free_ptr(layer);
+    free_ptr((void *)&layer);
 }
 
 void update_lstm_layer(const lstm_layer *l, float learning_rate, float momentum, float decay)

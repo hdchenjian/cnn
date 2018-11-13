@@ -145,9 +145,9 @@ batch *load_csv_image_to_memory(char *filename, int batch_size, char **labels, i
             train_data[i].truth_label_index[j] = truth_lable_all[image_index];
         }
     }
-    free_ptr(index);
-    free_ptr(image_all);
-    free_ptr(truth_lable_all);
+    free_ptr((void *)&index);
+    free_ptr((void *)&image_all);
+    free_ptr((void *)&truth_lable_all);
     return train_data;
 }
 
@@ -203,7 +203,7 @@ batch *load_image_to_memory(char **paths, int batch_size, char **labels, int cla
             fill_truth(image_path, labels, classes, train_data[i].truth_label_index + j);
         }
     }
-    free_ptr(index);
+    free_ptr((void *)&index);
     printf("load_image_to_memory done: use memory: %f MB, spend %f s\n",
            batch_num * batch_size * (image_size + classes ) * sizeof(float) / 1024.0 / 1024.0,
            what_time_is_it_now() - time);

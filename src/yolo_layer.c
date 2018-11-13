@@ -52,12 +52,12 @@ yolo_layer *make_yolo_layer(int batch, int w, int h, int n, int total, int *mask
 void free_yolo_layer(void *input)
 {
     yolo_layer *layer = (yolo_layer *)input;
-    if(layer->biases) free_ptr(layer->biases);
-    if(layer->bias_updates) free_ptr(layer->bias_updates);
-    if(layer->mask) free_ptr(layer->mask);
-    if(layer->output) free_ptr(layer->output);
-    if(layer->delta) free_ptr(layer->delta);
-    if(layer->input_cpu) free_ptr(layer->input_cpu);
+    if(layer->biases) free_ptr((void *)&(layer->biases));
+    if(layer->bias_updates) free_ptr((void *)&(layer->bias_updates));
+    if(layer->mask) free_ptr((void *)&(layer->mask));
+    if(layer->output) free_ptr((void *)&(layer->output));
+    if(layer->delta) free_ptr((void *)&(layer->delta));
+    if(layer->input_cpu) free_ptr((void *)&(layer->input_cpu));
 #ifdef GPU
     if(layer->output_gpu) cuda_free(layer->output_gpu);
     if(layer->delta_gpu) cuda_free(layer->delta_gpu);
@@ -65,7 +65,7 @@ void free_yolo_layer(void *input)
     if(layer->output_cl) clReleaseMemObject(layer->output_cl);
     if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
 #endif
-    free_ptr(layer);
+    free_ptr((void *)&layer);
 }
 
 box get_yolo_box(float *x, float *biases, int n, int index, int i, int j, int lw, int lh, int w, int h, int stride)

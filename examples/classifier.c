@@ -230,7 +230,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
         free(all_train_data);
     }
     free_ptrs((void**)labels, net->classes);
-    if(paths) free_ptr(paths);
+    if(paths) free_ptr((void *)&paths);
     if(plist){
         free_list_contents(plist);
         free_list(plist);
@@ -354,7 +354,7 @@ void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
         free(all_valid_data);
     }
     free_ptrs((void**)labels, label_num);
-    if(paths) free_ptr(paths);
+    if(paths) free_ptr((void *)&paths);
     if(plist){
         free_list_contents(plist);
         free_list(plist);
@@ -426,6 +426,62 @@ void uninit_recognition()
 {
     if(net_recognition) free_network(net_recognition);
     else printf("error: please call init_recognition first\n");
+}
+
+network *net_spoofing = NULL;
+
+
+void uninit_spoofing()
+{
+    if(net_spoofing) free_network(net_spoofing);
+    else printf("error: please call init_spoofing first\n");
+}
+
+void init_spoofing(const char *cfgfile, const char *weightfile)
+{
+    if(net_spoofing != NULL){
+        printf("error: has call init_spoofing already\n");
+        return;
+    }
+    srand(time(0));
+    net_spoofing = load_network(cfgfile, weightfile, 1);
+    fprintf(stderr, "net->classes: %d, net->batch: %d\n", net_spoofing->classes, net_spoofing->batch);
+    if(net_spoofing->batch != 1){
+        printf("\nerror: net->batch != 1\n");
+        uninit_spoofing();
+        exit(-1);
+    }
+    free_network_weight_bias_cpu(net_spoofing);
+}
+
+int run_spoofing(float *image_data)
+{
+    if(net_spoofing == NULL){
+        printf("error: please call init_spoofing first\n");
+        return 0;
+    }
+    int truth_label_index = 0;
+    int network_output_size = get_network_output_size_layer(net_spoofing, net_spoofing->output_layer);
+
+    valid_network(net_spoofing, image_data, &truth_label_index);
+#ifndef GPU
+    float *network_output = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 0);
+#elif defined(GPU)
+    float *network_output = malloc(net_spoofing->batch * network_output_size * sizeof(float));
+    float *network_output_gpu = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 1);
+    cuda_pull_array(network_output_gpu, network_output, network_output_size * net_spoofing->batch);
+#endif
+    int is_real_face = 1;
+    if(network_output[0] >= network_output[1]) is_real_face = 1;
+    else is_real_face = 0;
+    for(int i = 0; i < network_output_size * net_spoofing->batch; i++){
+        printf("%d %f\n", i, network_output[i]);
+    }
+
+#ifdef GPU
+    free(network_output);
+#endif
+    return is_real_face;
 }
 
 void run_classifier(int argc, char **argv)

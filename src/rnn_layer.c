@@ -62,8 +62,8 @@ rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVAT
 void free_rnn_layer(void *input)
 {
     rnn_layer *layer = (rnn_layer *)input;
-    if(layer->state) free_ptr(layer->state);
-    if(layer->prev_state) free_ptr(layer->prev_state);
+    if(layer->state) free_ptr((void *)&(layer->state));
+    if(layer->prev_state) free_ptr((void *)&(layer->prev_state));
     free_connected_layer(layer->input_layer);
     free_connected_layer(layer->self_layer);
     free_connected_layer(layer->output_layer);
@@ -71,7 +71,7 @@ void free_rnn_layer(void *input)
     if(layer->output_gpu) cuda_free(layer->output_gpu);
     if(layer->delta_gpu) cuda_free(layer->delta_gpu);
 #endif
-    free_ptr(layer);
+    free_ptr((void *)&layer);
 }
 
 void update_rnn_layer(const rnn_layer *l, float learning_rate, float momentum, float decay)

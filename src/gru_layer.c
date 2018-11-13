@@ -93,15 +93,15 @@ gru_layer *make_gru_layer(int batch, int inputs, int outputs, int steps, int bat
 void free_gru_layer(void *input)
 {
     gru_layer *layer = (gru_layer *)input;
-    if(layer->output) free_ptr(layer->output);
-    if(layer->delta) free_ptr(layer->delta);
-    if(layer->state) free_ptr(layer->state);
-    if(layer->prev_state) free_ptr(layer->prev_state);
-    if(layer->forgot_state) free_ptr(layer->forgot_state);
-    if(layer->forgot_delta) free_ptr(layer->forgot_delta);
-    if(layer->r_cpu) free_ptr(layer->r_cpu);
-    if(layer->z_cpu) free_ptr(layer->z_cpu);
-    if(layer->h_cpu) free_ptr(layer->h_cpu);
+    if(layer->output) free_ptr((void *)&(layer->output));
+    if(layer->delta) free_ptr((void *)&(layer->delta));
+    if(layer->state) free_ptr((void *)&(layer->state));
+    if(layer->prev_state) free_ptr((void *)&(layer->prev_state));
+    if(layer->forgot_state) free_ptr((void *)&(layer->forgot_state));
+    if(layer->forgot_delta) free_ptr((void *)&(layer->forgot_delta));
+    if(layer->r_cpu) free_ptr((void *)&(layer->r_cpu));
+    if(layer->z_cpu) free_ptr((void *)&(layer->z_cpu));
+    if(layer->h_cpu) free_ptr((void *)&(layer->h_cpu));
 
     free_connected_layer(layer->wr);
     free_connected_layer(layer->wz);
@@ -120,7 +120,7 @@ void free_gru_layer(void *input)
     if(layer->z_gpu) cuda_free(layer->z_gpu);
     if(layer->h_gpu) cuda_free(layer->h_gpu);
 #endif
-    free_ptr(layer);
+    free_ptr((void *)&layer);
 }
 
 void update_gru_layer(const gru_layer *l, float learning_rate, float momentum, float decay)

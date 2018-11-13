@@ -144,8 +144,8 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
     char buff[256];
     sprintf(buff, "%s/%s_final.weights", backup_directory, base);
     save_weights(net, buff);
-    free_ptr(offsets);
-    free_ptr(text);
+    free_ptr((void *)&offsets);
+    free_ptr((void *)&text);
 }
 
 void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
@@ -209,11 +209,11 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
         }
         printf("%lc", c);
 #ifdef GPU
-        free_ptr(out);
+        free_ptr((void *)&out);
 #endif
     }
     printf("\n");
-    free_ptr(input);
+    free_ptr((void *)&input);
 }
 
 void generate_token(char *token_file)

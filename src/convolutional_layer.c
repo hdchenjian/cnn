@@ -642,25 +642,25 @@ void push_convolutional_layer_cl(const convolutional_layer *layer)
 void free_convolutional_layer(void *input)
 {
     convolutional_layer *layer = (convolutional_layer *)input;
-    if(layer->weights) free_ptr(layer->weights);
-    if(layer->weight_updates) free_ptr(layer->weight_updates);
-    if(layer->biases) free_ptr(layer->biases);
-    if(layer->bias_updates) free_ptr(layer->bias_updates);
-    if(layer->output) free_ptr(layer->output);
-    if(layer->delta) free_ptr(layer->delta);
-    if(layer->scales) free_ptr(layer->scales);
-    if(layer->scale_updates) free_ptr(layer->scale_updates);
-    if(layer->mean) free_ptr(layer->mean);
-    if(layer->mean_delta) free_ptr(layer->mean_delta);
-    if(layer->variance) free_ptr(layer->variance);
-    if(layer->variance_delta) free_ptr(layer->variance_delta);
-    if(layer->rolling_mean) free_ptr(layer->rolling_mean);
-    if(layer->rolling_variance) free_ptr(layer->rolling_variance);
-    if(layer->x) free_ptr(layer->x);
-    if(layer->x_norm) free_ptr(layer->x_norm);
-    if(layer->bottom_data) free_ptr(layer->bottom_data);
-    if(layer->slope) free_ptr(layer->slope);
-    if(layer->slope_updates) free_ptr(layer->slope_updates);
+    if(layer->weights) free_ptr((void *)&(layer->weights));
+    if(layer->weight_updates) free_ptr((void *)&(layer->weight_updates));
+    if(layer->biases) free_ptr((void *)&(layer->biases));
+    if(layer->bias_updates) free_ptr((void *)&(layer->bias_updates));
+    if(layer->output) free_ptr((void *)&(layer->output));
+    if(layer->delta) free_ptr((void *)&(layer->delta));
+    if(layer->scales) free_ptr((void *)&(layer->scales));
+    if(layer->scale_updates) free_ptr((void *)&(layer->scale_updates));
+    if(layer->mean) free_ptr((void *)&(layer->mean));
+    if(layer->mean_delta) free_ptr((void *)&(layer->mean_delta));
+    if(layer->variance) free_ptr((void *)&(layer->variance));
+    if(layer->variance_delta) free_ptr((void *)&(layer->variance_delta));
+    if(layer->rolling_mean) free_ptr((void *)&(layer->rolling_mean));
+    if(layer->rolling_variance) free_ptr((void *)&(layer->rolling_variance));
+    if(layer->x) free_ptr((void *)&(layer->x));
+    if(layer->x_norm) free_ptr((void *)&(layer->x_norm));
+    if(layer->bottom_data) free_ptr((void *)&(layer->bottom_data));
+    if(layer->slope) free_ptr((void *)&(layer->slope));
+    if(layer->slope_updates) free_ptr((void *)&(layer->slope_updates));
 #ifdef GPU
     if(layer->weights_gpu) cuda_free(layer->weights_gpu);
     if(layer->weight_updates_gpu) cuda_free(layer->weight_updates_gpu);
@@ -712,5 +712,5 @@ void free_convolutional_layer(void *input)
     if(layer->slope_cl) clReleaseMemObject(layer->slope_cl);
     if(layer->slope_updates_cl) clReleaseMemObject(layer->slope_updates_cl);
 #endif
-    free_ptr(layer);
+    free_ptr((void *)&layer);
 }

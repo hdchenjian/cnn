@@ -17,7 +17,7 @@ double what_time_is_it_now();
 void shuffle(void *arr, size_t n, size_t size);
 void sorta_shuffle(void *arr, size_t n, size_t size, size_t sections);
 void free_ptrs(void **ptrs, int n);
-void free_ptr(void *ptr);
+void free_ptr(void **ptr);
 int alphanum_to_int(char c);
 char int_to_alphanum(int i);
 int read_int(int fd);

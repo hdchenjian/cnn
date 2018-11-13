@@ -36,6 +36,7 @@ network *load_network(const char *cfg, const char *weights, int test)
 void free_network(network *net)
 {
     for(int i = 0; i < net->n; ++i){
+        //printf("free_network layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             free_convolutional_layer(net->layers[i]);
         }else if(net->layers_type[i] == BATCHNORM){
@@ -50,8 +51,8 @@ void free_network(network *net)
             free_gru_layer(net->layers[i]);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
@@ -59,11 +60,11 @@ void free_network(network *net)
             if(layer->output_cl) clReleaseMemObject(layer->output_cl);
             if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else if(net->layers_type[i] == SHORTCUT){
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
@@ -71,12 +72,12 @@ void free_network(network *net)
             if(layer->output_cl) clReleaseMemObject(layer->output_cl);
             if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->indexes) free_ptr(layer->indexes);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            if(layer->indexes) free_ptr((void *)&(layer->indexes));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
@@ -86,25 +87,25 @@ void free_network(network *net)
             if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
             if(layer->indexes_cl) clReleaseMemObject(layer->indexes_cl);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else if(net->layers_type[i] == UPSAMPLE){
             free_upsample_layer(net->layers[i]);
         } else if(net->layers_type[i] == YOLO){
             free_yolo_layer(net->layers[i]);
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else if(net->layers_type[i] == NORMALIZE){
             normalize_layer *layer = (normalize_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->norm_data) free_ptr(layer->norm_data);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            if(layer->norm_data) free_ptr((void *)&(layer->norm_data));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
@@ -114,49 +115,49 @@ void free_network(network *net)
             if(layer->delta_cl) clReleaseMemObject(layer->delta_cl);
             if(layer->norm_data_cl) clReleaseMemObject(layer->norm_data_cl);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else if(net->layers_type[i] == DROPOUT){
             dropout_layer *layer = (dropout_layer *)net->layers[i];
-            if(layer->rand) free_ptr(layer->rand);
+            if(layer->rand) free_ptr((void *)&(layer->rand));
 #ifdef GPU
             if(layer->rand_gpu) cuda_free(layer->rand_gpu);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->loss) free_ptr(layer->loss);
-            if(layer->cost) free_ptr(layer->cost);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            if(layer->loss) free_ptr((void *)&(layer->loss));
+            if(layer->cost) free_ptr((void *)&(layer->cost));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
             if(layer->loss_gpu) cuda_free(layer->loss_gpu);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->cost) free_ptr(layer->cost);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            if(layer->cost) free_ptr((void *)&(layer->cost));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
 #endif
-            free_ptr(layer);
+            free_ptr((void *)&layer);
         } else {
             printf("free_network layers_type error, layer: %d\n", i);
             exit(-1);
         }
     }
-    if(net->layers) free_ptr(net->layers);
-    if(net->layers_type) free_ptr(net->layers_type);
-    if(net->scales) free_ptr(net->scales);
-    if(net->steps) free_ptr(net->steps);
-    if(net->input) free_ptr(net->input);
-    if(net->truth) free_ptr(net->truth);
+    if(net->layers) free_ptr((void *)&(net->layers));
+    if(net->layers_type) free_ptr((void *)&(net->layers_type));
+    if(net->scales) free_ptr((void *)&(net->scales));
+    if(net->steps) free_ptr((void *)&(net->steps));
+    if(net->input) free_ptr((void *)&(net->input));
+    if(net->truth) free_ptr((void *)&(net->truth));
     // truth_label_index use batch data pointer;
-    if(net->workspace) free_ptr(net->workspace);
+    if(net->workspace) free_ptr((void *)&(net->workspace));
 #ifdef GPU
     if(net->input_gpu) cuda_free(net->input_gpu);
     if(net->truth_gpu) cuda_free(net->truth_gpu);
@@ -172,82 +173,83 @@ void free_network(network *net)
     //clReleaseKernel(kernel);
 
 #endif
-    free_ptr(net);
+    free_ptr((void *)&net);
 }
 
 void free_network_weight_bias_cpu(network *net)
 {
     for(int i = 0; i < net->n; ++i){
+        //printf("free_network_weight_bias_cpu layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
-            if(layer->weights) free_ptr(layer->weights);
-            if(layer->biases) free_ptr(layer->biases);
-            if(layer->output) free_ptr(layer->output);
-            if(layer->scales) free_ptr(layer->scales);
-            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
-            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
-            if(layer->slope) free_ptr(layer->slope);
+            if(layer->weights) free_ptr((void *)&(layer->weights));
+            if(layer->biases) free_ptr((void *)&(layer->biases));
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->scales) free_ptr((void *)&(layer->scales));
+            if(layer->rolling_mean) free_ptr((void *)&(layer->rolling_mean));
+            if(layer->rolling_variance) free_ptr((void *)&(layer->rolling_variance));
+            if(layer->slope) free_ptr((void *)&(layer->slope));
         }else if(net->layers_type[i] == BATCHNORM){
             batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->biases) free_ptr(layer->biases);
-            if(layer->scales) free_ptr(layer->scales);
-            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
-            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->biases) free_ptr((void *)&(layer->biases));
+            if(layer->scales) free_ptr((void *)&(layer->scales));
+            if(layer->rolling_mean) free_ptr((void *)&(layer->rolling_mean));
+            if(layer->rolling_variance) free_ptr((void *)&(layer->rolling_variance));
         } else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
-            if(layer->weights) free_ptr(layer->weights);
-            if(layer->output) free_ptr(layer->output);
-            if(layer->biases) free_ptr(layer->biases);
-            if(layer->scales) free_ptr(layer->scales);
-            if(layer->rolling_mean) free_ptr(layer->rolling_mean);
-            if(layer->rolling_variance) free_ptr(layer->rolling_variance);
+            if(layer->weights) free_ptr((void *)&(layer->weights));
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->biases) free_ptr((void *)&(layer->biases));
+            if(layer->scales) free_ptr((void *)&(layer->scales));
+            if(layer->rolling_mean) free_ptr((void *)&(layer->rolling_mean));
+            if(layer->rolling_variance) free_ptr((void *)&(layer->rolling_variance));
         } else if(net->layers_type[i] == RNN){
         } else if(net->layers_type[i] == LSTM){
         } else if(net->layers_type[i] == GRU){
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
         } else if(net->layers_type[i] == SHORTCUT){
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->indexes) free_ptr(layer->indexes);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            if(layer->indexes) free_ptr((void *)&(layer->indexes));
         } else if(net->layers_type[i] == UPSAMPLE){
             upsample_layer *layer = (upsample_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
+            if(layer->output) free_ptr((void *)&(layer->output));
         } else if(net->layers_type[i] == YOLO){
         } else if(net->layers_type[i] == AVGPOOL){
         } else if(net->layers_type[i] == NORMALIZE){
             normalize_layer *layer = (normalize_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->norm_data) free_ptr(layer->norm_data);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            if(layer->norm_data) free_ptr((void *)&(layer->norm_data));
         } else if(net->layers_type[i] == DROPOUT){
             dropout_layer *layer = (dropout_layer *)net->layers[i];
-            if(layer->rand) free_ptr(layer->rand);
+            if(layer->rand) free_ptr((void *)&(layer->rand));
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->loss) free_ptr(layer->loss);
-            if(layer->cost) free_ptr(layer->cost);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            //if(layer->loss) free_ptr((void *)&(layer->loss));
+            //if(layer->cost) free_ptr((void *)&(layer->cost));
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
-            if(layer->output) free_ptr(layer->output);
-            if(layer->delta) free_ptr(layer->delta);
-            if(layer->cost) free_ptr(layer->cost);
+            if(layer->output) free_ptr((void *)&(layer->output));
+            if(layer->delta) free_ptr((void *)&(layer->delta));
+            if(layer->cost) free_ptr((void *)&(layer->cost));
         } else {
             printf("free_network layers_type error, layer: %d\n", i);
             exit(-1);
         }
     }
-    if(net->workspace) free_ptr(net->workspace);
+    if(net->workspace) free_ptr((void *)&(net->workspace));
 }
 
 float update_current_learning_rate(network *net)

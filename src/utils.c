@@ -314,15 +314,15 @@ void free_ptrs(void **ptrs, int n)
     int i;
     for(i = 0; i < n; ++i){
         free(ptrs[i]);
-        ptrs[i] = NULL;
+        ptrs[i] = 0;
     }
     free(ptrs);
 }
 
-void free_ptr(void *ptr)
+void free_ptr(void **ptr)
 {
-    free(ptr);
-    ptr = NULL;
+    free(*ptr);
+    (*ptr) = NULL;
 }
 
 char *fgetl(FILE *fp)
