@@ -1,6 +1,38 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 '''
+cosface_new.cfg
+agedb: 0.24
+('max_score, min_score', 0.8335930451750014, -0.2832928619280002)
+threshold:  0.2
+('TP, TN, FP, FN: ', 5817.0, 5852.0, 148.0, 183.0)
+('precise', 0.9751886001676446)
+('precise positive', 0.9696768848384424)
+('recall', 0.9695)
+threshold:  0.22
+('TP, TN, FP, FN: ', 5796.0, 5907.0, 93.0, 204.0)
+('precise', 0.9842078451349975)
+('precise positive', 0.9666175748649976)
+('recall', 0.966)
+threshold:  0.24
+('TP, TN, FP, FN: ', 5769.0, 5951.0, 49.0, 231.0)
+('precise', 0.9915778618081815)
+('precise positive', 0.9626334519572953)
+('recall', 0.9615)
+threshold:  0.26
+('TP, TN, FP, FN: ', 5733.0, 5979.0, 21.0, 267.0)
+('precise', 0.9963503649635036)
+('precise positive', 0.957252641690682)
+('recall', 0.9555)
+threshold:  0.28
+('TP, TN, FP, FN: ', 5680.0, 5990.0, 10.0, 320.0)
+('precise', 0.9982425307557118)
+('precise positive', 0.9492868462757528)
+('recall', 0.9466666666666667)
+
+
+
+cosface_new_100.cfg
 agedb: 0.2
 threshold:  0.18
 ('TP, TN, FP, FN: ', 5844.0, 5878.0, 122.0, 156.0)
@@ -62,7 +94,7 @@ def get_score(a, b):
     return sum
 
 valid_set_path = '/var/darknet/face_data/'
-valid_set_path = '/var/darknet/insightface/src/lfw/'
+#valid_set_path = '/var/darknet/insightface/src/lfw/'
 all_label = []
 negtive_paire = []
 positive_paire = []

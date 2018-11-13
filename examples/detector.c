@@ -271,7 +271,7 @@ void run_detection(float *image_data, int width, int height, int channel, int im
         printf("error: please call init_detector first\n");
         return;
     }
-    float thresh = .3;
+    float thresh = .6;
     float nms = .45;
     int *map = 0;
     image input;
