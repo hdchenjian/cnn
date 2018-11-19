@@ -395,7 +395,8 @@ void run_recognition(float *image_data, int face_num, float *feature)
     float *network_output = malloc(net_batch * network_output_size * sizeof(float));
 #endif
     for(int i = 0; i < forward_times; i++){
-        if(face_num <= net_batch){ net_recognition->batch = face_num;
+        if(face_num <= net_batch){
+            net_recognition->batch = face_num;
         } else {
             if(face_num % net_batch == 0) {
                 net_recognition->batch = net_batch;
@@ -448,40 +449,64 @@ void init_spoofing(const char *cfgfile, const char *weightfile)
     fprintf(stderr, "net->classes: %d, net->batch: %d\n", net_spoofing->classes, net_spoofing->batch);
     if(net_spoofing->batch != 1){
         printf("\nerror: net->batch != 1\n");
-        uninit_spoofing();
-        exit(-1);
+        //uninit_spoofing();
+        //exit(-1);
     }
     free_network_weight_bias_cpu(net_spoofing);
 }
 
-int run_spoofing(float *image_data)
+void run_spoofing(float *image_data, int face_num, int *is_real_face)
 {
     if(net_spoofing == NULL){
         printf("error: please call init_spoofing first\n");
-        return 0;
+        return;
     }
-    int truth_label_index = 0;
+    int net_batch = 5;
+    int forward_times = 1;
+    if(face_num <= net_batch) {
+        forward_times = 1;
+    } else {
+        if(face_num % net_batch == 0) forward_times = face_num / net_batch;
+        else forward_times = face_num / net_batch + 1;
+    }
+    int *truth_label_index = calloc(face_num, sizeof(int));
+    int *truth_label_index_bak = truth_label_index;
     int network_output_size = get_network_output_size_layer(net_spoofing, net_spoofing->output_layer);
-
-    valid_network(net_spoofing, image_data, &truth_label_index);
-#ifndef GPU
-    float *network_output = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 0);
-#elif defined(GPU)
-    float *network_output = malloc(net_spoofing->batch * network_output_size * sizeof(float));
-    float *network_output_gpu = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 1);
-    cuda_pull_array(network_output_gpu, network_output, network_output_size * net_spoofing->batch);
+#ifdef GPU
+    float *network_output = malloc(net_batch * network_output_size * sizeof(float));
 #endif
-    int is_real_face = 1;
-    if(network_output[0] >= network_output[1]) is_real_face = 1;
-    else is_real_face = 0;
-    for(int i = 0; i < network_output_size * net_spoofing->batch; i++){
-        printf("%d %f\n", i, network_output[i]);
+    int real_face_index = 0;
+    for(int i = 0; i < forward_times; i++){
+        if(face_num <= net_batch){
+            net_spoofing->batch = face_num;
+        } else {
+            if(face_num % net_batch == 0) {
+                net_spoofing->batch = net_batch;
+            } else {
+                if(i < forward_times - 1) net_spoofing->batch = net_batch;
+                else net_spoofing->batch = face_num % net_batch;
+            }
+        }
+        valid_network(net_spoofing, image_data, truth_label_index_bak);
+        image_data += net_spoofing->batch * net_spoofing->w * net_spoofing->h * net_spoofing->c;
+        truth_label_index_bak += net_spoofing->batch;
+#ifndef GPU
+        float *network_output = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 0);
+#elif defined(GPU)
+        float *network_output_gpu = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 1);
+        cuda_pull_array(network_output_gpu, network_output, network_output_size * net_batch);
+#endif
+        for(int j = 0; j < net_spoofing->batch; j++){
+            printf("network_output %d %f %f\n", real_face_index, network_output[2*j], network_output[2*j + 1]);
+            if(network_output[2*j] >= network_output[2*j + 1]) is_real_face[real_face_index] = 1;
+            else is_real_face[real_face_index] = 0;
+            real_face_index += 1;
+        }
     }
-
 #ifdef GPU
     free(network_output);
 #endif
-    return is_real_face;
+    free(truth_label_index);
 }
 
 void run_classifier(int argc, char **argv)
