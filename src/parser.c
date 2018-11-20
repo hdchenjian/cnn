@@ -219,7 +219,8 @@ maxpool_layer *parse_maxpool(struct list *options, network *net, int count)
         if(h == 0) error("Layer before maxpool layer must output image.");
     }
     int size = option_find_int(options, "size", stride);
-    int padding = option_find_int(options, "padding", size-1);
+    //int padding = option_find_int(options, "padding", size-1);
+    int padding = option_find_int(options, "pad", 0);
     maxpool_layer *layer = make_maxpool_layer(h,w,c,size,stride,net->batch,padding, net->test);
     return layer;
 }
@@ -686,8 +687,8 @@ network *parse_network_cfg(const char *filename, int test)
         net->workspace = calloc(1, net->workspace_size);
     }
     if(net->workspace_gpu){
-        printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n");
-        net->workspace = calloc(1, net->workspace_size);
+        //printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n");
+        //net->workspace = calloc(1, net->workspace_size);
     }
     free_list(sections);
     fprintf(stderr, "\nnetwork total_bflop: %5.3f BFLOPs\n", total_bflop);;

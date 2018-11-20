@@ -163,3 +163,62 @@ extern "C" void gradient_array_gpu(float *x, int n, ACTIVATION a, float *delta)
     gradient_array_kernel<<<cuda_gridsize(n), BLOCK>>>(x, n, a, delta);
     check_error(cudaPeekAtLastError());
 }
+
+__global__ void activate_prelu_array_kernel(float *x, float *slope_gpu, int n, int channel, int dim)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i < n){
+        int cc = (i / dim) % channel;
+        x[i] = fmaxf(x[i], 0.0F) + slope_gpu[cc] * fminf(x[i], 0.0F);
+    }
+}
+
+extern "C" void activate_prelu_array_gpu(float *x, float *slope_gpu, int size, int filters, int spatial)
+{
+    activate_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(x, slope_gpu, size, filters, spatial);
+    check_error(cudaPeekAtLastError());
+}
+
+__global__ void gradient_prelu_array_kernel(float *delta, float *bottom_data, float *slope_gpu, int n, int channel, int dim)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i < n){
+        int cc = (i / dim) % channel;
+        delta[i] = delta[i] * ((bottom_data[i] > 0) + slope_gpu[cc] * (bottom_data[i] <= 0));
+    }
+}
+
+extern "C" void gradient_prelu_array_gpu(float *delta, float *bottom_data, float *slope, int size, int filters, int spatial)
+{
+    gradient_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(delta, bottom_data, slope, size, filters, spatial);
+    check_error(cudaPeekAtLastError());
+}
+
+__global__ void backward_prelu_slope_kernel(float *delta, float *bottom_data, float *slope_updates, int channel,
+                                            int dim, int batch)
+{
+    __shared__ float part[BLOCK];
+    int i,b;
+    int filter = blockIdx.x;
+    int p = threadIdx.x;
+    float sum = 0;
+    for(b = 0; b < batch; ++b){
+        for(i = 0; i < dim; i += BLOCK){
+            int index = p + i + dim*(filter + channel*b);
+            sum += (p+i < dim) ? delta[index] * bottom_data[index] * (bottom_data[index] <= 0) : 0;
+        }
+    }
+    part[p] = sum;
+    __syncthreads();
+    if (p == 0) {
+        for(i = 0; i < BLOCK; ++i){
+            slope_updates[filter] += part[i];
+        }
+    }
+}
+
+extern "C" void backward_prelu_slope_gpu(float *delta, float *bottom_data, float *slope_updates, int filters, int spatial, int batch)
+{
+    backward_prelu_slope_kernel<<<filters, BLOCK>>>(delta, bottom_data, slope_updates, filters, spatial, batch);
+    check_error(cudaPeekAtLastError());
+}

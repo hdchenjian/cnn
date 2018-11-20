@@ -52,6 +52,14 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
     }
     layer->biases = calloc(outputs, sizeof(float));
     layer->activation = activation;
+    if(layer->activation == PRELU){
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->bottom_data = calloc(batch * outputs, sizeof(float));
+            layer->slope_updates = calloc(outputs, sizeof(float));
+        }
+        layer->slope = calloc(outputs, sizeof(float));
+        for(int i = 0; i < outputs; i++) layer->slope[i] = 0.25F;
+    }
 
     if(layer->batch_normalize){
         layer->scales = calloc(outputs, sizeof(float));
@@ -81,6 +89,14 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
         layer->delta_gpu = cuda_make_array(layer->delta, outputs*batch);
     }
 
+    if(layer->activation == PRELU){
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->bottom_data_gpu = cuda_make_array(layer->bottom_data, batch * outputs);
+            layer->slope_updates_gpu = cuda_make_array(layer->slope_updates, outputs);
+        }
+        layer->slope_gpu = cuda_make_array(layer->slope, outputs);
+    }
+
     if(layer->batch_normalize){
         layer->scales_gpu = cuda_make_array(layer->scales, outputs);
         layer->rolling_mean_gpu = cuda_make_array(layer->rolling_mean, outputs);
@@ -104,6 +120,14 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
         layer->weight_updates_cl = cl_make_array(layer->weight_updates, outputs*inputs);
         layer->delta_cl = cl_make_array(layer->delta, outputs*batch);
     }
+    if(layer->activation == PRELU){
+        if(0 == layer->test){    // 0: train, 1: valid
+            layer->bottom_data_cl = cl_make_array(layer->bottom_data, batch * outputs);
+            layer->slope_updates_cl = cl_make_array(layer->slope_updates, outputs);
+        }
+        layer->slope_cl = cl_make_array(layer->slope, outputs);
+    }
+
     if(batch_normalize){
         layer->scales_cl = cl_make_array(layer->scales, outputs);
         layer->rolling_mean_cl = cl_make_array(layer->rolling_mean, outputs);
@@ -201,6 +225,16 @@ void forward_connected_batchnorm_layer(const connected_layer *layer, int test)
     }
 }
 
+void activation_prelu_connect(const connected_layer *layer, int test){
+    if(0 == test){    // 0: train, 1: valid
+        memcpy(layer->bottom_data, layer->output, layer->batch * layer->outputs * sizeof(float));
+    }
+    int count = layer->outputs * layer->batch;
+    for (int i = 0; i < count; ++i) {
+        layer->output[i] = fmaxf(layer->output[i], 0.0F) + layer->slope[i] * fminf(layer->output[i], 0.0F);
+    }
+}
+
 void forward_connected_layer(connected_layer *layer, float *input, int test)
 {
     if(layer->weight_normalize && 0 == test){         // 0: train, 1: valid
@@ -236,7 +270,10 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
     }
 
     int all_outputs = layer->outputs * layer->batch;
-    if (layer->activation != LINEAR) {
+    if(layer->activation == PRELU){
+        activation_prelu_connect(layer, test);
+    } else if (layer->activation == LINEAR) {
+    } else {
         for(int i = 0; i < all_outputs; ++i){
             layer->output[i] = activate(layer->output[i], layer->activation);
         }
@@ -254,25 +291,32 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
 void update_connected_layer(connected_layer *layer, float learning_rate, float momentum, float decay)
 {
     int batch = layer->subdivisions * layer->batch;
-    for(int i = 0; i < layer->outputs; i ++){
+    for(int i = 0; i < layer->outputs; i++){
         layer->bias_updates[i] += -decay * layer->bias_decay_mult * (batch* layer->steps) * layer->biases[i];
         layer->biases[i] += learning_rate * layer->bias_mult / (batch* layer->steps) * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->inputs*layer->outputs;
-    for(int i = 0; i < size; i ++){
+    for(int i = 0; i < size; i++){
         layer->weight_updates[i] += -decay * layer->lr_decay_mult *(batch* layer->steps)*layer->weights[i];
         layer->weights[i] += learning_rate * layer->lr_mult / (batch* layer->steps) * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;
     }
 
     if(layer->batch_normalize){
-        for(int i = 0; i < layer->outputs; i ++){
+        for(int i = 0; i < layer->outputs; i++){
             layer->scales[i] += learning_rate / batch* layer->scale_updates[i];
             layer->scale_updates[i] *= momentum;
         }
     }
+    if(layer->activation == PRELU){
+        for(int i = 0; i < layer->outputs; i++){
+            layer->slope[i] += learning_rate / batch * layer->slope_updates[i];
+            layer->slope_updates[i] *= momentum;
+        }
+    }
+
 }
 
 void backward_connected_batchnorm_layer(const connected_layer *layer, int test)
@@ -296,9 +340,18 @@ void backward_connected_batchnorm_layer(const connected_layer *layer, int test)
 void backward_connected_layer(connected_layer *layer, float *input, float *delta, int test)
 {
     int all_outputs = layer->outputs * layer->batch;
-    for(int i = 0; i < all_outputs; ++i){
-        layer->delta[i] *= gradient(layer->output[i], layer->activation);
+    if(layer->activation == PRELU){
+        for (int i = 0; i < all_outputs; ++i) {
+            layer->slope_updates[i] += layer->delta[i] * layer->bottom_data[i] * (layer->bottom_data[i] <= 0);
+            layer->delta[i] = layer->delta[i] * ((layer->bottom_data[i] > 0) + layer->slope[i] * (layer->bottom_data[i] <= 0));
+        }
+    } else if (layer->activation == LINEAR) {
+    } else {
+        for(int i = 0; i < all_outputs; ++i){
+            layer->delta[i] *= gradient(layer->output[i], layer->activation);
+        }
     }
+
     for(int i = 0; i < layer->batch; ++i){
         for(int j = 0; j < layer->outputs; ++j){
             layer->bias_updates[j] += (layer->delta + i * layer->outputs)[j];
@@ -344,6 +397,11 @@ void update_connected_layer_gpu(connected_layer *layer, float learning_rate, flo
         axpy_gpu(layer->outputs, learning_rate/batch, layer->scale_updates_gpu, 1, layer->scales_gpu, 1);
         scal_gpu(layer->outputs, momentum, layer->scale_updates_gpu, 1);
     }
+    if(layer->activation == PRELU){
+        axpy_gpu(layer->outputs, learning_rate/batch, layer->slope_updates_gpu, 1, layer->slope_gpu, 1);
+        scal_gpu(layer->outputs, momentum, layer->slope_updates_gpu, 1);
+    }
+
 }
 
 void forward_connected_batchnorm_layer_gpu(const connected_layer *layer, int test)
@@ -388,7 +446,15 @@ void forward_connected_layer_gpu(connected_layer *layer, float *input, int test)
     if(layer->bias_term){
         add_bias_gpu(layer->output_gpu, layer->biases_gpu, layer->batch, layer->outputs, 1);
     }
-    if (layer->activation != LINEAR) {
+    if(layer->activation == PRELU){
+        if(0 == test){    // 0: train, 1: valid
+            copy_gpu(layer->batch * layer->outputs, layer->output_gpu, 1, layer->bottom_data_gpu, 1);
+        }
+        int size = layer->batch * layer->outputs;
+        int dim = 1;
+        activate_prelu_array_gpu(layer->output_gpu, layer->slope_gpu, size, layer->outputs, dim);
+    } else if (layer->activation == LINEAR) {
+    } else {
         activate_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation);
     }
 }
@@ -413,7 +479,16 @@ void backward_connected_batchnorm_layer_gpu(const connected_layer *layer, int te
 
 void backward_connected_layer_gpu(connected_layer *layer, float *input, float *delta, int test)
 {
-    gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
+    if(layer->activation == PRELU){
+        int size = layer->batch * layer->outputs;
+        int dim = 1;
+        backward_prelu_slope_gpu(layer->delta_gpu, layer->bottom_data_gpu,
+                                 layer->slope_updates_gpu, layer->outputs, dim, layer->batch);
+        gradient_prelu_array_gpu(layer->delta_gpu, layer->bottom_data_gpu, layer->slope_gpu, size, layer->outputs, dim);
+    } else if (layer->activation == LINEAR) {
+    } else {
+        gradient_array_gpu(layer->output_gpu, layer->outputs*layer->batch, layer->activation, layer->delta_gpu);
+    }
     backward_bias_gpu(layer->bias_updates_gpu, layer->delta_gpu, layer->batch, layer->outputs, 1);
     if(layer->batch_normalize){
         backward_connected_batchnorm_layer_gpu(layer, test);
@@ -448,6 +523,9 @@ void pull_connected_layer(const connected_layer *layer)
         cuda_pull_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->outputs);
         cuda_pull_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->outputs);
     }
+    if(layer->activation == PRELU){
+        cuda_pull_array(layer->slope_gpu, layer->slope, layer->outputs);
+    }
 }
 
 void push_connected_layer(const connected_layer *layer)
@@ -462,6 +540,9 @@ void push_connected_layer(const connected_layer *layer)
         cuda_push_array(layer->scales_gpu, layer->scales, layer->outputs);
         cuda_push_array(layer->rolling_mean_gpu, layer->rolling_mean, layer->outputs);
         cuda_push_array(layer->rolling_variance_gpu, layer->rolling_variance, layer->outputs);
+    }
+    if(layer->activation == PRELU){
+        cuda_push_array(layer->slope_gpu, layer->slope, layer->outputs);
     }
 }
 
@@ -508,7 +589,13 @@ void forward_connected_layer_cl(connected_layer *layer, cl_mem input, int test)
     if(layer->bias_term){
         add_bias_cl(layer->batch, 1, layer->outputs, layer->biases_cl, layer->output_cl);
     }
-    if (layer->activation != LINEAR) {
+    if(layer->activation == PRELU){
+        if(0 == layer->test){    // 0: train, 1: valid
+            copy_cl(layer->batch * layer->outputs, layer->output_cl, 1, layer->bottom_data_cl, 1);
+        }
+        activate_prelu_array_cl(layer->output_cl, layer->slope_cl, layer->batch, layer->outputs, 1);
+    } else if (layer->activation == LINEAR) {
+    } else {
         activate_array_cl(layer->output_cl, layer->outputs*layer->batch, layer->activation);
     }
 
@@ -527,6 +614,9 @@ void push_connected_layer_cl(const connected_layer *layer)
         //cl_write_array(layer->variance_cl, layer->variance, layer->outputs);
         cl_write_array(layer->rolling_mean_cl, layer->rolling_mean, layer->outputs);
         cl_write_array(layer->rolling_variance_cl, layer->rolling_variance, layer->outputs);
+    }
+    if(layer->activation == PRELU){
+        cl_write_array(layer->slope_cl, layer->slope, layer->outputs);
     }
 }
 #endif

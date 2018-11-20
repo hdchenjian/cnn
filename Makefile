@@ -2,7 +2,7 @@ FORWARD_GPU=1
 GPU=1
 DEBUG=0
 CUDNN=0
-OPENMP=1
+OPENMP=0
 OPENCL=0
 CLBLAS=0
 ARCH= -gencode arch=compute_35,code=sm_35 \

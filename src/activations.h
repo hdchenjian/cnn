@@ -17,6 +17,9 @@ void activate_array(float *x, const int n, const ACTIVATION a);
 #ifdef GPU
 void activate_array_gpu(float *x, int n, ACTIVATION a);
 void gradient_array_gpu(float *x, int n, ACTIVATION a, float *delta);
+void activate_prelu_array_gpu(float *x, float *slope_gpu, int size, int filters, int spatial);
+void gradient_prelu_array_gpu(float *delta, float *bottom_data, float *slope, int size, int filters, int spatial);
+void backward_prelu_slope_gpu(float *delta, float *bottom_data, float *slope_updates, int filters, int spatial, int batch);
 #elif defined(OPENCL)
 #include "opencl.h"
 void activate_array_cl(cl_mem x, int n, ACTIVATION a);

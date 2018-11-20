@@ -386,7 +386,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     int count = 0;
     for(int i = 0; i < m*n && count < 10; i++){
         if(layer->output[i] > 0.001){
-            printf("%d %f %f\n", i, layer->output[i], in[i]);
+            printf("%d %f %f %f %f\n", i, layer->output[i], in[i], layer->weights[i], layer->slope[i]);
             count += 1;
         }
     }
@@ -487,27 +487,27 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
 {
     int batch = layer->subdivisions * layer->batch;
     if(layer->batch_normalize){
-        for(int i = 0; i < layer->n; i ++){
+        for(int i = 0; i < layer->n; i++){
             layer->scales[i] += learning_rate / batch * layer->scale_updates[i];
             layer->scale_updates[i] *= momentum;
         }
     }
 
     if(layer->activation == PRELU){
-        for(int i = 0; i < layer->n; i ++){
+        for(int i = 0; i < layer->n; i++){
             layer->slope[i] += learning_rate / batch * layer->slope_updates[i];
             layer->slope_updates[i] *= momentum;
         }
     }
 
-    for(int i = 0; i < layer->n; i ++){
+    for(int i = 0; i < layer->n; i++){
         layer->bias_updates[i] += -decay * layer->bias_decay_mult * batch * layer->biases[i];
         layer->biases[i] += learning_rate * layer->bias_mult / batch * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->size*layer->size*layer->c*layer->n;
-    for(int i = 0; i < size; i ++){
+    for(int i = 0; i < size; i++){
         layer->weight_updates[i] += -decay * layer->lr_decay_mult * batch * layer->weights[i];
         layer->weights[i] += learning_rate * layer->lr_mult / batch * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;

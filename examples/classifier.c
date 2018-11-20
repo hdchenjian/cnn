@@ -391,7 +391,7 @@ void run_recognition(float *image_data, int face_num, float *feature)
     int *truth_label_index = calloc(face_num, sizeof(int));
     int *truth_label_index_bak = truth_label_index;
     int network_output_size = get_network_output_size_layer(net_recognition, net_recognition->output_layer);
-#ifdef GPU
+#if defined(GPU)  || defined(OPENCL)
     float *network_output = malloc(net_batch * network_output_size * sizeof(float));
 #endif
     for(int i = 0; i < forward_times; i++){
@@ -408,16 +408,19 @@ void run_recognition(float *image_data, int face_num, float *feature)
         valid_network(net_recognition, image_data, truth_label_index_bak);
         image_data += net_recognition->batch * net_recognition->w * net_recognition->h * net_recognition->c;
         truth_label_index_bak += net_recognition->batch;
-#ifndef GPU
-        float *network_output = get_network_layer_data(net_recognition, net_recognition->output_layer, 0, 0);
-#elif defined(GPU)
+#ifdef GPU
         float *network_output_gpu = get_network_layer_data(net_recognition, net_recognition->output_layer, 0, 1);
-        cuda_pull_array(network_output_gpu, network_output, network_output_size * net_batch);
+        cuda_pull_array(network_output_gpu, network_output, network_output_size * net_recognition->batch);
+#elif defined(OPENCL)
+        cl_mem network_output_cl = get_network_layer_data_cl(net_recognition, net_recognition->output_layer, 0);
+        cl_read_array(network_output_cl, network_output, network_output_size * net_recognition->batch);
+#else
+        float *network_output = get_network_layer_data(net_recognition, net_recognition->output_layer, 0, 0);
 #endif
         //printf("network_output_size %d\n", network_output_size);
         memcpy(feature, network_output, net_recognition->batch * network_output_size * sizeof(float));
     }
-#ifdef GPU
+#if defined(GPU)  || defined(OPENCL)
     free(network_output);
 #endif
     free(truth_label_index);
@@ -430,8 +433,6 @@ void uninit_recognition()
 }
 
 network *net_spoofing = NULL;
-
-
 void uninit_spoofing()
 {
     if(net_spoofing) free_network(net_spoofing);
@@ -471,8 +472,8 @@ void run_spoofing(float *image_data, int face_num, int *is_real_face)
     }
     int *truth_label_index = calloc(face_num, sizeof(int));
     int *truth_label_index_bak = truth_label_index;
+#if defined(GPU)  || defined(OPENCL)
     int network_output_size = get_network_output_size_layer(net_spoofing, net_spoofing->output_layer);
-#ifdef GPU
     float *network_output = malloc(net_batch * network_output_size * sizeof(float));
 #endif
     int real_face_index = 0;
@@ -490,11 +491,15 @@ void run_spoofing(float *image_data, int face_num, int *is_real_face)
         valid_network(net_spoofing, image_data, truth_label_index_bak);
         image_data += net_spoofing->batch * net_spoofing->w * net_spoofing->h * net_spoofing->c;
         truth_label_index_bak += net_spoofing->batch;
-#ifndef GPU
-        float *network_output = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 0);
-#elif defined(GPU)
+#ifdef GPU
         float *network_output_gpu = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 1);
-        cuda_pull_array(network_output_gpu, network_output, network_output_size * net_batch);
+        cuda_pull_array(network_output_gpu, network_output, network_output_size * net_spoofing->batch);
+#elif defined(OPENCL)
+        cl_mem network_output_cl = get_network_layer_data_cl(net_spoofing, net_spoofing->output_layer, 0);
+        cl_read_array(network_output_cl, network_output, network_output_size * net_spoofing->batch);
+
+#else
+        float *network_output = get_network_layer_data(net_spoofing, net_spoofing->output_layer, 0, 0);
 #endif
         for(int j = 0; j < net_spoofing->batch; j++){
             printf("network_output %d %f %f\n", real_face_index, network_output[2*j], network_output[2*j + 1]);
@@ -503,7 +508,85 @@ void run_spoofing(float *image_data, int face_num, int *is_real_face)
             real_face_index += 1;
         }
     }
+#if defined(GPU)  || defined(OPENCL)
+    free(network_output);
+#endif
+    free(truth_label_index);
+}
+
+network *net_mtcnn = NULL;
+void uninit_mtcnn()
+{
+    if(net_mtcnn) free_network(net_mtcnn);
+    else printf("error: please call init_mtcnn first\n");
+}
+
+void init_mtcnn(const char *cfgfile, const char *weightfile)
+{
+    if(net_mtcnn != NULL){
+        printf("error: has call init_mtcnn already\n");
+        return;
+    }
+    srand(time(0));
+    net_mtcnn = load_network(cfgfile, weightfile, 1);
+    fprintf(stderr, "net->classes: %d, net->batch: %d\n", net_mtcnn->classes, net_mtcnn->batch);
+    if(net_mtcnn->batch != 1){
+        printf("\nerror: net->batch != 1\n");
+    }
 #ifdef GPU
+    free_network_weight_bias_cpu(net_mtcnn);
+#endif
+}
+
+void run_mtcnn(float *image_data, int face_num, float *landmark)
+{
+    if(net_mtcnn == NULL){
+        printf("error: please call init_mtcnn first\n");
+        return;
+    }
+    int net_batch = 5;
+    int forward_times = 1;
+    if(face_num <= net_batch) {
+        forward_times = 1;
+    } else {
+        if(face_num % net_batch == 0) forward_times = face_num / net_batch;
+        else forward_times = face_num / net_batch + 1;
+    }
+    int *truth_label_index = calloc(face_num, sizeof(int));
+    int *truth_label_index_bak = truth_label_index;
+    int network_output_size = get_network_output_size_layer(net_mtcnn, net_mtcnn->output_layer);
+#if defined(GPU)  || defined(OPENCL)
+    float *network_output = malloc(net_batch * network_output_size * sizeof(float));
+#endif
+    int face_index = 0;
+    for(int i = 0; i < forward_times; i++){
+        if(face_num <= net_batch){
+            net_mtcnn->batch = face_num;
+        } else {
+            if(face_num % net_batch == 0) {
+                net_mtcnn->batch = net_batch;
+            } else {
+                if(i < forward_times - 1) net_mtcnn->batch = net_batch;
+                else net_mtcnn->batch = face_num % net_batch;
+            }
+        }
+        valid_network(net_mtcnn, image_data, truth_label_index_bak);
+        image_data += net_mtcnn->batch * net_mtcnn->w * net_mtcnn->h * net_mtcnn->c;
+        truth_label_index_bak += net_mtcnn->batch;
+#ifdef GPU
+        float *network_output_gpu = get_network_layer_data(net_mtcnn, net_mtcnn->output_layer, 0, 1);
+        cuda_pull_array(network_output_gpu, network_output, network_output_size * net_mtcnn->batch);
+#elif defined(OPENCL)
+        cl_mem network_output_cl = get_network_layer_data_cl(net_mtcnn, net_mtcnn->output_layer, 0);
+        cl_read_array(network_output_cl, network_output, network_output_size * net_mtcnn->batch);
+#else
+        float *network_output = get_network_layer_data(net_mtcnn, net_mtcnn->output_layer, 0, 0);
+#endif
+        memcpy(landmark + face_index * network_output_size,
+               network_output, network_output_size * net_mtcnn->batch * sizeof(float));
+        face_index += net_mtcnn->batch;
+    }
+#if defined(GPU) || defined(OPENCL)
     free(network_output);
 #endif
     free(truth_label_index);

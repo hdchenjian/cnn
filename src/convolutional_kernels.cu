@@ -138,15 +138,6 @@ void forward_conv_batchnorm_layer_gpu(const convolutional_layer *layer, int test
     }
 }
 
-__global__ void activate_prelu_array_kernel(float *x, float *slope_gpu, int n, int channel, int dim)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n){
-        int cc = (i / dim) % channel;
-        x[i] = fmaxf(x[i], 0.0F) + slope_gpu[cc] * fminf(x[i], 0.0F);
-    }
-}
-
 void fix_cudnn_kernel_size_1_forward(const convolutional_layer *layer, float *in, float *workspace){
     int m = layer->n;
     int n = layer->out_w*layer->out_h;
@@ -195,8 +186,7 @@ void forward_convolutional_layer_gpu(const convolutional_layer *layer, float *in
         }
         int size = layer->batch * layer->out_h * layer->out_w * layer->n;
         int dim = layer->out_h * layer->out_w;
-        activate_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->output_gpu, layer->slope_gpu, size, layer->n, dim);
-        check_error(cudaPeekAtLastError());
+        activate_prelu_array_gpu(layer->output_gpu, layer->slope_gpu, size, layer->n, dim);
     } else if (layer->activation == LINEAR) {
     } else {
         activate_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n, layer->activation);
@@ -234,40 +224,6 @@ void backward_conv_batchnorm_layer_gpu(const convolutional_layer *layer, int tes
     normalize_delta_gpu(layer->x_gpu, layer->mean_gpu, layer->variance_gpu, layer->mean_delta_gpu,
                         layer->variance_delta_gpu, layer->batch, layer->n, layer->out_w*layer->out_h, layer->delta_gpu);
 #endif
-}
-
-__global__ void backward_prelu_slope_kernel(float *delta, float *bottom_data, float *slope_updates, int channel,
-                                            int dim, int batch)
-{
-    __shared__ float part[BLOCK];
-    int i,b;
-    int filter = blockIdx.x;
-    int p = threadIdx.x;
-    float sum = 0;
-    for(b = 0; b < batch; ++b){
-        for(i = 0; i < dim; i += BLOCK){
-            int index = p + i + dim*(filter + channel*b);
-            sum += (p+i < dim) ? delta[index] * bottom_data[index] * (bottom_data[index] <= 0) : 0;
-        }
-    }
-    part[p] = sum;
-    __syncthreads();
-    if (p == 0) {
-        for(i = 0; i < BLOCK; ++i){
-            slope_updates[filter] += part[i];
-        }
-    }
-}
-
-
-__global__ void gradient_prelu_array_kernel(float *delta, float *bottom_data, float *slope_gpu,
-                                            int n, int channel, int dim)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n){
-        int cc = (i / dim) % channel;
-        delta[i] = delta[i] * ((bottom_data[i] > 0) + slope_gpu[cc] * (bottom_data[i] <= 0));
-    }
 }
 
 void fix_cudnn_kernel_size_1_backward(const convolutional_layer *layer, float *input, float *delta, float *workspace)
@@ -319,12 +275,9 @@ void backward_convolutional_layer_gpu(const convolutional_layer *layer, float *i
     if(layer->activation == PRELU){
         int size = layer->batch * layer->out_h * layer->out_w * layer->n;
         int dim = layer->out_h * layer->out_w;
-        backward_prelu_slope_kernel<<<layer->n, BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu,
-                                                         layer->slope_updates_gpu, layer->n, dim, layer->batch);
-        check_error(cudaPeekAtLastError());
-        gradient_prelu_array_kernel<<<cuda_gridsize(size), BLOCK>>>(layer->delta_gpu, layer->bottom_data_gpu, layer->slope_gpu,
-                                                                    size, layer->n, dim);
-        check_error(cudaPeekAtLastError());
+        backward_prelu_slope_gpu(layer->delta_gpu, layer->bottom_data_gpu,
+                                 layer->slope_updates_gpu, layer->n, dim, layer->batch);
+        gradient_prelu_array_gpu(layer->delta_gpu, layer->bottom_data_gpu, layer->slope_gpu, size, layer->n, dim);
     } else if (layer->activation == LINEAR) {
     } else {
         gradient_array_gpu(layer->output_gpu, layer->batch * layer->out_h * layer->out_w * layer->n,

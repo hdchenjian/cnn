@@ -28,10 +28,13 @@ typedef struct{
     float *mean, *mean_delta, *variance, *variance_delta, *rolling_mean, *rolling_variance, *x, *x_norm, *scales, *scale_updates;
     float *mean_gpu, *mean_delta_gpu, *variance_gpu, *variance_delta_gpu, *rolling_mean_gpu, *rolling_variance_gpu, *x_gpu,
         *x_norm_gpu, *scales_gpu, *scale_updates_gpu;
+    float *bottom_data, *slope, *slope_updates;
+    float *bottom_data_gpu, *slope_gpu, *slope_updates_gpu;
 #ifdef OPENCL
     cl_mem weights_cl, weight_updates_cl, biases_cl, bias_updates_cl, delta_cl, output_cl;
     cl_mem mean_cl, mean_delta_cl, variance_cl, variance_delta_cl, rolling_mean_cl, rolling_variance_cl, x_cl,
         x_norm_cl, scales_cl, scale_updates_cl;
+    cl_mem bottom_data_cl, slope_cl, slope_updates_cl;
 #endif
 } connected_layer;
 

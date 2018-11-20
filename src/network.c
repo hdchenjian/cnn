@@ -26,6 +26,9 @@ network *make_network(int n)
 
 network *load_network(const char *cfg, const char *weights, int test)
 {
+#if defined(OPENCL)
+    cl_setup();
+#endif
     network *net = parse_network_cfg(cfg, test);
     if(weights && weights[0] != 0){
         load_weights(net, weights);
@@ -282,88 +285,104 @@ float update_current_learning_rate(network *net)
 void forward_network(network *net, float *input)
 {
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
-        //printf("forward_network layer: %d %d\n", i, net->layers_type[i]);
+        printf("forward_network layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_convolutional_layer(layer, input, net->workspace, net->test, i);
             input = layer->output;
             //if(i == 0) break;
         } else if(net->layers_type[i] == BATCHNORM){
             batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_batchnorm_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_connected_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_rnn_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == LSTM){
             lstm_layer *layer = (lstm_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta, 1);
             forward_lstm_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == GRU){
             gru_layer *layer = (gru_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta, 1);
             forward_gru_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_route_layer(layer, net);
             input = layer->output;
         }else if(net->layers_type[i] == SHORTCUT){
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_shortcut_layer(layer, input, net);
             input = layer->output;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_maxpool_layer(layer, input);
             input = layer->output;
         } else if(net->layers_type[i] == UPSAMPLE){
             upsample_layer *layer = (upsample_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_upsample_layer(layer, input);
             input = layer->output;
         } else if(net->layers_type[i] == YOLO){
             yolo_layer *layer = (yolo_layer *)net->layers[i];
+            layer->batch = net->batch;
             // In forward_yolo_layer function set delta to 0
             // if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_yolo_layer(layer, net, input, net->test);
             input = layer->output;
         } else if(net->layers_type[i] == AVGPOOL){
             avgpool_layer *layer = (avgpool_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_avgpool_layer(layer, input);
             input = layer->output;
         } else if(net->layers_type[i] == NORMALIZE){
             normalize_layer *layer = (normalize_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_normalize_layer(layer, input);
             input = layer->output;
         } else if(net->layers_type[i] == DROPOUT){
             dropout_layer *layer = (dropout_layer *)net->layers[i];
+            layer->batch = net->batch;
             // dropout_layer reuse previous layer's delta
             // if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_dropout_layer(layer, input, net->test);
             input = layer->output;
         } else if(net->layers_type[i] == SOFTMAX){
             softmax_layer *layer = (softmax_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_softmax_layer(layer, input, net);
             input = layer->output;
         } else if(net->layers_type[i] == COST){
             cost_layer *layer = (cost_layer *)net->layers[i];
+            layer->batch = net->batch;
             forward_cost_layer(layer, input, net);
             input = layer->output;
         } else {
@@ -982,20 +1001,9 @@ cl_mem get_network_layer_data_cl(network *net, int i, int data_type)
     if(net->layers_type[i] == CONVOLUTIONAL){
         convolutional_layer *layer = (convolutional_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
-        /*
     } else if(net->layers_type[i] == CONNECTED){
         connected_layer *layer = (connected_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
-    } else if(net->layers_type[i] == RNN){
-        rnn_layer *layer = (rnn_layer *)net->layers[i];
-        return data_type == 0 ? layer->output_cl : layer->delta_cl;
-    } else if(net->layers_type[i] == LSTM){
-        lstm_layer *layer = (lstm_layer *)net->layers[i];
-        return data_type == 0 ? layer->output_cl : layer->delta_cl;
-    } else if(net->layers_type[i] == GRU){
-        gru_layer *layer = (gru_layer *)net->layers[i];
-        return data_type == 0 ? layer->output_cl : layer->delta_cl;
-        */
     } else if(net->layers_type[i] == BATCHNORM){
         batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
@@ -1043,6 +1051,7 @@ void forward_network_cl(network *net, cl_mem input)
         //printf("forward_network_cl layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test, i);
             input = layer->output_cl;
@@ -1052,38 +1061,45 @@ void forward_network_cl(network *net, cl_mem input)
             //if(i == 0) break;
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_connected_layer_cl(layer, input, net->test);
             input = layer->output_cl;
             //cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "connected output diff: ", i);
         } else if(net->layers_type[i] == BATCHNORM){
             batchnorm_layer *layer = (batchnorm_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_batchnorm_layer_cl(layer, input, net->test);
             input = layer->output_cl;
             //cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "batchnorm output diff: ", i);
         }else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_route_layer_cl(layer, net);
             input = layer->output_cl;
         }else if(net->layers_type[i] == SHORTCUT){
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_shortcut_layer_cl(layer, input, net);
             input = layer->output_cl;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_maxpool_layer_cl(layer, input);
             input = layer->output_cl;
         } else if(net->layers_type[i] == UPSAMPLE){
             upsample_layer *layer = (upsample_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_upsample_layer_cl(layer, input);
             input = layer->output_cl;
         } else if(net->layers_type[i] == YOLO){
             yolo_layer *layer = (yolo_layer *)net->layers[i];
+            layer->batch = net->batch;
             // if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_yolo_layer_cl(layer, net, input, net->test);
             input = layer->output_cl;
@@ -1096,6 +1112,7 @@ void forward_network_cl(network *net, cl_mem input)
             //input = layer->output_cl;
         } else if(net->layers_type[i] == NORMALIZE){
             normalize_layer *layer = (normalize_layer *)net->layers[i];
+            layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
             forward_normalize_layer_cl(layer, input);
             input = layer->output_cl;
@@ -1334,6 +1351,9 @@ void save_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
     } else {
         fwrite(l->biases, sizeof(float), l->outputs, fp);
     }
+    if(l->activation == PRELU){
+        fwrite(l->slope, sizeof(float), l->outputs, fp);
+    }
 }
 
 void load_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
@@ -1346,6 +1366,10 @@ void load_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
         fread(l->biases, sizeof(float), l->outputs, fp);
     } else {
         fread(l->biases, sizeof(float), l->outputs, fp);
+    }
+    if(l->activation == PRELU){
+        size_t fff = fread(l->slope, sizeof(float), l->outputs, fp);
+        printf("l->slope %f %lu\n", l->slope[0], fff);
     }
 #ifdef GPU
     if(gpu_index >= 0){
