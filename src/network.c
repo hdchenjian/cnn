@@ -904,7 +904,7 @@ void train_network(network *net, float *input, int *truth_label_index)
         }
         cl_compare_array(net->input_cl, input, net->h * net->w * net->c * net->batch, "input data diff: ", -1);
         net->test = 1;
-        forward_network(net, input);
+        //forward_network(net, input);
         forward_network_cl(net, net->input_cl);
 #else
         float *input_data;
@@ -988,6 +988,7 @@ void valid_network(network *net, float *input, int *truth_label_index)
     //forward_network(net, input);
     //printf("forward_network cpu spend %f \n", what_time_is_it_now() - train_start_time);
     forward_network_cl(net, net->input_cl);
+
 #else
     forward_network(net, input);
 #endif
@@ -1048,7 +1049,7 @@ cl_mem get_network_layer_data_cl(network *net, int i, int data_type)
 void forward_network_cl(network *net, cl_mem input)
 {
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
-        //printf("forward_network_cl layer: %d %d\n", i, net->layers_type[i]);
+        printf("forward_network_cl layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             layer->batch = net->batch;
@@ -1152,6 +1153,7 @@ void forward_network_test(network *net, float *input)
     }
     //forward_network(net, input);
     forward_network_cl(net, net->input_cl);
+
 #else
     forward_network(net, input);
 #endif

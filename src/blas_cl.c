@@ -1,6 +1,8 @@
 #include "blas.h"
 #include <assert.h>
 
+#ifdef OPENCL
+
 void axpy_cl(int N, float ALPHA, cl_mem X, int INCX, cl_mem Y, int INCY) {
     cl_kernel kernel = get_kernel_by_name("axpy_cl", 0);
     cl_uint i = 0;
@@ -160,3 +162,5 @@ void l2normalize_cl(cl_mem x, int batch, int filters, int spatial, cl_mem norm_d
     cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 1, 0, global_size, 0, 0, 0, 0);
     check_error(cl);
 }
+
+#endif

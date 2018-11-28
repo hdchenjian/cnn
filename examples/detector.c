@@ -270,7 +270,9 @@ void init_detector(const char *cfgfile, const char *weightfile)
         uninit_detector();
         exit(-1);
     }
+#ifdef FORWARD_GPU
     free_network_weight_bias_cpu(net_detect);
+#endif
 }
 
 void run_detection(float *image_data, int width, int height, int channel, int image_original_w, int image_original_h,
