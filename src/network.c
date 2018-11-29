@@ -16,10 +16,10 @@ network *make_network(int n)
     net->layers = calloc(net->n, sizeof(void *));
     net->layers_type = calloc(net->n, sizeof(enum LAYER_TYPE));
     net->workspace_size = 0;
-    net->workspace = NULL;
+    net->workspace = 0;
 #ifdef GPU
-    net->workspace_gpu = NULL;
-    net->input_gpu = NULL;
+    net->workspace_gpu = 0;
+    net->input_gpu = 0;
 #endif
     return net;
 }
@@ -169,6 +169,11 @@ void free_network(network *net)
     if(net->workspace_gpu) cuda_free(net->workspace_gpu);
 #elif defined(OPENCL)
     // Clean-up OpenCL
+    if(net->input_cl) clReleaseMemObject(net->input_cl);
+    if(net->truth_cl) clReleaseMemObject(net->truth_cl);
+    if(net->truth_label_index_cl) clReleaseMemObject(net->truth_label_index_cl);
+    if(net->is_not_max_cl) clReleaseMemObject(net->is_not_max_cl);
+    if(net->workspace_cl) clReleaseMemObject(net->workspace_cl);
     clReleaseCommandQueue(cl.queue);
     clReleaseContext(cl.context);
     cl.initialized = 0;
@@ -960,6 +965,7 @@ void fill_network_boxes(network *net, int w, int h, float thresh, int *map, int 
 detection *get_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, int *num)
 {
     detection *dets = make_network_boxes(net, thresh, num);
+    //printf("get_network_boxes box num: %d\n", *num);
     fill_network_boxes(net, w, h, thresh, map, relative, dets);
     return dets;
 }
@@ -1054,7 +1060,11 @@ void forward_network_cl(network *net, cl_mem input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            //cl_print_array(input, 1, "conv input: ", i);
+            //cl_memset_array(net->workspace_cl, (net->workspace_size-1)/sizeof(float)+1);
             forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test, i);
+            //printf("forward_network_cl %d %f\n", i, layer->output[0]);
+            //cl_print_array(layer->output_cl, 1, "conv output: ", i);
             input = layer->output_cl;
             //cl_compare_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n, "variance output diff: ", i);
             //cl_compare_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n, "mean output diff: ", i);
@@ -1084,7 +1094,9 @@ void forward_network_cl(network *net, cl_mem input)
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
             layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
+            //cl_print_array(input, 1, "shortcut input: ", i);
             forward_shortcut_layer_cl(layer, input, net);
+            //cl_print_array(layer->output_cl, 1, "shortcut output: ", i);
             input = layer->output_cl;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];

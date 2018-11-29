@@ -35,17 +35,17 @@ shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, i
     l->output = calloc(l->outputs*batch, sizeof(float));;
 #endif
 
-    #ifdef GPU
+#ifdef GPU
     if(0 == l->test){    // 0: train, 1: valid
         l->delta_gpu =  cuda_make_array(l->delta, l->outputs*batch);
     }
     l->output_gpu = cuda_make_array(l->output, l->outputs*batch);
-    #elif defined(OPENCL)
+#elif defined(OPENCL)
     if(0 == l->test){    // 0: train, 1: valid
         l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
     }
     l->output_cl = cl_make_array(l->output, l->outputs*batch);
-    #endif
+#endif
     return l;
 }
 

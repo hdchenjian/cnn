@@ -248,7 +248,7 @@ float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i)
 {
     float *x_cl = calloc(n, sizeof(float));
     cl_read_array(mem, x_cl, n);
-    if(i == 0){
+    if(i == -1){
         for(int j = 0; j < 10; j++) printf("%d %f %f\n", i, x[j], x_cl[j]);
     }
     axpy_cpu(n, -1, x, 1, x_cl, 1);
@@ -258,6 +258,14 @@ float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i)
     else printf(" sqrtf(error / n): %f, compare array length: %d\n", sqrtf(err/n), n);
     free(x_cl);
     return err;
+}
+
+void cl_print_array(cl_mem mem, int n, char *s, int i)
+{
+    float *x_cl = calloc(n, sizeof(float));
+    cl_read_array(mem, x_cl, n);
+    for(int j = 0; j < n; j++) printf("layer: %d %s, %d %f\n", i, s, j, x_cl[j]);
+    free(x_cl);
 }
 
 void cl_write_array(cl_mem mem, float *x, int n)
