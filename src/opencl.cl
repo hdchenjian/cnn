@@ -1,5 +1,184 @@
 #define TS 16
 
+__kernel void gemm_image(const int m, const int n, const int k,
+                         __global const float *A, const int lda,
+                         __read_only image2d_t Bi,
+                         __global float *C, const int ldc)
+{
+    int gx = get_global_id(0);
+    int gy = get_global_id(1) << 3;
+    if (((gx << 2) >= n) || (gy >= m)) return;
+    float4 a[8];
+    float4 b[4];
+    float4 c[8];
+    for (int i = 0; i < 8; i++) {
+        c[i] = 0.0f;
+    }
+    int A_y_off = gy * lda;
+
+    for (int pos = 0; pos < k; pos += 4) {
+#pragma unroll
+        for (int i = 0; i < 4; i++) {
+            b[i] = read_imagef(Bi, (int2)(gx, pos + i));
+        }
+
+        int A_off = A_y_off + pos;
+#pragma unroll
+        for (int i = 0; i < 8; i++) {
+            a[i] = vload4(0, A + A_off);
+            A_off += lda;
+        }
+
+#pragma unroll
+        for (int i = 0; i < 8; i++) {
+            c[i] += a[i].x * b[0] + a[i].y * b[1] + a[i].z * b[2] + a[i].w * b[3];
+        }
+    }
+#pragma unroll
+    for (int i = 0; i < 8; i++) {
+        int C_offs = (gy + i) * ldc + (gx << 2);
+        vstore4(c[i], 0, C + C_offs);
+    }
+}
+
+__kernel void gemm_image_buf(const int m, const int n, const int k,
+                         __global const float *A, const int lda,
+                         __global const float *B, const int ldb,
+                         __global float *C, const int ldc)
+{
+    int gx = get_global_id(0);
+    int gy = get_global_id(1) << 3;
+    if (((gx << 2) < n) && (gy < m)) {
+        float4 a[8];
+        float4 b[4];
+        float4 c[8];
+        for (int i = 0; i < 8; i++) {
+            c[i] = 0.0f;
+        }
+        int A_y_off = gy * lda;
+
+        for (int pos = 0; pos < k; pos += 4) {
+#pragma unroll
+            for (int i = 0; i < 4; i++) {
+                //b[i] = read_imagef(Bi, (int2)(gx, pos + i));
+                b[i] = vload4(0, B + (pos + i) * ldb + (gx << 2));
+            }
+
+            int A_off = A_y_off + pos;
+#pragma unroll
+            for (int i = 0; i < 8; i++) {
+                a[i] = vload4(0, A + A_off);
+                A_off += lda;
+            }
+#pragma unroll
+            for (int i = 0; i < 8; i++) {
+                c[i] += a[i].x * b[0] + a[i].y * b[1] + a[i].z * b[2] + a[i].w * b[3];
+            }
+
+        }
+#pragma unroll
+        for (int i = 0; i < 8; i++) {
+            int C_offs = (gy + i) * ldc + (gx << 2);
+            vstore4(c[i], 0, C + C_offs);
+        }
+    }
+}
+
+/* Computes the matrix product C = A * B
+   There is no size restriction for the matrices, calculates the result using an efficient tiled algorithm.
+   For the portion of the result matrix not covered by tiles it uses a less efficient naive implementation.
+   Each work item computes a 4-column by 8-row (8x4) section of the output matrix.
+   The inner loops read in a 1x4 section of matrix B, a 8x1 section of matrix A,
+   and accumulate the partial results for the corresponding 8x4 section of matrix C.
+   The outer loop iterates over the width of matrix A and the height of matrix B
+   to get the complete result.
+*/
+__kernel void gemm_tile_8x4(__global const float *matrix_a, __global const float *matrix_b, __global float *matrix_c,
+                            int matrix_b_width, int matrix_a_width)
+{
+    const int wid_x = get_global_id(0);
+    const int wid_y = get_global_id(1);
+    float  a[8];
+    float4 b;
+    float4 c[8];
+
+    for (int i = 0; i < 8; ++i) {
+        c[i] = (float4)(0.0f);
+    }
+
+    for (int j = 0; j < matrix_a_width; ++j) {
+        b = vload4(0, matrix_b + j * matrix_b_width + (wid_x * 4));
+
+#pragma unroll
+        for (int i = 0; i < 8; ++i) {
+            a[i] = matrix_a[((wid_y * 8) + i) * matrix_a_width + j];
+        }
+
+#pragma unroll
+        for (int i = 0; i < 8; ++i) {
+            c[i] += a[i] * b;
+        }
+    }
+
+#pragma unroll
+    for (int i = 0; i < 8; ++i) {
+        vstore4(c[i], 0, matrix_c + ((wid_y * 8) + i) * matrix_b_width + (wid_x * 4));
+    }
+}
+
+// The remainder version calculates a single element of the output matrix per work item.
+__kernel void matmul_remainder(__global const  float *matrix_a,
+                               __global const  float *matrix_b,
+                               __global        float *matrix_c,
+                                               int    x_rem_start,
+                                               int    y_rem_start,
+                                               int    matrix_b_width,
+                                               int    matrix_a_width)
+{
+    const int wid_x = get_global_id(0) + x_rem_start;
+    const int wid_y = get_global_id(1) + y_rem_start;
+
+    float c     = 0.0f;
+    int   a_idx = matrix_a_width * wid_y;
+    int   b_idx = wid_x;
+
+#pragma unroll 8
+    for (int i = 0; i < matrix_a_width; ++i) {
+        c += matrix_a[a_idx] * matrix_b[b_idx];
+        ++a_idx;
+        b_idx += matrix_b_width;
+    }
+
+    const int c_idx = wid_x + matrix_b_width * wid_y;
+    matrix_c[c_idx] = c;
+}
+
+__kernel void gemm_native(const int matrixRowsA, const int matrixColsARowsB, const int matrixColsB,
+                          __global float* matrixA, __global float* matrixB, __global float* matrixProduct)
+{
+    int i = get_global_id(0);
+    int j = get_global_id(1);
+    if( i < matrixRowsA && j < matrixColsB ) {
+        float result = 0.0;
+        for( int k = 0; k < matrixColsARowsB; k++ ) {
+            int indexA = i * matrixColsARowsB + k;
+            int indexB = k * matrixColsB + j;
+            result += matrixA[indexA] * matrixB[indexB];
+        }
+        matrixProduct[i * matrixColsB + j] = result;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
 __kernel void axpy_cl(int N, float ALPHA, __global float *X, int INCX, __global float *Y, int INCY)
 {
     int i = get_global_id(0);

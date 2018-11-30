@@ -249,6 +249,7 @@ int yolo_num_detections(const yolo_layer *l, float thresh)
 {
     int i, n;
     int count = 0;
+    printf("yolo_num_detections %f %f\n", l->output[0], thresh);
     for(i = 0; i < l->w*l->h; ++i){
         for(n = 0; n < l->n; ++n){
             int obj_index  = entry_index(l, 0, n*l->w*l->h + i, 4);
@@ -299,6 +300,7 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
             int obj_index  = entry_index(l, 0, n*l->w*l->h + i, 4);
             float objectness = predictions[obj_index];
             if(objectness <= thresh) continue;
+            printf("get_yolo_detections %d %f %f\n", i, l->output[0], thresh);
             int box_index  = entry_index(l, 0, n*l->w*l->h + i, 0);
             dets[count].bbox = get_yolo_box(predictions, l->biases, l->mask[n], box_index, col, row, l->w, l->h, netw, neth, l->w*l->h);
             dets[count].objectness = objectness;

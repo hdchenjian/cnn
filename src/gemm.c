@@ -146,5 +146,104 @@ void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     check_error(cl);
 #endif
 }
+
+void gemm_native_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                    cl_mem A_gpu, int a_off, int lda,
+                    cl_mem B_gpu, int b_off, int ldb,
+                    float BETA,
+                    cl_mem C_gpu, int c_off, int ldc)
+{
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_native", 0);
+    cl_command_queue queue = cl.queue;
+
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*) &A_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*) &B_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*) &C_gpu);
+    check_error(cl);
+
+    const size_t global_size[] = {M, N};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+void gemm_tile_8x4_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                      cl_mem A_gpu, int a_off, int lda,
+                      cl_mem B_gpu, int b_off, int ldb,
+                      float BETA,
+                      cl_mem C_gpu, int c_off, int ldc)
+{
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_tile_8x4", "-cl-fast-relaxed-math ");
+    cl_command_queue queue = cl.queue;
+
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*) &A_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*) &B_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*) &C_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    check_error(cl);
+
+    const size_t global_size[] = {N / 4, M / 8};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+void gemm_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                   cl_mem A_gpu, int a_off, int lda,
+                   cl_mem B_gpu, int b_off, int ldb,
+                   float BETA,
+                   cl_mem C_gpu, int c_off, int ldc)
+{
+    static cl_kernel gemm_kernel = 0;
+    if(gemm_kernel == 0) gemm_kernel = get_kernel_by_name("gemm_image", "-cl-fast-relaxed-math ");
+    cl_command_queue queue = cl.queue;
+
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*) &A_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*) &B_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*) &C_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    check_error(cl);
+
+    const size_t global_size[] = {N / 4, M / 8};
+    const size_t local_size[] = {16, 32};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, local_size, 0, 0, 0);
+    check_error(cl);
+}
+
+void gemm_image_buf_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                       cl_mem A_gpu, int a_off, int lda,
+                       cl_mem B_gpu, int b_off, int ldb,
+                       float BETA,
+                       cl_mem C_gpu, int c_off, int ldc)
+{
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_image_buf", "-cl-fast-relaxed-math ");
+    cl_command_queue queue = cl.queue;
+
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*) &A_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*) &B_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*) &C_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    check_error(cl);
+
+    const size_t global_size[] = {N / 4, M / 8};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
 #endif
 

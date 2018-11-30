@@ -201,7 +201,9 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     cudnn_convolutional_setup(layer);
     #endif
 #elif defined(OPENCL)
-    layer->weights_cl = cl_make_array(layer->weights, c*n*size*size);
+    int weight_h = (layer->n + TILE_ROW - 1) / TILE_ROW;
+    int weight_w = (layer->size * layer->size * layer->c + TILE_COL - 1) / TILE_COL;
+    layer->weights_cl = cl_make_array(0, weight_h * weight_w);
     layer->biases_cl = cl_make_array(layer->biases, n);
     layer->output_cl = cl_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
     if(0 == layer->test){    // 0: train, 1: valid
@@ -583,11 +585,13 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
             gemm_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n);
         }
     }
+    //cl_print_array(layer->output_cl, 1, "conv output: ", index);
     if (layer->batch_normalize) {
         forward_conv_batchnorm_layer_cl(layer, test, index);
     } else {
         add_bias_cl(layer->batch, layer->out_h * layer->out_w, layer->n, layer->biases_cl, layer->output_cl);
     }
+    //cl_print_array(layer->output_cl, 1, "conv output: ", index);
     //if(index == 0) return;
 
     if(layer->activation == PRELU){

@@ -20,7 +20,7 @@ void check_error(cl_info info)
 {
     clFinish(cl.queue);
     if (info.error != CL_SUCCESS) {
-        printf("\n Error number %d", info.error);
+        printf("\n Error number %d\n", info.error);
         abort();
         exit(1);
     }
@@ -161,6 +161,12 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     static cl_kernel kernel_gemm_nn = 0;
     static cl_kernel kernel_gemm_nt = 0;
     static cl_kernel kernel_gemm_tn = 0;
+
+    static cl_kernel kernel_gemm_native = 0;
+    static cl_kernel kernel_gemm_image = 0;
+    static cl_kernel kernel_gemm_image_buf = 0;
+    static cl_kernel kernel_gemm_tile_8x4 = 0;
+    
     static cl_kernel kernel_copy_cl = 0;
     static cl_kernel kernel_axpy_cl = 0;
     static cl_kernel kernel_scal_cl = 0;
@@ -192,6 +198,18 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     } else if(strcmp(kernelname, "gemm_tn") == 0){
         if(!kernel_gemm_tn) kernel_gemm_tn = get_kernel(kernelname, options);
         return kernel_gemm_tn;
+    } else if(strcmp(kernelname, "gemm_native") == 0){
+        if(!kernel_gemm_native) kernel_gemm_native = get_kernel(kernelname, options);
+        return kernel_gemm_native;
+    } else if(strcmp(kernelname, "gemm_image") == 0){
+        if(!kernel_gemm_image) kernel_gemm_image = get_kernel(kernelname, options);
+        return kernel_gemm_image;
+    } else if(strcmp(kernelname, "gemm_image_buf") == 0){
+        if(!kernel_gemm_image_buf) kernel_gemm_image_buf = get_kernel(kernelname, options);
+        return kernel_gemm_image_buf;
+    } else if(strcmp(kernelname, "gemm_tile_8x4") == 0){
+        if(!kernel_gemm_tile_8x4) kernel_gemm_tile_8x4 = get_kernel(kernelname, options);
+        return kernel_gemm_tile_8x4;
     } else if(strcmp(kernelname, "axpy_cl") == 0){
         if(!kernel_axpy_cl) kernel_axpy_cl = get_kernel(kernelname, options);
         return kernel_axpy_cl;
@@ -313,6 +331,7 @@ cl_mem cl_make_array(float *x, int n)
         mem = clCreateBuffer(cl.context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, sizeof(float)*n, x, &cl.error);
     } else {
         mem = clCreateBuffer(cl.context, CL_MEM_READ_WRITE, sizeof(float)*n, NULL, &cl.error);
+        cl_memset_array(mem, n);
     }
     check_error(cl);
     //activate_array_ongpu(mem, n, LINEAR);
@@ -327,6 +346,7 @@ cl_mem cl_make_int_array(int *x, int n)
         mem = clCreateBuffer(cl.context, CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR, sizeof(int)*n, x, &cl.error);
     } else {
         mem = clCreateBuffer(cl.context, CL_MEM_READ_WRITE, sizeof(int)*n, NULL, &cl.error);
+        cl_memset_array(mem, n);
     }
     check_error(cl);
     return mem;

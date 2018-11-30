@@ -965,7 +965,7 @@ void fill_network_boxes(network *net, int w, int h, float thresh, int *map, int 
 detection *get_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, int *num)
 {
     detection *dets = make_network_boxes(net, thresh, num);
-    //printf("get_network_boxes box num: %d\n", *num);
+    printf("get_network_boxes box num: %d\n", *num);
     fill_network_boxes(net, w, h, thresh, map, relative, dets);
     return dets;
 }
@@ -1060,11 +1060,11 @@ void forward_network_cl(network *net, cl_mem input)
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
-            //cl_print_array(input, 1, "conv input: ", i);
+            cl_print_array(input, 1, "conv input: ", i);
             //cl_memset_array(net->workspace_cl, (net->workspace_size-1)/sizeof(float)+1);
             forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test, i);
             //printf("forward_network_cl %d %f\n", i, layer->output[0]);
-            //cl_print_array(layer->output_cl, 1, "conv output: ", i);
+            cl_print_array(layer->output_cl, 1, "conv output: ", i);
             input = layer->output_cl;
             //cl_compare_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n, "variance output diff: ", i);
             //cl_compare_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n, "mean output diff: ", i);
@@ -1094,9 +1094,9 @@ void forward_network_cl(network *net, cl_mem input)
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
             layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
-            //cl_print_array(input, 1, "shortcut input: ", i);
+            cl_print_array(input, 1, "shortcut input: ", i);
             forward_shortcut_layer_cl(layer, input, net);
-            //cl_print_array(layer->output_cl, 1, "shortcut output: ", i);
+            cl_print_array(layer->output_cl, 1, "shortcut output: ", i);
             input = layer->output_cl;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
