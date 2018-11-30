@@ -163,9 +163,11 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     static cl_kernel kernel_gemm_tn = 0;
 
     static cl_kernel kernel_gemm_native = 0;
+    static cl_kernel kernel_gemm_tile_8x4 = 0;
     static cl_kernel kernel_gemm_image = 0;
     static cl_kernel kernel_gemm_image_buf = 0;
-    static cl_kernel kernel_gemm_tile_8x4 = 0;
+    static cl_kernel kernel_gemm_fast = 0;
+    static cl_kernel kernel_matrix_transpose_cl = 0;
     
     static cl_kernel kernel_copy_cl = 0;
     static cl_kernel kernel_axpy_cl = 0;
@@ -207,9 +209,15 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     } else if(strcmp(kernelname, "gemm_image_buf") == 0){
         if(!kernel_gemm_image_buf) kernel_gemm_image_buf = get_kernel(kernelname, options);
         return kernel_gemm_image_buf;
+    } else if(strcmp(kernelname, "gemm_fast") == 0){
+        if(!kernel_gemm_fast) kernel_gemm_fast = get_kernel(kernelname, options);
+        return kernel_gemm_fast;
     } else if(strcmp(kernelname, "gemm_tile_8x4") == 0){
         if(!kernel_gemm_tile_8x4) kernel_gemm_tile_8x4 = get_kernel(kernelname, options);
         return kernel_gemm_tile_8x4;
+    } else if(strcmp(kernelname, "matrix_transpose_cl") == 0){
+        if(!kernel_matrix_transpose_cl) kernel_matrix_transpose_cl = get_kernel(kernelname, options);
+        return kernel_matrix_transpose_cl;
     } else if(strcmp(kernelname, "axpy_cl") == 0){
         if(!kernel_axpy_cl) kernel_axpy_cl = get_kernel(kernelname, options);
         return kernel_axpy_cl;

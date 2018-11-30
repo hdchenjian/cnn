@@ -4,6 +4,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := face_detect_cnn
 LOCAL_SRC_FILES := examples/detector.c src/activations.c src/box.c src/data.c src/list.c src/opencl.c src/shortcut_layer.c src/yolo_layer.c src/avgpool_layer.c src/connected_layer.c src/dropout_layer.c src/lstm_layer.c src/option_list.c src/softmax_layer.c src/batchnorm_layer.c src/convolutional_layer.c src/gemm.c src/maxpool_layer.c src/parser.c src/tree.c src/blas.c src/cost_layer.c src/gru_layer.c src/network.c src/rnn_layer.c src/upsample_layer.c src/blas_cl.c src/cuda.c src/image.c src/normalize_layer.c src/route_layer.c src/utils.c
 LOCAL_C_INCLUDES += ../src
+LOCAL_C_INCLUDES += /home/luyao/git/opencl-sdk-1.2.2/inc
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/include
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/include
 LOCAL_CFLAGS := -Ofast -std=c11 -DFORWARD_GPU -DOPENCL
@@ -11,6 +12,7 @@ LOCAL_CFLAGS := -Ofast -std=c11 -DFORWARD_GPU -DOPENCL
 # LOCAL_LDLIBS := -llog
 #LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 include $(BUILD_STATIC_LIBRARY)
+
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := opencl_lib1
@@ -91,6 +93,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := test_gemm_cl
 LOCAL_SRC_FILES := test/test_gemm_cl.c
 LOCAL_C_INCLUDES += ../src
+LOCAL_C_INCLUDES += /home/luyao/git/opencl-sdk-1.2.2/inc
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/include
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/include
 LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
@@ -99,5 +102,6 @@ LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 LOCAL_CFLAGS := -Ofast -std=c11 -DOPENCL
 
 include $(BUILD_EXECUTABLE)
+
 $(call import-module,android/native_app_glue)
 $(call import-module,cxx-stl/gnu-libstdc++)
