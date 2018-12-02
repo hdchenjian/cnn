@@ -1,5 +1,183 @@
 #define TS 16
 
+#define T_WIDTH 8
+__kernel void gemm_fast_direct(int M, int N, int K, int local_width,  __global float *a, __global float *b, __global float *c)
+{
+    float c_r[T_WIDTH * T_WIDTH] = {0};
+    float8 a_r[1];
+    float8 b_r[1];
+    int group_width = M / T_WIDTH / local_width;
+
+    int const a_off_thr = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) );
+    int const b_off_thr = ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
+
+    int a_off = a_off_thr;
+    int b_off = b_off_thr;
+    for( int k = 0; k < K; k += 1 ) {
+        if(a_off 
+        a_r[0] = ((global float8 const *)a)[a_off];
+        b_r[0] = ((global float8 const *)b)[b_off];
+        c_r[0] += a_r[0].s0*b_r[0].s0;
+        c_r[1] += a_r[0].s0*b_r[0].s1;
+        c_r[2] += a_r[0].s0*b_r[0].s2;
+        c_r[3] += a_r[0].s0*b_r[0].s3;
+        c_r[4] += a_r[0].s0*b_r[0].s4;
+        c_r[5] += a_r[0].s0*b_r[0].s5;
+        c_r[6] += a_r[0].s0*b_r[0].s6;
+        c_r[7] += a_r[0].s0*b_r[0].s7;
+        c_r[8] += a_r[0].s1*b_r[0].s0;
+        c_r[9] += a_r[0].s1*b_r[0].s1;
+        c_r[10] += a_r[0].s1*b_r[0].s2;
+        c_r[11] += a_r[0].s1*b_r[0].s3;
+        c_r[12] += a_r[0].s1*b_r[0].s4;
+        c_r[13] += a_r[0].s1*b_r[0].s5;
+        c_r[14] += a_r[0].s1*b_r[0].s6;
+        c_r[15] += a_r[0].s1*b_r[0].s7;
+        c_r[16] += a_r[0].s2*b_r[0].s0;
+        c_r[17] += a_r[0].s2*b_r[0].s1;
+        c_r[18] += a_r[0].s2*b_r[0].s2;
+        c_r[19] += a_r[0].s2*b_r[0].s3;
+        c_r[20] += a_r[0].s2*b_r[0].s4;
+        c_r[21] += a_r[0].s2*b_r[0].s5;
+        c_r[22] += a_r[0].s2*b_r[0].s6;
+        c_r[23] += a_r[0].s2*b_r[0].s7;
+        c_r[24] += a_r[0].s3*b_r[0].s0;
+        c_r[25] += a_r[0].s3*b_r[0].s1;
+        c_r[26] += a_r[0].s3*b_r[0].s2;
+        c_r[27] += a_r[0].s3*b_r[0].s3;
+        c_r[28] += a_r[0].s3*b_r[0].s4;
+        c_r[29] += a_r[0].s3*b_r[0].s5;
+        c_r[30] += a_r[0].s3*b_r[0].s6;
+        c_r[31] += a_r[0].s3*b_r[0].s7;
+        c_r[32] += a_r[0].s4*b_r[0].s0;
+        c_r[33] += a_r[0].s4*b_r[0].s1;
+        c_r[34] += a_r[0].s4*b_r[0].s2;
+        c_r[35] += a_r[0].s4*b_r[0].s3;
+        c_r[36] += a_r[0].s4*b_r[0].s4;
+        c_r[37] += a_r[0].s4*b_r[0].s5;
+        c_r[38] += a_r[0].s4*b_r[0].s6;
+        c_r[39] += a_r[0].s4*b_r[0].s7;
+        c_r[40] += a_r[0].s5*b_r[0].s0;
+        c_r[41] += a_r[0].s5*b_r[0].s1;
+        c_r[42] += a_r[0].s5*b_r[0].s2;
+        c_r[43] += a_r[0].s5*b_r[0].s3;
+        c_r[44] += a_r[0].s5*b_r[0].s4;
+        c_r[45] += a_r[0].s5*b_r[0].s5;
+        c_r[46] += a_r[0].s5*b_r[0].s6;
+        c_r[47] += a_r[0].s5*b_r[0].s7;
+        c_r[48] += a_r[0].s6*b_r[0].s0;
+        c_r[49] += a_r[0].s6*b_r[0].s1;
+        c_r[50] += a_r[0].s6*b_r[0].s2;
+        c_r[51] += a_r[0].s6*b_r[0].s3;
+        c_r[52] += a_r[0].s6*b_r[0].s4;
+        c_r[53] += a_r[0].s6*b_r[0].s5;
+        c_r[54] += a_r[0].s6*b_r[0].s6;
+        c_r[55] += a_r[0].s6*b_r[0].s7;
+        c_r[56] += a_r[0].s7*b_r[0].s0;
+        c_r[57] += a_r[0].s7*b_r[0].s1;
+        c_r[58] += a_r[0].s7*b_r[0].s2;
+        c_r[59] += a_r[0].s7*b_r[0].s3;
+        c_r[60] += a_r[0].s7*b_r[0].s4;
+        c_r[61] += a_r[0].s7*b_r[0].s5;
+        c_r[62] += a_r[0].s7*b_r[0].s6;
+        c_r[63] += a_r[0].s7*b_r[0].s7;
+
+        a_off += K / T_WIDTH;
+        b_off += K / T_WIDTH;
+    }
+
+    int c_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) )*K +
+        ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
+
+    for( int Mt = 0; Mt < T_WIDTH; ++Mt ) {
+        switch(Mt) {
+        case 0:
+            b_r[0].s0 = c_r[0];
+            b_r[0].s1 = c_r[1];
+            b_r[0].s2 = c_r[2];
+            b_r[0].s3 = c_r[3];
+            b_r[0].s4 = c_r[4];
+            b_r[0].s5 = c_r[5];
+            b_r[0].s6 = c_r[6];
+            b_r[0].s7 = c_r[7];
+            break;
+        case 1:
+            b_r[0].s0 = c_r[8];
+            b_r[0].s1 = c_r[9];
+            b_r[0].s2 = c_r[10];
+            b_r[0].s3 = c_r[11];
+            b_r[0].s4 = c_r[12];
+            b_r[0].s5 = c_r[13];
+            b_r[0].s6 = c_r[14];
+            b_r[0].s7 = c_r[15];
+            break;
+        case 2:
+            b_r[0].s0 = c_r[16];
+            b_r[0].s1 = c_r[17];
+            b_r[0].s2 = c_r[18];
+            b_r[0].s3 = c_r[19];
+            b_r[0].s4 = c_r[20];
+            b_r[0].s5 = c_r[21];
+            b_r[0].s6 = c_r[22];
+            b_r[0].s7 = c_r[23];
+            break;
+        case 3:
+            b_r[0].s0 = c_r[24];
+            b_r[0].s1 = c_r[25];
+            b_r[0].s2 = c_r[26];
+            b_r[0].s3 = c_r[27];
+            b_r[0].s4 = c_r[28];
+            b_r[0].s5 = c_r[29];
+            b_r[0].s6 = c_r[30];
+            b_r[0].s7 = c_r[31];
+            break;
+        case 4:
+            b_r[0].s0 = c_r[32];
+            b_r[0].s1 = c_r[33];
+            b_r[0].s2 = c_r[34];
+            b_r[0].s3 = c_r[35];
+            b_r[0].s4 = c_r[36];
+            b_r[0].s5 = c_r[37];
+            b_r[0].s6 = c_r[38];
+            b_r[0].s7 = c_r[39];
+            break;
+        case 5:
+            b_r[0].s0 = c_r[40];
+            b_r[0].s1 = c_r[41];
+            b_r[0].s2 = c_r[42];
+            b_r[0].s3 = c_r[43];
+            b_r[0].s4 = c_r[44];
+            b_r[0].s5 = c_r[45];
+            b_r[0].s6 = c_r[46];
+            b_r[0].s7 = c_r[47];
+            break;
+        case 6:
+            b_r[0].s0 = c_r[48];
+            b_r[0].s1 = c_r[49];
+            b_r[0].s2 = c_r[50];
+            b_r[0].s3 = c_r[51];
+            b_r[0].s4 = c_r[52];
+            b_r[0].s5 = c_r[53];
+            b_r[0].s6 = c_r[54];
+            b_r[0].s7 = c_r[55];
+            break;
+        case 7:
+            b_r[0].s0 = c_r[56];
+            b_r[0].s1 = c_r[57];
+            b_r[0].s2 = c_r[58];
+            b_r[0].s3 = c_r[59];
+            b_r[0].s4 = c_r[60];
+            b_r[0].s5 = c_r[61];
+            b_r[0].s6 = c_r[62];
+            b_r[0].s7 = c_r[63];
+            break;
+        }
+
+        ((global float8 *)c)[c_off+0] = b_r[0];
+        c_off += K / T_WIDTH;
+    }
+}
+
 __kernel void matrix_transpose_cl(__global float *matrix, __global float *matrix_t, int width, int height)
 {
     const int wid_x  = get_global_id(0);
@@ -16,6 +194,191 @@ __kernel void matrix_transpose_cl(__global float *matrix, __global float *matrix
     vstore4((float4)(rows[0].y, rows[1].y, rows[2].y, rows[3].y), wid_y, write_offset + height);
     vstore4((float4)(rows[0].z, rows[1].z, rows[2].z, rows[3].z), wid_y, write_offset + 2 * height);
     vstore4((float4)(rows[0].w, rows[1].w, rows[2].w, rows[3].w), wid_y, write_offset + 3 * height);
+}
+
+__kernel void matrix_transpose_direct_cl(__global float *matrix, __global float *matrix_t, int width, int height)
+{
+    const int wid_x  = get_global_id(0);
+    const int wid_y  = get_global_id(1);
+    matrix_t[height * wid_x + wid_y] = matrix[width * wid_y + wid_x];
+}
+
+__kernel void gemm_fast_image(int M, int N, int K, int local_width,  __global float *a, __read_only image2d_t b, __global float *c)
+{
+    float c_r[8*8] = {0};
+    float8 a_r[1];
+    float8 b_r[1];
+    int group_width = M / 8 / local_width;
+
+    int const a_off_thr = ((get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width));
+    //int const b_off_thr = ((get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width));
+    int b_off = ((get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width));
+
+    int a_off = a_off_thr;
+    for( int k = 0; k < K; k += 1 ) {
+        //b_r[0] = ((global float8 const *)b)[b_off];
+        *((float4 *)b_r) = read_imagef(b, (int2)(b_off * 2, k)); //(b_off * 8 / 4, k)
+        *((float4 *)b_r +1) = read_imagef(b, (int2)(b_off * 2 +1, k));
+        a_r[0] = ((global float8 const *)a)[a_off];
+        c_r[0] += a_r[0].s0*b_r[0].s0;
+        c_r[1] += a_r[0].s0*b_r[0].s1;
+        c_r[2] += a_r[0].s0*b_r[0].s2;
+        c_r[3] += a_r[0].s0*b_r[0].s3;
+        c_r[4] += a_r[0].s0*b_r[0].s4;
+        c_r[5] += a_r[0].s0*b_r[0].s5;
+        c_r[6] += a_r[0].s0*b_r[0].s6;
+        c_r[7] += a_r[0].s0*b_r[0].s7;
+        c_r[8] += a_r[0].s1*b_r[0].s0;
+        c_r[9] += a_r[0].s1*b_r[0].s1;
+        c_r[10] += a_r[0].s1*b_r[0].s2;
+        c_r[11] += a_r[0].s1*b_r[0].s3;
+        c_r[12] += a_r[0].s1*b_r[0].s4;
+        c_r[13] += a_r[0].s1*b_r[0].s5;
+        c_r[14] += a_r[0].s1*b_r[0].s6;
+        c_r[15] += a_r[0].s1*b_r[0].s7;
+        c_r[16] += a_r[0].s2*b_r[0].s0;
+        c_r[17] += a_r[0].s2*b_r[0].s1;
+        c_r[18] += a_r[0].s2*b_r[0].s2;
+        c_r[19] += a_r[0].s2*b_r[0].s3;
+        c_r[20] += a_r[0].s2*b_r[0].s4;
+        c_r[21] += a_r[0].s2*b_r[0].s5;
+        c_r[22] += a_r[0].s2*b_r[0].s6;
+        c_r[23] += a_r[0].s2*b_r[0].s7;
+        c_r[24] += a_r[0].s3*b_r[0].s0;
+        c_r[25] += a_r[0].s3*b_r[0].s1;
+        c_r[26] += a_r[0].s3*b_r[0].s2;
+        c_r[27] += a_r[0].s3*b_r[0].s3;
+        c_r[28] += a_r[0].s3*b_r[0].s4;
+        c_r[29] += a_r[0].s3*b_r[0].s5;
+        c_r[30] += a_r[0].s3*b_r[0].s6;
+        c_r[31] += a_r[0].s3*b_r[0].s7;
+        c_r[32] += a_r[0].s4*b_r[0].s0;
+        c_r[33] += a_r[0].s4*b_r[0].s1;
+        c_r[34] += a_r[0].s4*b_r[0].s2;
+        c_r[35] += a_r[0].s4*b_r[0].s3;
+        c_r[36] += a_r[0].s4*b_r[0].s4;
+        c_r[37] += a_r[0].s4*b_r[0].s5;
+        c_r[38] += a_r[0].s4*b_r[0].s6;
+        c_r[39] += a_r[0].s4*b_r[0].s7;
+        c_r[40] += a_r[0].s5*b_r[0].s0;
+        c_r[41] += a_r[0].s5*b_r[0].s1;
+        c_r[42] += a_r[0].s5*b_r[0].s2;
+        c_r[43] += a_r[0].s5*b_r[0].s3;
+        c_r[44] += a_r[0].s5*b_r[0].s4;
+        c_r[45] += a_r[0].s5*b_r[0].s5;
+        c_r[46] += a_r[0].s5*b_r[0].s6;
+        c_r[47] += a_r[0].s5*b_r[0].s7;
+        c_r[48] += a_r[0].s6*b_r[0].s0;
+        c_r[49] += a_r[0].s6*b_r[0].s1;
+        c_r[50] += a_r[0].s6*b_r[0].s2;
+        c_r[51] += a_r[0].s6*b_r[0].s3;
+        c_r[52] += a_r[0].s6*b_r[0].s4;
+        c_r[53] += a_r[0].s6*b_r[0].s5;
+        c_r[54] += a_r[0].s6*b_r[0].s6;
+        c_r[55] += a_r[0].s6*b_r[0].s7;
+        c_r[56] += a_r[0].s7*b_r[0].s0;
+        c_r[57] += a_r[0].s7*b_r[0].s1;
+        c_r[58] += a_r[0].s7*b_r[0].s2;
+        c_r[59] += a_r[0].s7*b_r[0].s3;
+        c_r[60] += a_r[0].s7*b_r[0].s4;
+        c_r[61] += a_r[0].s7*b_r[0].s5;
+        c_r[62] += a_r[0].s7*b_r[0].s6;
+        c_r[63] += a_r[0].s7*b_r[0].s7;
+
+        a_off += 1*K/8;
+        //b_off += 1*K/8;
+    }
+
+    int c_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) )*K +
+        ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
+
+    for( int Mt = 0; Mt < 8; ++Mt ) {
+        switch(Mt) {
+        case 0:
+            b_r[0].s0 = c_r[0];
+            b_r[0].s1 = c_r[1];
+            b_r[0].s2 = c_r[2];
+            b_r[0].s3 = c_r[3];
+            b_r[0].s4 = c_r[4];
+            b_r[0].s5 = c_r[5];
+            b_r[0].s6 = c_r[6];
+            b_r[0].s7 = c_r[7];
+            break;
+        case 1:
+            b_r[0].s0 = c_r[8];
+            b_r[0].s1 = c_r[9];
+            b_r[0].s2 = c_r[10];
+            b_r[0].s3 = c_r[11];
+            b_r[0].s4 = c_r[12];
+            b_r[0].s5 = c_r[13];
+            b_r[0].s6 = c_r[14];
+            b_r[0].s7 = c_r[15];
+            break;
+        case 2:
+            b_r[0].s0 = c_r[16];
+            b_r[0].s1 = c_r[17];
+            b_r[0].s2 = c_r[18];
+            b_r[0].s3 = c_r[19];
+            b_r[0].s4 = c_r[20];
+            b_r[0].s5 = c_r[21];
+            b_r[0].s6 = c_r[22];
+            b_r[0].s7 = c_r[23];
+            break;
+        case 3:
+            b_r[0].s0 = c_r[24];
+            b_r[0].s1 = c_r[25];
+            b_r[0].s2 = c_r[26];
+            b_r[0].s3 = c_r[27];
+            b_r[0].s4 = c_r[28];
+            b_r[0].s5 = c_r[29];
+            b_r[0].s6 = c_r[30];
+            b_r[0].s7 = c_r[31];
+            break;
+        case 4:
+            b_r[0].s0 = c_r[32];
+            b_r[0].s1 = c_r[33];
+            b_r[0].s2 = c_r[34];
+            b_r[0].s3 = c_r[35];
+            b_r[0].s4 = c_r[36];
+            b_r[0].s5 = c_r[37];
+            b_r[0].s6 = c_r[38];
+            b_r[0].s7 = c_r[39];
+            break;
+        case 5:
+            b_r[0].s0 = c_r[40];
+            b_r[0].s1 = c_r[41];
+            b_r[0].s2 = c_r[42];
+            b_r[0].s3 = c_r[43];
+            b_r[0].s4 = c_r[44];
+            b_r[0].s5 = c_r[45];
+            b_r[0].s6 = c_r[46];
+            b_r[0].s7 = c_r[47];
+            break;
+        case 6:
+            b_r[0].s0 = c_r[48];
+            b_r[0].s1 = c_r[49];
+            b_r[0].s2 = c_r[50];
+            b_r[0].s3 = c_r[51];
+            b_r[0].s4 = c_r[52];
+            b_r[0].s5 = c_r[53];
+            b_r[0].s6 = c_r[54];
+            b_r[0].s7 = c_r[55];
+            break;
+        case 7:
+            b_r[0].s0 = c_r[56];
+            b_r[0].s1 = c_r[57];
+            b_r[0].s2 = c_r[58];
+            b_r[0].s3 = c_r[59];
+            b_r[0].s4 = c_r[60];
+            b_r[0].s5 = c_r[61];
+            b_r[0].s6 = c_r[62];
+            b_r[0].s7 = c_r[63];
+            break;
+        }
+
+        ((global float8 *)c)[c_off+0] = b_r[0];
+        c_off += K/8;
+    }
 }
 
 __kernel void gemm_fast(int M, int N, int K, int local_width,  __global float *a, __global float *b, __global float *c)
@@ -236,9 +599,9 @@ __kernel void gemm_image(const int m, const int n, const int k,
 }
 
 __kernel void gemm_image_buf(const int m, const int n, const int k,
-                         __global const float *A, const int lda,
-                         __global const float *B, const int ldb,
-                         __global float *C, const int ldc)
+                             __global const float *A, const int lda,
+                             __global const float *B, const int ldb,
+                             __global float *C, const int ldc)
 {
     int gx = get_global_id(0);
     int gy = get_global_id(1) << 3;
