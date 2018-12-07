@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "opencl.h"
 #include "utils.h"
@@ -36,6 +37,24 @@ void gemm_fast_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                         cl_mem B_gpu, int b_off, int ldb,
                         float BETA,
                         cl_mem C_gpu, int c_off, int ldc);
+void gemm_fast_direct_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                         cl_mem A_gpu, int a_off, int lda,
+                         cl_mem B_gpu, int b_off, int ldb,
+                         float BETA,
+                         cl_mem C_gpu, int c_off, int ldc);
+
+void gemm_with_local_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                         cl_mem A_gpu, int a_off, int lda,
+                         cl_mem B_gpu, int b_off, int ldb,
+                         float BETA,
+                         cl_mem C_gpu, int c_off, int ldc);
+void gemm_with_local_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                              cl_mem A_gpu, int a_off, int lda,
+                              cl_mem B_gpu, int b_off, int ldb,
+                              float BETA,
+                              cl_mem C_gpu, int c_off, int ldc);
+
+
 void gemm_matrix_transpose_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height);
 void gemm_matrix_transpose_direct_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height);
 
@@ -44,17 +63,11 @@ float *make_matrix(int rows, int cols)
     int i;
     float *m = calloc(rows*cols, sizeof(float));
     for(i = 0; i < rows*cols; ++i){
-        m[i] = rand_uniform(0, 10 / (float)rows);
-        //m[i] = i * 0.001;
+        m[i] = rand_uniform(0, 30 / (float)rows);
+        m[i] = 1;
     }
     return m;
 }
-
-void gemm_fast_direct_cl(int TA, int TB, int M, int N, int K, float ALPHA,
-                         cl_mem A_gpu, int a_off, int lda,
-                         cl_mem B_gpu, int b_off, int ldb,
-                         float BETA,
-                         cl_mem C_gpu, int c_off, int ldc);
 
 void test_gemm_cl(int w, int h)
 {
@@ -194,7 +207,7 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
     float *b = make_matrix(k, n);
     float *c = make_matrix(m, n);
     start = what_time_is_it_now();
-    gemm(0,0,m,n,k,1,a,k,b,k,0,c,k);
+    gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     end = what_time_is_it_now();
     float sum = 0;
     for(int i = 0; i < m * n; i++) sum += c[i];
@@ -217,44 +230,33 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
     check_error(cl);
 
     for(int i = 0; i < 1; i++){
-        gemm_cl(0,0,m,n,k,1,a_cl,0,n,b_cl,0,n,0,c_cl,0,n);
-        gemm_native_cl(0,0,m,n,k,1,a_cl,0,n,b_cl,0,n,0,c_cl,0,n);
-        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        //gemm_cl(0,0,m,n,k,1,a_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        cl_memset_array(c_cl, m*n);
+        //gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        //gemm_with_local_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        //gemm_with_local_image_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_image,0,n,0,c_cl,0,n);
+        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n);
+        float diff_error = cl_compare_array(c_cl, c, m*n, "gemm diff: ", -1);
+        if(diff_error > 0.0001) exit(-1);
+        return;
+        cl_memset_array(c_cl, m*n);
     }
     int try_times = 1;
-    start = what_time_is_it_now();
-    for(int i = 0; i < try_times; i++){
-        gemm_cl(0,0,m,n,k,1,a_cl,0,n,b_cl,0,n,0,c_cl,0,n);
-    }
-    end = what_time_is_it_now();
-    cl_read_array(c_cl, c, m * n);
-    sum = 0;
-    for(int i = 0; i < m * n; i++) sum += c[i];
-    printf("gemm_cl: Matrix Multiplication cl %dx%d * %dx%d, sum: %f, %lf s GFLOPS: %f\n",
-           m, k, k, n, sum, (end-start) / try_times, gflop / ((end-start) / try_times));
 
     start = what_time_is_it_now();
     for(int i = 0; i < try_times; i++){
-        gemm_native_cl(0,0,m,n,k,1,a_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n);
+        //gemm_with_local_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        //gemm_with_local_image_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_image,0,n,0,c_cl,0,n);
+        //gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
     }
     end = what_time_is_it_now();
-    cl_read_array(c_cl, c, m * n);
-    sum = 0;
-    for(int i = 0; i < m * n; i++) sum += c[i];
-    printf("gemm_native: Matrix Multiplication cl %dx%d * %dx%d, sum: %f, %lf s GFLOPS: %f\n",
-           m, k, k, n, sum, (end-start) / try_times, gflop / ((end-start) / try_times));
-
-    start = what_time_is_it_now();
-    for(int i = 0; i < try_times; i++){
-        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
-    }
-    end = what_time_is_it_now();
+    cl_compare_array(c_cl, c, m*n, "gemm diff: ", -1);
     cl_read_array(c_cl, c, m * n);
     sum = 0;
     for(int i = 0; i < m * n; i++) sum += c[i];
     printf("gemm_fast_direct_cl: Matrix Multiplication cl %dx%d * %dx%d, sum: %f, %lf s GFLOPS: %f\n",
            m, k, k, n, sum, (end-start) / try_times, gflop / ((end-start) / try_times));
-
     clReleaseMemObject(a_cl);
     clReleaseMemObject(a_transpose_cl);
     clReleaseMemObject(b_cl);
@@ -273,10 +275,16 @@ int main(int argc, char **argv)
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
     srand(time(0));
-    int m = 1024;
-    int n = 1024;
-    int k = 1024;
-    test_gemm_fast_direct_cl(m, n, k);
+    int m = 1024*4;
+    int n = 1024*4;
+    int k = 1024*4;
+    //test_gemm_fast_direct_cl(m, n, k);
+    for(int i = 0; i < 100; i++){
+        for(int j = 0; j < 100; j++){
+            test_gemm_fast_direct_cl(9 + i, 8 + j, 10);
+            usleep(3000000);
+        }
+    }
     //test_gemm_cl(m, n);
     return 0;
 }

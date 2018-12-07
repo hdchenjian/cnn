@@ -201,9 +201,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     cudnn_convolutional_setup(layer);
     #endif
 #elif defined(OPENCL)
-    int weight_h = (layer->n + TILE_ROW - 1) / TILE_ROW;
-    int weight_w = (layer->size * layer->size * layer->c + TILE_COL - 1) / TILE_COL;
-    layer->weights_cl = cl_make_array(0, weight_h * weight_w);
+    layer->weights_cl = cl_make_array(layer->weights, c*n*size*size);
     layer->biases_cl = cl_make_array(layer->biases, n);
     layer->output_cl = cl_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
     if(0 == layer->test){    // 0: train, 1: valid

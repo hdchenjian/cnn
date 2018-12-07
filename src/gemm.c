@@ -1,5 +1,7 @@
-#include "gemm.h"
 #include <math.h>
+#include <stdio.h>
+
+#include "gemm.h"
 
 void gemm_nn(int M, int N, int K, float ALPHA, 
         float *A, int lda, 
@@ -204,8 +206,8 @@ void gemm_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
 
     cl_uint i = 0;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
-    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*) &A_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*) &B_gpu);
@@ -230,8 +232,8 @@ void gemm_image_buf_cl(int TA, int TB, int M, int N, int K, float ALPHA,
 
     cl_uint i = 0;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
-    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*) &A_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*) &B_gpu);
@@ -257,8 +259,8 @@ void gemm_fast_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     cl_uint i = 0;
     int local_width = 16;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
-    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(local_width), (void*) &local_width);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*)&A_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*)&B_gpu);
@@ -266,7 +268,7 @@ void gemm_fast_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     check_error(cl);
 
     const size_t local_size[] = {local_width * local_width};
-    const size_t global_size[] = {M * N / local_size[0]};
+    const size_t global_size[] = {M * N / (T_WIDTH * T_WIDTH)};
     cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 1, 0, global_size, local_size, 0, 0, 0);
     check_error(cl);
 }
@@ -283,8 +285,8 @@ void gemm_fast_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     cl_uint i = 0;
     int local_width = 16;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
-    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(local_width), (void*) &local_width);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*)&A_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*)&B_gpu);
@@ -292,7 +294,7 @@ void gemm_fast_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     check_error(cl);
 
     const size_t local_size[] = {local_width * local_width};
-    const size_t global_size[] = {M * N / local_size[0]};
+    const size_t global_size[] = {M * N / (T_WIDTH * T_WIDTH)};
     cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 1, 0, global_size, local_size, 0, 0, 0);
     check_error(cl);
 }
@@ -343,16 +345,69 @@ void gemm_fast_direct_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     cl_uint i = 0;
     int local_width = 16;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
-    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(local_width), (void*) &local_width);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*)&A_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*)&B_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*)&C_gpu);
     check_error(cl);
 
+    printf("%d x %d -> %d x %d, %d, %d %d\n", M, N, (M + T_WIDTH - 1) / T_WIDTH, (N + T_WIDTH - 1) / T_WIDTH,
+           ((M + T_WIDTH - 1) / T_WIDTH) * ((N + T_WIDTH - 1) / T_WIDTH),
+           T_WIDTH, local_width);
     const size_t local_size[] = {local_width * local_width};
-    const size_t global_size[] = {M * N / local_size[0]};
+    const size_t global_size[] = {((M + T_WIDTH - 1) / T_WIDTH) * ((N + T_WIDTH - 1) / T_WIDTH)};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 1, 0, global_size, local_size, 0, 0, 0);
+    check_error(cl);
+}
+
+void gemm_with_local_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                  cl_mem A_gpu, int a_off, int lda,
+                  cl_mem B_gpu, int b_off, int ldb,
+                  float BETA,
+                  cl_mem C_gpu, int c_off, int ldc)
+{
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_with_local", "-cl-fast-relaxed-math ");
+    cl_command_queue queue = cl.queue;
+
+    cl_uint i = 0;
+    int local_width = 16;
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*)&A_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*)&B_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*)&C_gpu);
+    check_error(cl);
+
+    const size_t local_size[] = {local_width * local_width};
+    const size_t global_size[] = {M * N / (4 * 4)};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 1, 0, global_size, local_size, 0, 0, 0);
+    check_error(cl);
+}
+
+void gemm_with_local_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                  cl_mem A_gpu, int a_off, int lda,
+                  cl_mem B_gpu, int b_off, int ldb,
+                  float BETA,
+                  cl_mem C_gpu, int c_off, int ldc)
+{
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_with_local_image", "-cl-fast-relaxed-math ");
+    cl_command_queue queue = cl.queue;
+
+    cl_uint i = 0;
+    int local_width = 16;
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*)&A_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*)&B_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*)&C_gpu);
+    check_error(cl);
+
+    const size_t local_size[] = {local_width * local_width};
+    const size_t global_size[] = {M * N / (4 * 4)};
     cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 1, 0, global_size, local_size, 0, 0, 0);
     check_error(cl);
 }

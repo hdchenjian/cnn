@@ -61,53 +61,57 @@ cl_info cl_init(int index)
 #endif
     info.initialized = 1;
 
-    printf("=== %d OpenCL platform(s) found: ===\n", num_platforms);
+    int printf_log = 0;
+    if(printf_log) printf("=== %d OpenCL platform(s) found: ===\n", num_platforms);
     char buffer[10240];
     clGetPlatformInfo(info.platform, CL_PLATFORM_PROFILE, 10240, buffer, NULL);
-    printf("  PROFILE = %s\n", buffer);
+    if(printf_log) printf("  PROFILE = %s\n", buffer);
     clGetPlatformInfo(info.platform, CL_PLATFORM_VERSION, 10240, buffer, NULL);
-    printf("  VERSION = %s\n", buffer);
+    if(printf_log) printf("  VERSION = %s\n", buffer);
     clGetPlatformInfo(info.platform, CL_PLATFORM_NAME, 10240, buffer, NULL);
-    printf("  NAME = %s\n", buffer);
+    if(printf_log) printf("  NAME = %s\n", buffer);
     clGetPlatformInfo(info.platform, CL_PLATFORM_VENDOR, 10240, buffer, NULL);
-    printf("  VENDOR = %s\n", buffer);
+    if(printf_log) printf("  VENDOR = %s\n", buffer);
     clGetPlatformInfo(info.platform, CL_PLATFORM_EXTENSIONS, 10240, buffer, NULL);
-    printf("  EXTENSIONS = %s\n", buffer);
+    if(printf_log) printf("  EXTENSIONS = %s\n", buffer);
     check_error(info);
 
     if(num_devices > MAX_DEVICES) num_devices = MAX_DEVICES;
-    printf("=== %d OpenCL device(s) found on platform:\n", num_devices);
+    if(printf_log) printf("=== %d OpenCL device(s) found on platform:\n", num_devices);
     int i;
     for (i=0; i<num_devices; i++){
         char buffer[10240];
         cl_uint buf_uint;
         cl_ulong buf_ulong;
-        printf("  -- %d --\n", i);
+        if(printf_log) printf("  -- %d --\n", i);
         clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(buffer), buffer, NULL);
-        printf("  DEVICE_NAME = %s\n", buffer);
+        if(printf_log) printf("  DEVICE_NAME = %s\n", buffer);
         clGetDeviceInfo(devices[i], CL_DEVICE_VENDOR, sizeof(buffer), buffer, NULL);
-        printf("  DEVICE_VENDOR = %s\n", buffer);
+        if(printf_log) printf("  DEVICE_VENDOR = %s\n", buffer);
         clGetDeviceInfo(devices[i], CL_DEVICE_VERSION, sizeof(buffer), buffer, NULL);
-        printf("  DEVICE_VERSION = %s\n", buffer);
+        if(printf_log) printf("  DEVICE_VERSION = %s\n", buffer);
         clGetDeviceInfo(devices[i], CL_DRIVER_VERSION, sizeof(buffer), buffer, NULL);
-        printf("  DRIVER_VERSION = %s\n", buffer);
+        if(printf_log) printf("  DRIVER_VERSION = %s\n", buffer);
         clGetDeviceInfo(devices[i], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(buf_uint), &buf_uint, NULL);
-        printf("  DEVICE_MAX_COMPUTE_UNITS = %u\n", (unsigned int)buf_uint);
+        if(printf_log) printf("  DEVICE_MAX_COMPUTE_UNITS = %u\n", (unsigned int)buf_uint);
         clGetDeviceInfo(devices[i], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(buf_uint), &buf_uint, NULL);
-        printf("  DEVICE_MAX_CLOCK_FREQUENCY = %u\n", (unsigned int)buf_uint);
+        if(printf_log) printf("  DEVICE_MAX_CLOCK_FREQUENCY = %u\n", (unsigned int)buf_uint);
         clGetDeviceInfo(devices[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(buf_ulong), &buf_ulong, NULL);
-        printf("  DEVICE_GLOBAL_MEM_SIZE = %llu\n", (unsigned long long)buf_ulong);
+        if(printf_log) printf("  DEVICE_GLOBAL_MEM_SIZE = %llu\n", (unsigned long long)buf_ulong);
         clGetDeviceInfo(devices[i], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(buf_ulong), &buf_ulong, NULL);
-        printf("  DEVICE_MAX_MEM_ALLOC_SIZE = %llu\n", (unsigned long long)buf_ulong);
+        if(printf_log) printf("  DEVICE_MAX_MEM_ALLOC_SIZE = %llu\n", (unsigned long long)buf_ulong);
         clGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(buf_ulong), &buf_ulong, NULL);
-        printf("  DEVICE_MAX_WORK_GROUP_SIZE = %llu\n", (unsigned long long)buf_ulong);
+        if(printf_log) printf("  DEVICE_MAX_WORK_GROUP_SIZE = %llu\n", (unsigned long long)buf_ulong);
         cl_uint items;
         clGetDeviceInfo( devices[i], CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), 
                 &items, NULL);
-        printf("  DEVICE_MAX_WORK_ITEM_DIMENSIONS = %u\n", (unsigned int)items);
+        if(printf_log) printf("  DEVICE_MAX_WORK_ITEM_DIMENSIONS = %u\n", (unsigned int)items);
         size_t workitem_size[10];
         clGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_SIZES, 10*sizeof(workitem_size), workitem_size, NULL);
-        printf("  DEVICE_MAX_WORK_ITEM_SIZES = %u / %u / %u \n\n\n", (unsigned int)workitem_size[0], (unsigned int)workitem_size[1], (unsigned int)workitem_size[2]);
+        if(printf_log) {
+            printf("  DEVICE_MAX_WORK_ITEM_SIZES = %u / %u / %u \n\n\n",
+                   (unsigned int)workitem_size[0], (unsigned int)workitem_size[1], (unsigned int)workitem_size[2]);
+        }
     }
     return info;
 }
@@ -169,6 +173,8 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     static cl_kernel kernel_gemm_fast = 0;
     static cl_kernel kernel_gemm_fast_image = 0;
     static cl_kernel kernel_gemm_fast_direct = 0;
+    static cl_kernel kernel_gemm_with_local = 0;
+    static cl_kernel kernel_gemm_with_local_image = 0;
     static cl_kernel kernel_matrix_transpose_cl = 0;
     static cl_kernel kernel_matrix_transpose_direct_cl = 0;
     
@@ -221,6 +227,12 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     } else if(strcmp(kernelname, "gemm_fast_direct") == 0){
         if(!kernel_gemm_fast_direct) kernel_gemm_fast_direct = get_kernel(kernelname, options);
         return kernel_gemm_fast_direct;
+    } else if(strcmp(kernelname, "gemm_with_local") == 0){
+        if(!kernel_gemm_with_local) kernel_gemm_with_local = get_kernel(kernelname, options);
+        return kernel_gemm_with_local;
+    } else if(strcmp(kernelname, "gemm_with_local_image") == 0){
+        if(!kernel_gemm_with_local_image) kernel_gemm_with_local_image = get_kernel(kernelname, options);
+        return kernel_gemm_with_local_image;
     } else if(strcmp(kernelname, "gemm_tile_8x4") == 0){
         if(!kernel_gemm_tile_8x4) kernel_gemm_tile_8x4 = get_kernel(kernelname, options);
         return kernel_gemm_tile_8x4;
@@ -287,7 +299,13 @@ float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i)
     float *x_cl = calloc(n, sizeof(float));
     cl_read_array(mem, x_cl, n);
     if(i == -1){
-        for(int j = 0; j < 10; j++) printf("%d %f %f\n", i, x[j], x_cl[j]);
+        int count = 0;
+        for(int j = 0; j < n && count < 10; j++){
+            if(fabsf(x[j] - x_cl[j]) > 0.00001){
+                printf("diff %d %f %f\n", j, x[j], x_cl[j]);
+                count += 1;
+            }
+        }
     }
     axpy_cpu(n, -1, x, 1, x_cl, 1);
     float err = dot_cpu(n, x_cl, 1, x_cl, 1);

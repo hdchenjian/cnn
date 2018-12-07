@@ -24,6 +24,7 @@ void gemm_gpu(int TA, int TB, int M, int N, int K, float ALPHA,
 #endif
 
 #define TS 16
+#define T_WIDTH 8
 #define TILE_ROW 8
 #define TILE_COL 4
 void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,

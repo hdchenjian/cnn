@@ -99,7 +99,7 @@ LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx
 LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
 LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 
-LOCAL_CFLAGS := -Ofast -std=c11 -DOPENCL
+LOCAL_CFLAGS := -Ofast -std=c11 -DOPENCL -DOPENMP
 
 include $(BUILD_EXECUTABLE)
 

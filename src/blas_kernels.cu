@@ -888,7 +888,7 @@ __global__ void l1_kernel(int n, float *pred, float *truth, float *delta, float 
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
     if(i < n){
         float diff = truth[i] - pred[i];
-        error[i] = abs(diff);
+        error[i] = fabsf(diff);
         delta[i] = (diff > 0) ? 1 : -1;
     }
 }
