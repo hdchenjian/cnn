@@ -281,25 +281,25 @@ __kernel void gemm_fast_direct(int M, int N, int K, int local_width,  __global f
     float c_r[T_WIDTH * T_WIDTH] = {0};
     float8 a_r;
     float8 b_r;
-    int ouput_width = (N + T_WIDTH - 1) / T_WIDTH;
-    int group_width = ouput_width / local_width;
+    int output_width = (N + T_WIDTH - 1) / T_WIDTH;
+    int group_width = output_width / local_width;
     group_width = group_width < 1 ? 1 : group_width;
-    local_width = ouput_width < local_width ? ouput_width : local_width;
+    local_width = output_width < local_width ? output_width : local_width;
 
     int a_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) );
     int b_off = ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
     int a_y = M - (a_off + 1) * T_WIDTH;
     int b_x = N - (b_off + 1) * T_WIDTH;
-    printf("get_group_id(0): %d get_local_id(0): %d, %d %d   %d %d %d %d\n", get_group_id(0), get_local_id(0),
+    /*printf("get_group_id(0): %d get_local_id(0): %d, %d %d   %d %d %d %d\n", get_group_id(0), get_local_id(0),
            (get_group_id(0)/group_width)*local_width, get_local_id(0)/local_width,
-           a_off, b_off, a_y, b_x);
+           a_off, b_off, a_y, b_x);*/
 
     int i, k;
     for( int k = 0; k < K; k += 1 ) {
         if(a_y >= 0 && b_x >= 0){
             a_r = ((global float8 const *)a)[a_off];
             b_r = ((global float8 const *)b)[b_off];
-        } else if(a_y >= 0 && b_x < 0){
+        } else if(a_y >= 0 && b_x < 0){    // right upper
             a_r = ((global float8 const *)a)[a_off];
             b_r = (float8)0;
             for(i = -b_x; i < T_WIDTH; i++){
@@ -398,11 +398,11 @@ __kernel void gemm_fast_direct(int M, int N, int K, int local_width,  __global f
     a_y = M - (c_y + 1) * T_WIDTH;
     b_x = N - (c_x + 1) * T_WIDTH;
 
-    printf("c get_group_id(0): %d get_local_id(0): %d, %d %d   %d %d %d %d\n", get_group_id(0), get_local_id(0),
+    /*printf("c get_group_id(0): %d get_local_id(0): %d, %d %d   %d %d %d %d\n", get_group_id(0), get_local_id(0),
            (get_group_id(0)/group_width)*local_width, get_local_id(0)/local_width,
-           c_y, c_x, a_y, b_x);
+           c_y, c_x, a_y, b_x);*/
     if(a_y >= 0 && b_x >= 0){
-        c_off = (c_y * (ouput_width) + c_x) * T_WIDTH;
+        c_off = (c_y * N + c_x) * T_WIDTH;
         for( int Mt = 0; Mt < T_WIDTH; ++Mt ) {
             switch(Mt) {
             case 0:
@@ -486,9 +486,18 @@ __kernel void gemm_fast_direct(int M, int N, int K, int local_width,  __global f
                 b_r.s7 = c_r[63];
                 break;
             }
-            printf("%d %d: %d\n", a_y, b_x, c_off);
+            //printf("%d %d: %d\n", a_y, b_x, c_off);
             *((global float8 *)(c + c_off)) = b_r;
             c_off += N;
+        }
+    } else if(a_y >= 0 && b_x < 0){  // right upper
+        for(i = 0; i < T_WIDTH; i++){
+            for(k = -b_x; k < T_WIDTH; k++){
+                /*printf("%d %d %d %d: %d %d %d %f\n", c_y, c_x, a_y, b_x, i, k,
+                       (c_y * N + c_x) * T_WIDTH + i * N + (k + b_x),
+                       c_r[i * T_WIDTH + (k + b_x)]);*/
+                c[(c_y * N + c_x) * T_WIDTH + i * N + (k + b_x)] = c_r[i * T_WIDTH + (k + b_x)];
+            }
         }
     } else if(a_y < 0 && b_x >= 0){  // left down
         for(i = -a_y; i < T_WIDTH; i++){
@@ -500,24 +509,18 @@ __kernel void gemm_fast_direct(int M, int N, int K, int local_width,  __global f
             b_r.s5 = c_r[(i + a_y) * T_WIDTH + 5];
             b_r.s6 = c_r[(i + a_y) * T_WIDTH + 6];
             b_r.s7 = c_r[(i + a_y) * T_WIDTH + 7];
-            printf("%d %d: %d %d %d %f\n", a_y, b_x, i, k, (c_y * (ouput_width) + c_x) * T_WIDTH + i * N + k + b_x,
-                   c_r[(i + a_y) * T_WIDTH]);
-            *((global float8 *)(c + (c_y * (ouput_width) + c_x) * T_WIDTH + i * N)) = b_r;
-        }
-    } else if(a_y >= 0 && b_x < 0){  // right upper
-        for(i = 0; i < T_WIDTH; i++){
-            for(k = -b_x; k < T_WIDTH; k++){
-                printf("%d %d: %d %d %d %f\n", a_y, b_x, i, k, (c_y * (ouput_width) + c_x) * T_WIDTH + i * N + k + b_x,
-                       c_r[i * T_WIDTH + (k + b_x)]);
-                c[(c_y * (ouput_width) + c_x) * T_WIDTH + i * N + k + b_x] = c_r[i * T_WIDTH + (k + b_x)];
-            }
+            /*printf("%d %d %d %d: %d %d, %d %d %f\n", c_y, c_x, a_y, b_x, i, k,
+                   (c_y * N + c_x) * T_WIDTH + (i + a_y) * N, output_width,
+                   c_r[(i + a_y) * T_WIDTH]);*/
+            *((global float8 *)(c + (c_y * N + c_x) * T_WIDTH + (i + a_y) * N)) = b_r;
         }
     } else {
         for(i = -a_y; i < T_WIDTH; i++){
             for(k = -b_x; k < T_WIDTH; k++){
-                printf("%d %d: %d %d %d %f\n", a_y, b_x, i, k, (c_y * (ouput_width) + c_x) * T_WIDTH + i * N + k + b_x,
-                       c_r[i * T_WIDTH + (k + b_x)]);
-                c[(c_y * (ouput_width) + c_x) * T_WIDTH + i * N + k + b_x] = c_r[i * T_WIDTH + (k + b_x)];
+                /*printf("%d %d %d %d: %d %d %d %f\n", c_y, c_x, a_y, b_x, i, k,
+                       (c_y * N + c_x) * T_WIDTH + (i + a_y) * N + (k + b_x),
+                       c_r[i * T_WIDTH + (k + b_x)]);*/
+                c[(c_y * N + c_x) * T_WIDTH + (i + a_y) * N + (k + b_x)] = c_r[(i + a_y) * T_WIDTH + (k + b_x)];
             }
         }
     }
@@ -733,12 +736,10 @@ __kernel void gemm_fast(int M, int N, int K, int local_width,  __global float *a
     float8 b_r;
     int group_width = N / T_WIDTH / local_width;
 
-    int const a_off_thr = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) );
-    int const b_off_thr = ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
-
-    int a_off = a_off_thr;
-    int b_off = b_off_thr;
-    for( int k = 0; k < K; k += 1 ) {
+    int a_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) );
+    int b_off = ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
+    int k;
+    for(k = 0; k < K; k += 1 ) {
         a_r = ((global float8 const *)a)[a_off];
         b_r = ((global float8 const *)b)[b_off];
         c_r[0] += a_r.s0*b_r.s0;
@@ -810,11 +811,11 @@ __kernel void gemm_fast(int M, int N, int K, int local_width,  __global float *a
         b_off += K/T_WIDTH;
     }
 
-    int c_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) )*K +
+    a_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) )*K +
         ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
 
-    for( int Mt = 0; Mt < T_WIDTH; ++Mt ) {
-        switch(Mt) {
+    for(k = 0; k < T_WIDTH; k++) {
+        switch(k) {
         case 0:
             b_r.s0 = c_r[0];
             b_r.s1 = c_r[1];
@@ -897,8 +898,8 @@ __kernel void gemm_fast(int M, int N, int K, int local_width,  __global float *a
             break;
         }
 
-        ((global float8 *)c)[c_off] = b_r;
-        c_off += K/T_WIDTH;
+        ((global float8 *)c)[a_off] = b_r;
+        a_off += K/T_WIDTH;
     }
 }
 
@@ -909,13 +910,10 @@ __kernel void gemm_image(const int m, const int n, const int k,
 {
     int gx = get_global_id(0);
     int gy = get_global_id(1) << 3;
-    if (((gx << 2) >= n) || (gy >= m)) return;
+    //if (((gx << 2) >= n) || (gy >= m)) return;
     float4 a[8];
     float4 b[4];
-    float4 c[8];
-    for (int i = 0; i < 8; i++) {
-        c[i] = 0.0f;
-    }
+    float4 c[8] = {0};
     int A_y_off = gy * lda;
 
     for (int pos = 0; pos < k; pos += 4) {
@@ -943,6 +941,7 @@ __kernel void gemm_image(const int m, const int n, const int k,
     }
 }
 
+/* use buf for gemm_image */
 __kernel void gemm_image_buf(const int m, const int n, const int k,
                              __global const float *A, const int lda,
                              __global const float *B, const int ldb,
@@ -1070,16 +1069,6 @@ __kernel void gemm_native(const int matrixRowsA, const int matrixColsARowsB, con
         matrixProduct[i * matrixColsB + j] = result;
     }
 }
-
-
-
-
-
-
-
-
-
-
 
 __kernel void axpy_cl(int N, float ALPHA, __global float *X, int INCX, __global float *Y, int INCY)
 {

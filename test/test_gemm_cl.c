@@ -232,23 +232,26 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
     for(int i = 0; i < 1; i++){
         //gemm_cl(0,0,m,n,k,1,a_cl,0,n,b_cl,0,n,0,c_cl,0,n);
         cl_memset_array(c_cl, m*n);
-        //gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
         //gemm_with_local_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
         //gemm_with_local_image_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_image,0,n,0,c_cl,0,n);
-        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n);
+        //gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n);
+        gemm_image_cl(0,0,m,n,k,1,a_cl,0,k,b_image,0,n,0,c_cl,0,n);
         float diff_error = cl_compare_array(c_cl, c, m*n, "gemm diff: ", -1);
         if(diff_error > 0.0001) exit(-1);
-        return;
+        //return;
         cl_memset_array(c_cl, m*n);
     }
-    int try_times = 1;
+    int try_times = 10;
 
     start = what_time_is_it_now();
     for(int i = 0; i < try_times; i++){
-        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n);
+        //gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n);
+        gemm_image_cl(0,0,m,n,k,1,a_cl,0,k,b_image,0,n,0,c_cl,0,n);
         //gemm_with_local_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
         //gemm_with_local_image_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_image,0,n,0,c_cl,0,n);
         //gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        printf("%d\n", i);
     }
     end = what_time_is_it_now();
     cl_compare_array(c_cl, c, m*n, "gemm diff: ", -1);
@@ -278,13 +281,15 @@ int main(int argc, char **argv)
     int m = 1024*4;
     int n = 1024*4;
     int k = 1024*4;
-    //test_gemm_fast_direct_cl(m, n, k);
-    for(int i = 0; i < 100; i++){
+    test_gemm_fast_direct_cl(m, n, k);
+    /*
+    for(int i = 7; i < 100; i++){
         for(int j = 0; j < 100; j++){
             test_gemm_fast_direct_cl(9 + i, 8 + j, 10);
             usleep(3000000);
         }
     }
-    //test_gemm_cl(m, n);
+    */
+    //test_gemm_cl(1024, 1024);
     return 0;
 }
