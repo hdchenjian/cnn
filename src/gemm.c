@@ -116,6 +116,7 @@ void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                            M, N, K, ALPHA, A_gpu, a_off, lda, B_gpu, b_off, ldb, BETA, C_gpu, c_off, ldc, 1, &queue, 0, NULL, 0);
     check_error(cl);
 #else
+    //printf("\t\t\t\t\tgemm_cl %d %d: %d %d %d\n", TA, TB, M, N, K);
     cl_kernel      gemm_kernel = get_kernel_by_name("gemm", "-D BLOCK=" STR(TS));
     if(!TA && !TB) gemm_kernel = get_kernel_by_name("gemm_nn", "-D BLOCK=" STR(TS));
     if(!TA && TB)  gemm_kernel = get_kernel_by_name("gemm_nt", "-D BLOCK=" STR(TS));
@@ -251,25 +252,26 @@ void gemm_fast_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                   cl_mem A_gpu, int a_off, int lda,
                   cl_mem B_gpu, int b_off, int ldb,
                   float BETA,
-                  cl_mem C_gpu, int c_off, int ldc)
+                  cl_mem C_gpu, int c_off, int ldc, int N_tile) //, int M_tile, int N_tile, int K_tile)
 {
     cl_kernel gemm_kernel = get_kernel_by_name("gemm_fast", "-cl-fast-relaxed-math ");
     cl_command_queue queue = cl.queue;
 
+    //printf("\t\t\t\t\tgemm_fast_cl %d %d: %d %d %d, tile: \n", TA, TB, M, N, K);//, M_tile, N_tile, K_tile);
+    //printf("%d x %d -> %d x %d, %d, %d %d\n", M, N, (M + T_WIDTH - 1) / T_WIDTH, (N + T_WIDTH - 1) / T_WIDTH);
     cl_uint i = 0;
-    int local_width = 16;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N_tile), (void*) &N_tile);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
-    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(local_width), (void*) &local_width);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*)&A_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*)&B_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*)&C_gpu);
     check_error(cl);
 
-    const size_t local_size[] = {local_width * local_width};
-    const size_t global_size[] = {M * N / (T_WIDTH * T_WIDTH)};
-    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 1, 0, global_size, local_size, 0, 0, 0);
+    const size_t local_size[] = {16, 8};
+    const size_t global_size[] = {(N_tile + T_WIDTH - 1) / T_WIDTH, (M + T_WIDTH - 1) / T_WIDTH};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, local_size, 0, 0, 0);
     check_error(cl);
 }
 
@@ -334,31 +336,28 @@ void gemm_matrix_transpose_direct_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int 
 }
 
 void gemm_fast_direct_cl(int TA, int TB, int M, int N, int K, float ALPHA,
-                  cl_mem A_gpu, int a_off, int lda,
-                  cl_mem B_gpu, int b_off, int ldb,
-                  float BETA,
-                  cl_mem C_gpu, int c_off, int ldc)
+                         cl_mem A_gpu, int a_off, int lda,
+                         cl_mem B_gpu, int b_off, int ldb,
+                         float BETA,
+                         cl_mem C_gpu, int c_off, int ldc, int M_tile)
 {
     cl_kernel gemm_kernel = get_kernel_by_name("gemm_fast_direct", "-cl-fast-relaxed-math ");
     cl_command_queue queue = cl.queue;
 
+    //printf("\t\t\t\t\tgemm_fast_direct_cl %d %d: %d %d %d, tile: \n", TA, TB, M, N, K);//, M_tile, N_tile, K_tile);
     cl_uint i = 0;
-    int local_width = 16;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M_tile), (void*) &M_tile);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(K), (void*) &K);
-    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(local_width), (void*) &local_width);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*)&A_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*)&B_gpu);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(C_gpu), (void*)&C_gpu);
     check_error(cl);
 
-    printf("%d x %d -> %d x %d, %d, %d %d\n", M, N, (M + T_WIDTH - 1) / T_WIDTH, (N + T_WIDTH - 1) / T_WIDTH,
-           ((M + T_WIDTH - 1) / T_WIDTH) * ((N + T_WIDTH - 1) / T_WIDTH),
-           T_WIDTH, local_width);
-    const size_t local_size[] = {local_width * local_width};
-    const size_t global_size[] = {((M + T_WIDTH - 1) / T_WIDTH) * ((N + T_WIDTH - 1) / T_WIDTH)};
-    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 1, 0, global_size, local_size, 0, 0, 0);
+    const size_t local_size[] = {16, 8};
+    const size_t global_size[] = {(N + T_WIDTH - 1) / T_WIDTH, (M_tile + T_WIDTH - 1) / T_WIDTH};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, local_size, 0, 0, 0);
     check_error(cl);
 }
 

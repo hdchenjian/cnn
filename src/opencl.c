@@ -298,7 +298,7 @@ float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i)
 {
     float *x_cl = calloc(n, sizeof(float));
     cl_read_array(mem, x_cl, n);
-    if(i == -1){
+    if(i == 56){
         int count = 0;
         for(int j = 0; j < n && count < 10; j++){
             if(fabsf(x[j] - x_cl[j]) > 0.00001){
@@ -313,6 +313,7 @@ float cl_compare_array(cl_mem mem, float *x, int n, char *s, int i)
     if(err < 0.00001) printf("\n");
     else printf(" sqrtf(error / n): %f, compare array length: %d\n", sqrtf(err/n), n);
     free(x_cl);
+    if(err > 0.001) exit(-1);
     return err;
 }
 
@@ -360,6 +361,35 @@ cl_mem cl_sub_array(cl_mem src, int offset, int size)
     return sub;
 }
 
+
+void gemm_matrix_transpose_tile_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height, int width_t)
+{
+    cl_kernel gemm_kernel = get_kernel_by_name("matrix_transpose_direct_cl", "-cl-fast-relaxed-math ");
+    cl_command_queue queue = cl.queue;
+
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(A_gpu), (void*) &A_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(B_gpu), (void*) &B_gpu);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(width), (void*) &width);
+    cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(width_t), (void*) &width_t);
+    check_error(cl);
+
+    const size_t global_size[] = {width, height};
+    cl.error = clEnqueueNDRangeKernel(queue, gemm_kernel, 2, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
+cl_mem cl_make_weights(int h, int w, float *weights)
+{
+    int tile_width = 8;
+    int h_tile = ((h + tile_width - 1) / tile_width) * tile_width;
+    //int w_tile = ((w + tile_width - 1) / tile_width) * tile_width;
+    cl_mem mem = cl_make_array(0, h_tile * w);
+    cl_mem weights_cl = cl_make_array(weights, h * w);
+    gemm_matrix_transpose_tile_cl(weights_cl, mem, w, h, h_tile);
+    clReleaseMemObject(weights_cl);
+    return mem;
+}
 
 cl_mem cl_make_array(float *x, int n)
 {

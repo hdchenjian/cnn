@@ -22,6 +22,7 @@ void check_error(cl_info info);
 void cl_read_array(cl_mem mem, float *x, int n);
 void cl_write_array(cl_mem mem, float *x, int n);
 cl_mem cl_make_array(float *x, int n);
+cl_mem cl_make_weights(int h, int w, float *weights);
 cl_mem cl_make_int_array(int *x, int n);
 void cl_copy_array(cl_mem src, cl_mem dst, int n);
 void cl_copy_array_with_offset(cl_mem src, cl_mem dst, int n,  size_t src_offset, size_t dst_offset);

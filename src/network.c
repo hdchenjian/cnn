@@ -965,7 +965,7 @@ void fill_network_boxes(network *net, int w, int h, float thresh, int *map, int 
 detection *get_network_boxes(network *net, int w, int h, float thresh, int *map, int relative, int *num)
 {
     detection *dets = make_network_boxes(net, thresh, num);
-    printf("get_network_boxes box num: %d\n", *num);
+    //printf("get_network_boxes box num: %d\n", *num);
     fill_network_boxes(net, w, h, thresh, map, relative, dets);
     return dets;
 }
@@ -1055,21 +1055,23 @@ cl_mem get_network_layer_data_cl(network *net, int i, int data_type)
 void forward_network_cl(network *net, cl_mem input)
 {
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
-        printf("forward_network_cl layer: %d %d\n", i, net->layers_type[i]);
+        //printf("forward_network_cl layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
             layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
-            cl_print_array(input, 1, "conv input: ", i);
+            //cl_print_array(input, 1, "conv input: ", i);
             //cl_memset_array(net->workspace_cl, (net->workspace_size-1)/sizeof(float)+1);
             forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test, i);
             //printf("forward_network_cl %d %f\n", i, layer->output[0]);
-            cl_print_array(layer->output_cl, 1, "conv output: ", i);
+            //cl_print_array(layer->output_cl, 1, "conv output: ", i);
             input = layer->output_cl;
             //cl_compare_array(layer->rolling_variance_cl, layer->rolling_variance, layer->n, "variance output diff: ", i);
             //cl_compare_array(layer->rolling_mean_cl, layer->rolling_mean, layer->n, "mean output diff: ", i);
-            //cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "conv output diff: ", i);
-            //if(i == 0) break;
+            //cl_compare_array(net->workspace_cl, net->workspace,
+            //                 layer->out_h * layer->out_w * layer->size*layer->size*layer->c, "conv workspace diff: ", i);
+            //cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "\t\t\t\t\t  conv output diff: ", i);
+            //if(i == 23) break;
         }else if(net->layers_type[i] == CONNECTED){
             connected_layer *layer = (connected_layer *)net->layers[i];
             layer->batch = net->batch;
@@ -1094,9 +1096,9 @@ void forward_network_cl(network *net, cl_mem input)
             shortcut_layer *layer = (shortcut_layer *)net->layers[i];
             layer->batch = net->batch;
             if(layer->delta_cl) cl_memset_array(layer->delta_cl, layer->outputs * layer->batch);
-            cl_print_array(input, 1, "shortcut input: ", i);
+            //cl_print_array(input, 1, "shortcut input: ", i);
             forward_shortcut_layer_cl(layer, input, net);
-            cl_print_array(layer->output_cl, 1, "shortcut output: ", i);
+            //cl_print_array(layer->output_cl, 1, "shortcut output: ", i);
             input = layer->output_cl;
         } else if(net->layers_type[i] == MAXPOOL){
             maxpool_layer *layer = (maxpool_layer *)net->layers[i];
@@ -1326,7 +1328,7 @@ void save_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_
     }
 }
 
-void load_convolutional_weights(const convolutional_layer *l, FILE *fp, int gpu_index)
+void load_convolutional_weights(convolutional_layer *l, FILE *fp, int gpu_index)
 {
     fread(l->weights, sizeof(float), l->n * l->size* l->size * l->c, fp);
     if (l->batch_normalize){
@@ -1383,7 +1385,7 @@ void load_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
     }
     if(l->activation == PRELU){
         size_t fff = fread(l->slope, sizeof(float), l->outputs, fp);
-        printf("l->slope %f %lu\n", l->slope[0], fff);
+        //printf("l->slope %f %lu\n", l->slope[0], fff);
     }
 #ifdef GPU
     if(gpu_index >= 0){

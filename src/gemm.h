@@ -32,5 +32,15 @@ void gemm_cl(int TA, int TB, int M, int N, int K, float ALPHA,
              cl_mem B_gpu, int b_off, int ldb,
              float BETA,
              cl_mem C_gpu, int c_off, int ldc);
+void gemm_fast_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                  cl_mem A_gpu, int a_off, int lda,
+                  cl_mem B_gpu, int b_off, int ldb,
+                  float BETA,
+                  cl_mem C_gpu, int c_off, int ldc, int N_tile);//, int M_tile, int N_tile, int K_tile);
+void gemm_fast_direct_cl(int TA, int TB, int M, int N, int K, float ALPHA,
+                         cl_mem A_gpu, int a_off, int lda,
+                         cl_mem B_gpu, int b_off, int ldb,
+                         float BETA,
+                         cl_mem C_gpu, int c_off, int ldc, int M_tile);
 #endif
 #endif

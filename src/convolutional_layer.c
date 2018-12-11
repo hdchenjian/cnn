@@ -74,6 +74,11 @@ size_t get_workspace_size(convolutional_layer *layer){
                                                  layer->convDesc, layer->dsrcTensorDesc, layer->bd_algo, &s);
     if (s > most) most = s;
     return most;
+#elif defined(OPENCL)
+    int tile_width = 8;
+    int k = ((layer->size*layer->size*layer->c + tile_width - 1) / tile_width) * tile_width;
+    int n = ((layer->out_h*layer->out_w + tile_width - 1) / tile_width) * tile_width;
+    return (size_t)(n * k *sizeof(float));
 #else
     return (size_t)(layer->out_h*layer->out_w*layer->size*layer->size*layer->c*sizeof(float));
 #endif
@@ -103,6 +108,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         float scale = sqrtf(2.0F/(size*size*c));
         for(int i = 0; i < c*n*size*size; ++i){
             layer->weights[i] = scale*rand_uniform(-1, 1);
+            layer->weights[i] = 1;
             //if(i < 5) printf("%d %f\n", i, layer->weights[i]);
         }
         //scale = sqrtf(2./(size*size*c));
@@ -201,7 +207,8 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     cudnn_convolutional_setup(layer);
     #endif
 #elif defined(OPENCL)
-    layer->weights_cl = cl_make_array(layer->weights, c*n*size*size);
+    layer->weights_cl = cl_make_weights(layer->n, layer->size*layer->size*layer->c, layer->weights);
+    //layer->weights_cl = cl_make_array(layer->weights, c*n*size*size);
     layer->biases_cl = cl_make_array(layer->biases, n);
     layer->output_cl = cl_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
     if(0 == layer->test){    // 0: train, 1: valid
@@ -250,7 +257,6 @@ float im2col_get_pixel(float *im, int height, int width, int channels, int row, 
     return im[col + width*(row + height*channel)];
 }
 
-//From Berkeley Vision's Caffe! https://github.com/BVLC/caffe/blob/master/LICENSE
 void im2col_cpu(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
 {
     int c,h,w;
@@ -361,6 +367,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
         }
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
     }
+    //if(index == 23) return;
 
     if(layer->batch_normalize){
         forward_conv_batchnorm_layer(layer, test, index);
@@ -516,10 +523,11 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
 
 #ifdef OPENCL
 void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
-               int ksize,  int stride,  int pad, cl_mem data_col)
+               int ksize,  int stride,  int pad, cl_mem data_col, int width_tile)
 {
     int height_col = (height + 2 * pad - ksize) / stride + 1;
     int width_col = (width + 2 * pad - ksize) / stride + 1;
+    //printf("%d %d %d %d %d %d %d\n", channels,  height_col, width_col, ksize,  stride,  pad, width_tile);
     cl_kernel kernel = get_kernel_by_name("im2col_cl", 0);
     cl_uint i = 0;
     cl.error = clSetKernelArg(kernel, i++, sizeof(data_im), (void*) &data_im);
@@ -532,6 +540,7 @@ void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width
     cl.error = clSetKernelArg(kernel, i++, sizeof(height_col), (void*) &height_col);
     cl.error = clSetKernelArg(kernel, i++, sizeof(width_col), (void*) &width_col);
     cl.error = clSetKernelArg(kernel, i++, sizeof(data_col), (void*) &data_col);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(width_tile), (void*) &width_tile);
     check_error(cl);
     size_t global_size = channels*height_col*width_col;
     cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 1, 0, &global_size, 0, 0, 0, 0);
@@ -570,19 +579,32 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
     int m = layer->n;
     int n = layer->out_h * layer->out_w;
     int k = layer->size*layer->size*layer->c;
+    int tile_width = 8;
     for(int i = 0; i < layer->batch; ++i){
         cl_mem a = layer->weights_cl;
         cl_mem b = workspace;
         cl_mem c = layer->output_cl;
         if (layer->size == 1 && layer->stride == 1){
             b = in;
-            gemm_cl(0,0,m,n,k,1,a,0,k,b, i * layer->w * layer->h * layer->c, n,0,c,i*n*m,n);
+            if(m % 8 == 0 && n % 8 == 0){
+                gemm_fast_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n,n);
+            } else {
+                int m_tile = ((layer->n + tile_width - 1) / tile_width) * tile_width;
+                //gemm_cl(0,0,m,n,k,1,a,0,k,b, i * layer->w * layer->h * layer->c, n,0,c,i*n*m,n);
+                //gemm_native(0,0,m,n,k,1,a,0,k,b, i * layer->w * layer->h * layer->c, n,0,c,i*n*m,n);
+                gemm_fast_direct_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n, m_tile);
+                //printf("layer->size == 1 && layer->stride == 1 gemm_cl not implement %d %d %d\n", m,n,k);
+                //exit(-1);
+            }
         } else {
-            cl_memset_array(workspace, n* k);
-            im2col_cl(in, i*layer->c*layer->h*layer->w, layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
-            gemm_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n);
+            int n_tile = ((layer->out_h * layer->out_w + tile_width - 1) / tile_width) * tile_width;
+            int k_tile = ((layer->size*layer->size*layer->c + tile_width - 1) / tile_width) * tile_width;
+            cl_memset_array(workspace, n_tile * k_tile);
+            im2col_cl(in, i*layer->c*layer->h*layer->w, layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b, n_tile);
+            gemm_fast_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n, n_tile);
         }
     }
+    //if(index == 23) return;
     //cl_print_array(layer->output_cl, 1, "conv output: ", index);
     if (layer->batch_normalize) {
         forward_conv_batchnorm_layer_cl(layer, test, index);
@@ -621,10 +643,12 @@ void pull_convolutional_layer_cl(const convolutional_layer *layer)
     }
 }
 
-void push_convolutional_layer_cl(const convolutional_layer *layer)
+void push_convolutional_layer_cl(convolutional_layer *layer)
 {
     int size = layer->size*layer->size*layer->c*layer->n;
-    cl_write_array(layer->weights_cl, layer->weights, size);
+    //cl_write_array(layer->weights_cl, layer->weights, size);
+    clReleaseMemObject(layer->weights_cl);
+    layer->weights_cl = cl_make_weights(layer->n, layer->size*layer->size*layer->c, layer->weights);
     cl_write_array(layer->biases_cl, layer->biases, layer->n);
     //cl_write_array(layer->weight_updates_cl, layer->weight_updates, size);
     //cl_write_array(layer->bias_updates_cl, layer->bias_updates, layer->n);

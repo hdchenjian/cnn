@@ -276,7 +276,7 @@ __kernel void gemm_with_local(int M, int N, int K, __global float *a, __global f
     }
 }
 
-__kernel void gemm_fast_direct(int M, int N, int K, int local_width,  __global float *a, __global float *b, __global float *c)
+__kernel void gemm_fast_direct_kk(int M, int N, int K, int local_width,  __global float *a, __global float *b, __global float *c)
 {
     float c_r[T_WIDTH * T_WIDTH] = {0};
     float8 a_r;
@@ -729,16 +729,16 @@ __kernel void gemm_fast_image(int M, int N, int K, int local_width,  __global fl
     }
 }
 
-__kernel void gemm_fast(int M, int N, int K, int local_width,  __global float *a, __global float *b, __global float *c)
+__kernel void gemm_fast(int M, int N, int N_tile, int K,  __global float *a, __global float *b, __global float *c)
 {
     float c_r[T_WIDTH*T_WIDTH] = {0};
     float8 a_r;
     float8 b_r;
-    int group_width = N / T_WIDTH / local_width;
 
-    int a_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) );
-    int b_off = ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
-    int k;
+    int a_off = get_global_id(1);
+    int b_off = get_global_id(0);
+    int i, k;
+    //if((get_group_id(0) > 4)) printf("%d %d %d %d %d %d\n", M, N, N_tile, K, a_off, b_off);
     for(k = 0; k < K; k += 1 ) {
         a_r = ((global float8 const *)a)[a_off];
         b_r = ((global float8 const *)b)[b_off];
@@ -807,99 +807,368 @@ __kernel void gemm_fast(int M, int N, int K, int local_width,  __global float *a
         c_r[62] += a_r.s7*b_r.s6;
         c_r[63] += a_r.s7*b_r.s7;
 
-        a_off += K/T_WIDTH;
-        b_off += K/T_WIDTH;
+        a_off += M/T_WIDTH;
+        b_off += N_tile/T_WIDTH;
     }
 
-    a_off = ( (get_group_id(0)/group_width)*local_width + (get_local_id(0)/local_width) )*K +
-        ( (get_group_id(0)%group_width)*local_width + (get_local_id(0)%local_width) );
+    a_off = get_global_id(1);
+    b_off = get_global_id(0);
 
-    for(k = 0; k < T_WIDTH; k++) {
-        switch(k) {
+    int a_y = M - (a_off + 1) * T_WIDTH;
+    int b_x = N - (b_off + 1) * T_WIDTH;
+    int path = b_x >= 0 ? 0 : 1;
+
+    switch(path) {
+    case 0:
+        a_off = (a_off * N + b_off) * T_WIDTH;
+        for(k = 0; k < T_WIDTH; k++) {
+            switch(k) {
+            case 0:
+                b_r.s0 = c_r[0];
+                b_r.s1 = c_r[1];
+                b_r.s2 = c_r[2];
+                b_r.s3 = c_r[3];
+                b_r.s4 = c_r[4];
+                b_r.s5 = c_r[5];
+                b_r.s6 = c_r[6];
+                b_r.s7 = c_r[7];
+                break;
+            case 1:
+                b_r.s0 = c_r[8];
+                b_r.s1 = c_r[9];
+                b_r.s2 = c_r[10];
+                b_r.s3 = c_r[11];
+                b_r.s4 = c_r[12];
+                b_r.s5 = c_r[13];
+                b_r.s6 = c_r[14];
+                b_r.s7 = c_r[15];
+                break;
+            case 2:
+                b_r.s0 = c_r[16];
+                b_r.s1 = c_r[17];
+                b_r.s2 = c_r[18];
+                b_r.s3 = c_r[19];
+                b_r.s4 = c_r[20];
+                b_r.s5 = c_r[21];
+                b_r.s6 = c_r[22];
+                b_r.s7 = c_r[23];
+                break;
+            case 3:
+                b_r.s0 = c_r[24];
+                b_r.s1 = c_r[25];
+                b_r.s2 = c_r[26];
+                b_r.s3 = c_r[27];
+                b_r.s4 = c_r[28];
+                b_r.s5 = c_r[29];
+                b_r.s6 = c_r[30];
+                b_r.s7 = c_r[31];
+                break;
+            case 4:
+                b_r.s0 = c_r[32];
+                b_r.s1 = c_r[33];
+                b_r.s2 = c_r[34];
+                b_r.s3 = c_r[35];
+                b_r.s4 = c_r[36];
+                b_r.s5 = c_r[37];
+                b_r.s6 = c_r[38];
+                b_r.s7 = c_r[39];
+                break;
+            case 5:
+                b_r.s0 = c_r[40];
+                b_r.s1 = c_r[41];
+                b_r.s2 = c_r[42];
+                b_r.s3 = c_r[43];
+                b_r.s4 = c_r[44];
+                b_r.s5 = c_r[45];
+                b_r.s6 = c_r[46];
+                b_r.s7 = c_r[47];
+                break;
+            case 6:
+                b_r.s0 = c_r[48];
+                b_r.s1 = c_r[49];
+                b_r.s2 = c_r[50];
+                b_r.s3 = c_r[51];
+                b_r.s4 = c_r[52];
+                b_r.s5 = c_r[53];
+                b_r.s6 = c_r[54];
+                b_r.s7 = c_r[55];
+                break;
+            case 7:
+                b_r.s0 = c_r[56];
+                b_r.s1 = c_r[57];
+                b_r.s2 = c_r[58];
+                b_r.s3 = c_r[59];
+                b_r.s4 = c_r[60];
+                b_r.s5 = c_r[61];
+                b_r.s6 = c_r[62];
+                b_r.s7 = c_r[63];
+                break;
+            }
+            *((global float8 *)(c + a_off)) = b_r;
+            a_off += N;
+        }
+        break;
+    case 1:  // right upper
+        for(i = 0; i < T_WIDTH; i++){
+            for(k = -b_x; k < T_WIDTH; k++){
+                /*printf("%d %d %d %d: %d %d %d %f\n", a_off, b_off, a_y, b_x, i, k,
+                       (a_off * N + b_off) * T_WIDTH + i * N + (k + b_x),
+                       c_r[i * T_WIDTH + (k + b_x)]);*/
+                c[(a_off * N + b_off) * T_WIDTH + i * N + (k + b_x)] = c_r[i * T_WIDTH + (k + b_x)];
+            }
+        }
+    }
+}
+
+__kernel void gemm_fast_direct(int M, int M_tile, int N, int K,  __global float *a, __global float *b, __global float *c)
+{
+    float c_r[T_WIDTH*T_WIDTH] = {0};
+    float8 a_r;
+    float8 b_r;
+
+    int a_off = get_global_id(1) * T_WIDTH;
+    int b_off = get_global_id(0) * T_WIDTH;
+    int a_y = M_tile - (a_off + T_WIDTH);
+    int b_x = N - (b_off + T_WIDTH);
+    int path = (a_y >= 0 && b_x >= 0) ? 0 : ((a_y >= 0 && b_x < 0) ? 1 : ((a_y < 0 && b_x >= 0) ? 2 : 3));
+
+    int i, k;
+    //if((get_group_id(0) > 4)) printf("%d %d %d %d %d %d\n", M, N, N_tile, K, a_off, b_off);
+    for(k = 0; k < K; k += 1 ) {
+        switch(path) {
         case 0:
-            b_r.s0 = c_r[0];
-            b_r.s1 = c_r[1];
-            b_r.s2 = c_r[2];
-            b_r.s3 = c_r[3];
-            b_r.s4 = c_r[4];
-            b_r.s5 = c_r[5];
-            b_r.s6 = c_r[6];
-            b_r.s7 = c_r[7];
+            a_r = *((global float8 const *)(a + a_off));
+            b_r = *((global float8 const *)(b + b_off));
             break;
         case 1:
-            b_r.s0 = c_r[8];
-            b_r.s1 = c_r[9];
-            b_r.s2 = c_r[10];
-            b_r.s3 = c_r[11];
-            b_r.s4 = c_r[12];
-            b_r.s5 = c_r[13];
-            b_r.s6 = c_r[14];
-            b_r.s7 = c_r[15];
-            break;
+            a_r = *((global float8 const *)(a + a_off));
+            b_r = (float8)0;
+            //if(k == 0) printf("%d %d\n", b_off, b_x);
+            for(i = -b_x; i < T_WIDTH; i++){
+                *((float *)&b_r + (i + b_x)) = b[b_off + (i + b_x)];
+            }
+             break;
         case 2:
-            b_r.s0 = c_r[16];
-            b_r.s1 = c_r[17];
-            b_r.s2 = c_r[18];
-            b_r.s3 = c_r[19];
-            b_r.s4 = c_r[20];
-            b_r.s5 = c_r[21];
-            b_r.s6 = c_r[22];
-            b_r.s7 = c_r[23];
+            a_r = (float8)0;
+            for(i = -a_y; i < T_WIDTH; i++){
+                *((float *)&a_r + (i + a_y)) = a[a_off + (i + a_y)];
+            }
+            b_r = *((global float8 const *)(b +b_off));
             break;
         case 3:
-            b_r.s0 = c_r[24];
-            b_r.s1 = c_r[25];
-            b_r.s2 = c_r[26];
-            b_r.s3 = c_r[27];
-            b_r.s4 = c_r[28];
-            b_r.s5 = c_r[29];
-            b_r.s6 = c_r[30];
-            b_r.s7 = c_r[31];
-            break;
-        case 4:
-            b_r.s0 = c_r[32];
-            b_r.s1 = c_r[33];
-            b_r.s2 = c_r[34];
-            b_r.s3 = c_r[35];
-            b_r.s4 = c_r[36];
-            b_r.s5 = c_r[37];
-            b_r.s6 = c_r[38];
-            b_r.s7 = c_r[39];
-            break;
-        case 5:
-            b_r.s0 = c_r[40];
-            b_r.s1 = c_r[41];
-            b_r.s2 = c_r[42];
-            b_r.s3 = c_r[43];
-            b_r.s4 = c_r[44];
-            b_r.s5 = c_r[45];
-            b_r.s6 = c_r[46];
-            b_r.s7 = c_r[47];
-            break;
-        case 6:
-            b_r.s0 = c_r[48];
-            b_r.s1 = c_r[49];
-            b_r.s2 = c_r[50];
-            b_r.s3 = c_r[51];
-            b_r.s4 = c_r[52];
-            b_r.s5 = c_r[53];
-            b_r.s6 = c_r[54];
-            b_r.s7 = c_r[55];
-            break;
-        case 7:
-            b_r.s0 = c_r[56];
-            b_r.s1 = c_r[57];
-            b_r.s2 = c_r[58];
-            b_r.s3 = c_r[59];
-            b_r.s4 = c_r[60];
-            b_r.s5 = c_r[61];
-            b_r.s6 = c_r[62];
-            b_r.s7 = c_r[63];
+            a_r = (float8)0;
+            b_r = (float8)0;
+            for(i = -a_y; i < T_WIDTH; i++){
+                *((float *)&a_r + (i + a_y)) = a[a_off + (i + a_y)];
+            }
+            for(i = -b_x; i < T_WIDTH; i++){
+                *((float *)&b_r + (i + b_x)) = b[b_off + (i + b_x)];
+            }
             break;
         }
 
-        ((global float8 *)c)[a_off] = b_r;
-        a_off += K/T_WIDTH;
+        c_r[0] += a_r.s0*b_r.s0;
+        c_r[1] += a_r.s0*b_r.s1;
+        c_r[2] += a_r.s0*b_r.s2;
+        c_r[3] += a_r.s0*b_r.s3;
+        c_r[4] += a_r.s0*b_r.s4;
+        c_r[5] += a_r.s0*b_r.s5;
+        c_r[6] += a_r.s0*b_r.s6;
+        c_r[7] += a_r.s0*b_r.s7;
+        c_r[8] += a_r.s1*b_r.s0;
+        c_r[9] += a_r.s1*b_r.s1;
+        c_r[10] += a_r.s1*b_r.s2;
+        c_r[11] += a_r.s1*b_r.s3;
+        c_r[12] += a_r.s1*b_r.s4;
+        c_r[13] += a_r.s1*b_r.s5;
+        c_r[14] += a_r.s1*b_r.s6;
+        c_r[15] += a_r.s1*b_r.s7;
+        c_r[16] += a_r.s2*b_r.s0;
+        c_r[17] += a_r.s2*b_r.s1;
+        c_r[18] += a_r.s2*b_r.s2;
+        c_r[19] += a_r.s2*b_r.s3;
+        c_r[20] += a_r.s2*b_r.s4;
+        c_r[21] += a_r.s2*b_r.s5;
+        c_r[22] += a_r.s2*b_r.s6;
+        c_r[23] += a_r.s2*b_r.s7;
+        c_r[24] += a_r.s3*b_r.s0;
+        c_r[25] += a_r.s3*b_r.s1;
+        c_r[26] += a_r.s3*b_r.s2;
+        c_r[27] += a_r.s3*b_r.s3;
+        c_r[28] += a_r.s3*b_r.s4;
+        c_r[29] += a_r.s3*b_r.s5;
+        c_r[30] += a_r.s3*b_r.s6;
+        c_r[31] += a_r.s3*b_r.s7;
+        c_r[32] += a_r.s4*b_r.s0;
+        c_r[33] += a_r.s4*b_r.s1;
+        c_r[34] += a_r.s4*b_r.s2;
+        c_r[35] += a_r.s4*b_r.s3;
+        c_r[36] += a_r.s4*b_r.s4;
+        c_r[37] += a_r.s4*b_r.s5;
+        c_r[38] += a_r.s4*b_r.s6;
+        c_r[39] += a_r.s4*b_r.s7;
+        c_r[40] += a_r.s5*b_r.s0;
+        c_r[41] += a_r.s5*b_r.s1;
+        c_r[42] += a_r.s5*b_r.s2;
+        c_r[43] += a_r.s5*b_r.s3;
+        c_r[44] += a_r.s5*b_r.s4;
+        c_r[45] += a_r.s5*b_r.s5;
+        c_r[46] += a_r.s5*b_r.s6;
+        c_r[47] += a_r.s5*b_r.s7;
+        c_r[48] += a_r.s6*b_r.s0;
+        c_r[49] += a_r.s6*b_r.s1;
+        c_r[50] += a_r.s6*b_r.s2;
+        c_r[51] += a_r.s6*b_r.s3;
+        c_r[52] += a_r.s6*b_r.s4;
+        c_r[53] += a_r.s6*b_r.s5;
+        c_r[54] += a_r.s6*b_r.s6;
+        c_r[55] += a_r.s6*b_r.s7;
+        c_r[56] += a_r.s7*b_r.s0;
+        c_r[57] += a_r.s7*b_r.s1;
+        c_r[58] += a_r.s7*b_r.s2;
+        c_r[59] += a_r.s7*b_r.s3;
+        c_r[60] += a_r.s7*b_r.s4;
+        c_r[61] += a_r.s7*b_r.s5;
+        c_r[62] += a_r.s7*b_r.s6;
+        c_r[63] += a_r.s7*b_r.s7;
+
+        a_off += M_tile;
+        b_off += N;
+    }
+
+    a_off = get_global_id(1) * T_WIDTH;
+    b_off = get_global_id(0) * T_WIDTH;
+
+    a_y = M - (a_off + T_WIDTH);
+    b_x = N - (b_off + T_WIDTH);
+    path = (a_y >= 0 && b_x >= 0) ? 0 : ((a_y >= 0 && b_x < 0) ? 1 : ((a_y < 0 && b_x >= 0) ? 2 : 3));
+    //if(path != 0) printf("path %d\n", path);
+
+    switch(path) {
+    case 0:
+        a_off = (a_off * N + b_off);
+        for(k = 0; k < T_WIDTH; k++) {
+            switch(k) {
+            case 0:
+                b_r.s0 = c_r[0];
+                b_r.s1 = c_r[1];
+                b_r.s2 = c_r[2];
+                b_r.s3 = c_r[3];
+                b_r.s4 = c_r[4];
+                b_r.s5 = c_r[5];
+                b_r.s6 = c_r[6];
+                b_r.s7 = c_r[7];
+                break;
+            case 1:
+                b_r.s0 = c_r[8];
+                b_r.s1 = c_r[9];
+                b_r.s2 = c_r[10];
+                b_r.s3 = c_r[11];
+                b_r.s4 = c_r[12];
+                b_r.s5 = c_r[13];
+                b_r.s6 = c_r[14];
+                b_r.s7 = c_r[15];
+                break;
+            case 2:
+                b_r.s0 = c_r[16];
+                b_r.s1 = c_r[17];
+                b_r.s2 = c_r[18];
+                b_r.s3 = c_r[19];
+                b_r.s4 = c_r[20];
+                b_r.s5 = c_r[21];
+                b_r.s6 = c_r[22];
+                b_r.s7 = c_r[23];
+                break;
+            case 3:
+                b_r.s0 = c_r[24];
+                b_r.s1 = c_r[25];
+                b_r.s2 = c_r[26];
+                b_r.s3 = c_r[27];
+                b_r.s4 = c_r[28];
+                b_r.s5 = c_r[29];
+                b_r.s6 = c_r[30];
+                b_r.s7 = c_r[31];
+                break;
+            case 4:
+                b_r.s0 = c_r[32];
+                b_r.s1 = c_r[33];
+                b_r.s2 = c_r[34];
+                b_r.s3 = c_r[35];
+                b_r.s4 = c_r[36];
+                b_r.s5 = c_r[37];
+                b_r.s6 = c_r[38];
+                b_r.s7 = c_r[39];
+                break;
+            case 5:
+                b_r.s0 = c_r[40];
+                b_r.s1 = c_r[41];
+                b_r.s2 = c_r[42];
+                b_r.s3 = c_r[43];
+                b_r.s4 = c_r[44];
+                b_r.s5 = c_r[45];
+                b_r.s6 = c_r[46];
+                b_r.s7 = c_r[47];
+                break;
+            case 6:
+                b_r.s0 = c_r[48];
+                b_r.s1 = c_r[49];
+                b_r.s2 = c_r[50];
+                b_r.s3 = c_r[51];
+                b_r.s4 = c_r[52];
+                b_r.s5 = c_r[53];
+                b_r.s6 = c_r[54];
+                b_r.s7 = c_r[55];
+                break;
+            case 7:
+                b_r.s0 = c_r[56];
+                b_r.s1 = c_r[57];
+                b_r.s2 = c_r[58];
+                b_r.s3 = c_r[59];
+                b_r.s4 = c_r[60];
+                b_r.s5 = c_r[61];
+                b_r.s6 = c_r[62];
+                b_r.s7 = c_r[63];
+                break;
+            }
+            *((global float8 *)(c + a_off)) = b_r;
+            a_off += N;
+        }
+        break;
+    case 1:  // right upper
+        for(i = 0; i < T_WIDTH; i++){
+            for(k = -b_x; k < T_WIDTH; k++){
+                /*printf("%d %d %d %d: %d %d %d %f\n", a_off, b_off, a_y, b_x, i, k,
+                       (a_off * N + b_off) * T_WIDTH + i * N + (k + b_x),
+                       c_r[i * T_WIDTH + (k + b_x)]);*/
+                c[(a_off * N + b_off) + i * N + (k + b_x)] = c_r[i * T_WIDTH + (k + b_x)];
+            }
+        }
+        break;
+    case 2:  // left down
+        for(i = -a_y; i < T_WIDTH; i++){
+            b_r.s0 = c_r[(i + a_y) * T_WIDTH];
+            b_r.s1 = c_r[(i + a_y) * T_WIDTH + 1];
+            b_r.s2 = c_r[(i + a_y) * T_WIDTH + 2];
+            b_r.s3 = c_r[(i + a_y) * T_WIDTH + 3];
+            b_r.s4 = c_r[(i + a_y) * T_WIDTH + 4];
+            b_r.s5 = c_r[(i + a_y) * T_WIDTH + 5];
+            b_r.s6 = c_r[(i + a_y) * T_WIDTH + 6];
+            b_r.s7 = c_r[(i + a_y) * T_WIDTH + 7];
+            /*printf("%d %d %d %d: %d %d, %d %d %f\n", a_off, b_off, a_y, b_x, i, k,
+                   (a_off * N + b_off) * T_WIDTH + (i + a_y) * N, output_width,
+                   c_r[(i + a_y) * T_WIDTH]);*/
+            *((global float8 *)(c + (a_off * N + b_off) + (i + a_y) * N)) = b_r;
+        }
+        break;
+    case 3:
+        for(i = -a_y; i < T_WIDTH; i++){
+            for(k = -b_x; k < T_WIDTH; k++){
+                /*printf("%d %d %d %d: %d %d %d %f\n", a_off, b_off, a_y, b_x, i, k,
+                       (a_off * N + b_off) * T_WIDTH + (i + a_y) * N + (k + b_x),
+                       c_r[i * T_WIDTH + (k + b_x)]);*/
+                c[(a_off * N + b_off) + (i + a_y) * N + (k + b_x)] = c_r[(i + a_y) * T_WIDTH + (k + b_x)];
+            }
+        }
     }
 }
 
@@ -1095,24 +1364,23 @@ __kernel void copy_cl(int N, __global float *X, int INCX, __global float *Y, int
 }
 
 __kernel void im2col_cl(__global float *data_im, int offset, int height, int width, int ksize, int pad, int stride,
-                        int height_col, int width_col, __global float *data_col)
+                        int height_col, int width_col, __global float *data_col, int width_tile)
 {
-    int index = get_global_id(0);
-    int w_out = index % width_col;
-    int h_index = index / width_col;
+    int w_out = get_global_id(0) % width_col;
+    int h_index = get_global_id(0) / width_col;
     int h_out = h_index % height_col;
     int channel_in = h_index / height_col;
     int channel_out = channel_in * ksize * ksize;
     int h_in = h_out * stride - pad;
     int w_in = w_out * stride - pad;
-    int data_col_index = (channel_out * height_col + h_out) * width_col + w_out;
+    int data_col_index = channel_out * width_tile + h_out * width_col + w_out;
     int data_im_index = offset + (channel_in * height + h_in) * width + w_in;
     for (int i = 0; i < ksize; ++i) {
         for (int j = 0; j < ksize; ++j) {
             int h = h_in + i;
             int w = w_in + j;
             data_col[data_col_index] = (h >= 0 && w >= 0 && h < height && w < width) ? data_im[data_im_index + i * width + j] : 0;
-            data_col_index += height_col * width_col;
+            data_col_index += width_tile;
         }
     }
 }
