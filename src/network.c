@@ -1036,9 +1036,11 @@ cl_mem get_network_layer_data_cl(network *net, int i, int data_type)
     } else if(net->layers_type[i] == AVGPOOL){
         avgpool_layer *layer = (avgpool_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
+        */
     } else if(net->layers_type[i] == NORMALIZE){
         normalize_layer *layer = (normalize_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
+        /*
     } else if(net->layers_type[i] == SOFTMAX){
         softmax_layer *layer = (softmax_layer *)net->layers[i];
         return data_type == 0 ? layer->output_cl : layer->delta_cl;
