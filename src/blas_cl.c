@@ -3,6 +3,20 @@
 
 #ifdef OPENCL
 
+void array_add_cl(cl_mem A, cl_mem B, cl_mem C, int n)
+{
+    cl_kernel kernel = get_kernel_by_name("array_add_cl", 0);
+    cl_uint i = 0;
+    cl.error = clSetKernelArg(kernel, i++, sizeof(A), (void*)&A);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(B), (void*)&B);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(C), (void*)&C);
+    cl.error = clSetKernelArg(kernel, i++, sizeof(n), (void*)&n);
+    check_error(cl);
+    const size_t global_size[] = {(n + 8 - 1) / 8};
+    cl.error = clEnqueueNDRangeKernel(cl.queue, kernel, 1, 0, global_size, 0, 0, 0, 0);
+    check_error(cl);
+}
+
 void axpy_cl(int N, float ALPHA, cl_mem X, int INCX, cl_mem Y, int INCY) {
     cl_kernel kernel = get_kernel_by_name("axpy_cl", 0);
     cl_uint i = 0;

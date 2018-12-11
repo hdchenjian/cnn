@@ -1357,6 +1357,12 @@ __kernel void mask_cl(int n, __global float *x, __global float *mask, int mod)
     x[i] = (i%mod && !mask[(i/mod)*mod]) ? 0 : x[i];
 }
 
+__kernel void array_add_cl(__global float *A, __global float *B, __global float *C, int N)
+{
+    int i = get_global_id(0);
+    *((global float8 *)(C + i * T_WIDTH)) = *((global float8 *)(A + i * T_WIDTH)) + *((global float8 *)(B + i * T_WIDTH));
+}
+
 __kernel void copy_cl(int N, __global float *X, int INCX, __global float *Y, int INCY)
 {
     int i = get_global_id(0);

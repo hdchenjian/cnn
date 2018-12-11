@@ -94,7 +94,22 @@ void backward_shortcut_layer_gpu(const shortcut_layer *l, float *delta_gpu, netw
                  1, l->shortcut_layer_weight, shortcut_layer_delta_gpu);
 }
 #elif defined(OPENCL)
+
 void forward_shortcut_layer_cl(const shortcut_layer *l, cl_mem input_cl, network *net)
+{
+    cl_mem shortcut_layer_output_cl = get_network_layer_data_cl(net, l->index, 0);
+    if(l->outputs*l->batch % 8 != 0){
+        printf("forward_shortcut_layer_cl size error\n");
+        exit(-1);
+    }
+    //printf("array_add_cl %d\n", l->outputs*l->batch);
+    array_add_cl(input_cl, shortcut_layer_output_cl, l->output_cl, l->outputs*l->batch);
+    if (l->activation != LINEAR) {
+        activate_array_cl(l->output_cl, l->outputs*l->batch, l->activation);
+    }
+}
+
+void forward_shortcut_layer_cl_old(const shortcut_layer *l, cl_mem input_cl, network *net)
 {
     copy_cl(l->outputs*l->batch, input_cl, 1, l->output_cl, 1);
     cl_mem shortcut_layer_output_cl = get_network_layer_data_cl(net, l->index, 0);

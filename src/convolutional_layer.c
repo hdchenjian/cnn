@@ -580,6 +580,7 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
     int n = layer->out_h * layer->out_w;
     int k = layer->size*layer->size*layer->c;
     int tile_width = 8;
+    //double start = what_time_is_it_now();
     for(int i = 0; i < layer->batch; ++i){
         cl_mem a = layer->weights_cl;
         cl_mem b = workspace;
@@ -599,11 +600,13 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
         } else {
             int n_tile = ((layer->out_h * layer->out_w + tile_width - 1) / tile_width) * tile_width;
             int k_tile = ((layer->size*layer->size*layer->c + tile_width - 1) / tile_width) * tile_width;
-            cl_memset_array(workspace, n_tile * k_tile);
+            //cl_memset_array(workspace, n_tile * k_tile);
             im2col_cl(in, i*layer->c*layer->h*layer->w, layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b, n_tile);
+            //printf("gemm im2col_cl: %d %f\n", index, what_time_is_it_now() - start);
             gemm_fast_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n, n_tile);
         }
     }
+    //printf("gemm: %d %f\n", index, what_time_is_it_now() - start);
     //if(index == 23) return;
     //cl_print_array(layer->output_cl, 1, "conv output: ", index);
     if (layer->batch_normalize) {

@@ -57,6 +57,10 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
         l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
     }
     l->output_cl = cl_make_array(l->output, l->outputs*batch);
+    if(l->n == 1) {
+        clReleaseMemObject(l->output_cl);
+        l->output_cl = get_network_layer_data_cl(net, l->input_layers[0], 0);
+    }
 #endif
     fprintf(stderr, "Route:              %d x %d x %d -> %d x %d x %d, %d inputs, layer: %s\n",
             l->out_w, l->out_h, l->out_c, l->out_w, l->out_h, l->out_c, l->inputs, input_layer_str);
@@ -123,6 +127,8 @@ void backward_route_layer_gpu(const route_layer *l, network *net)
 }
 #elif defined(OPENCL)
 void forward_route_layer_cl(const route_layer *l, network *net){
+    //cl_compare_array(layer->output_cl, layer->output, layer->outputs*layer->batch, "route output diff: ", i);
+    if(l->n == 1) return;
     int offset = 0;
     for(int i = 0; i < l->n; ++i){
         int index = l->input_layers[i];
@@ -134,6 +140,5 @@ void forward_route_layer_cl(const route_layer *l, network *net){
         }
         offset += input_size;
     }
-
 }
 #endif

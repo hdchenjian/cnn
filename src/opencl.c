@@ -119,7 +119,7 @@ cl_info cl_init(int index)
 cl_program cl_fprog(char *filename, char *options, cl_info info)
 {
     size_t srcsize;
-    char src[64*1024] = {0};
+    char src[128*1024] = {0};
     FILE *fil=fopen(filename,"r");
     if(fil == 0) file_error(filename);
     srcsize=fread(src, sizeof(src), 1, fil);
@@ -130,7 +130,7 @@ cl_program cl_fprog(char *filename, char *options, cl_info info)
     check_error(info);
     char build_c[1024*64];
     // and compile it (after this we could extract the compiled version)
-    info.error=clBuildProgram(prog, 0, 0, options, 0, 0);
+    info.error = clBuildProgram(prog, 0, 0, options, 0, 0);
     if ( info.error != CL_SUCCESS ) {
         fprintf(stderr, "Error Building Program: %d\n", info.error);
         clGetProgramBuildInfo( prog, info.device, CL_PROGRAM_BUILD_LOG, 1024*64, build_c, 0);
@@ -159,6 +159,7 @@ cl_kernel get_kernel(char *kernelname, char *options)
 cl_kernel get_kernel_by_name(char *kernelname, char *options)
 {
     //printf("get_kernel_by_name kernelname: %s, options: %s\n", kernelname, options);
+    if(options == 0) options = "-cl-fast-relaxed-math -cl-mad-enable -cl-no-signed-zeros -w -Werror -cl-std=CL2.0";
     static cl_kernel kernel_im2col_cl = 0;
     static cl_kernel kernel_convolutional_bias = 0;
     static cl_kernel kernel_gemm = 0;
@@ -177,7 +178,8 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     static cl_kernel kernel_gemm_with_local_image = 0;
     static cl_kernel kernel_matrix_transpose_cl = 0;
     static cl_kernel kernel_matrix_transpose_direct_cl = 0;
-    
+
+    static cl_kernel kernel_array_add_cl = 0;
     static cl_kernel kernel_copy_cl = 0;
     static cl_kernel kernel_axpy_cl = 0;
     static cl_kernel kernel_scal_cl = 0;
@@ -245,6 +247,9 @@ cl_kernel get_kernel_by_name(char *kernelname, char *options)
     } else if(strcmp(kernelname, "axpy_cl") == 0){
         if(!kernel_axpy_cl) kernel_axpy_cl = get_kernel(kernelname, options);
         return kernel_axpy_cl;
+    } else if(strcmp(kernelname, "array_add_cl") == 0){
+        if(!kernel_array_add_cl) kernel_array_add_cl = get_kernel(kernelname, options);
+        return kernel_array_add_cl;
     } else if(strcmp(kernelname, "copy_cl") == 0){
         if(!kernel_copy_cl) kernel_copy_cl = get_kernel(kernelname, options);
         return kernel_copy_cl;
@@ -364,7 +369,7 @@ cl_mem cl_sub_array(cl_mem src, int offset, int size)
 
 void gemm_matrix_transpose_tile_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height, int width_t)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("matrix_transpose_direct_cl", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("matrix_transpose_direct_cl", 0);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;

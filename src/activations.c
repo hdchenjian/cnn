@@ -146,7 +146,8 @@ void gradient_array(const float *x, const int n, const ACTIVATION a, float *delt
 #ifdef OPENCL
 void activate_array_cl(cl_mem x, int n, ACTIVATION a)
 {
-    cl_kernel kernel = get_kernel_by_name("activate_array_cl", 0);
+    static cl_kernel kernel = 0;
+    if(0 == kernel) kernel = get_kernel_by_name("activate_array_cl", 0);
     cl_command_queue queue = cl.queue;
     cl_uint i = 0;
     cl.error = clSetKernelArg(kernel, i++, sizeof(x), (void*) &x);
@@ -160,7 +161,8 @@ void activate_array_cl(cl_mem x, int n, ACTIVATION a)
 
 void activate_array_with_offset_cl(cl_mem x, int offset, int n, ACTIVATION a)
 {
-    cl_kernel kernel = get_kernel_by_name("activate_array_with_offset_cl", 0);
+    static cl_kernel kernel = 0;
+    if(0 == kernel) kernel = get_kernel_by_name("activate_array_with_offset_cl", 0);
     cl_command_queue queue = cl.queue;
     cl_uint i = 0;
     cl.error = clSetKernelArg(kernel, i++, sizeof(x), (void*) &x);
@@ -175,7 +177,8 @@ void activate_array_with_offset_cl(cl_mem x, int offset, int n, ACTIVATION a)
 
 void gradient_array_cl(cl_mem x, int n, ACTIVATION a, cl_mem delta)
 {
-    cl_kernel kernel = get_kernel_by_name("gradient_array_cl", 0);
+    static cl_kernel kernel = 0;
+    if(0 == kernel) kernel = get_kernel_by_name("gradient_array_cl", 0);
     cl_command_queue queue = cl.queue;
     cl_uint i = 0;
     cl.error = clSetKernelArg(kernel, i++, sizeof(x), (void*) &x);

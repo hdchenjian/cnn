@@ -3,6 +3,8 @@
 
 #include "gemm.h"
 
+char *cl_options = "-cl-fast-relaxed-math -cl-mad-enable -cl-no-signed-zeros -w -Werror -cl-std=CL2.0";
+
 void gemm_nn(int M, int N, int K, float ALPHA, 
         float *A, int lda, 
         float *B, int ldb,
@@ -179,7 +181,7 @@ void gemm_tile_8x4_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                       float BETA,
                       cl_mem C_gpu, int c_off, int ldc)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("gemm_tile_8x4", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_tile_8x4", 0);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -202,7 +204,7 @@ void gemm_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                    cl_mem C_gpu, int c_off, int ldc)
 {
     cl_kernel gemm_kernel = 0;
-    if(gemm_kernel == 0) gemm_kernel = get_kernel_by_name("gemm_image", "-cl-fast-relaxed-math ");
+    if(gemm_kernel == 0) gemm_kernel = get_kernel_by_name("gemm_image", cl_options);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -228,7 +230,7 @@ void gemm_image_buf_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                        float BETA,
                        cl_mem C_gpu, int c_off, int ldc)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("gemm_image_buf", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_image_buf", 0);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -254,10 +256,11 @@ void gemm_fast_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                   float BETA,
                   cl_mem C_gpu, int c_off, int ldc, int N_tile) //, int M_tile, int N_tile, int K_tile)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("gemm_fast", "-cl-fast-relaxed-math ");
+    static cl_kernel gemm_kernel = 0;
+    if(gemm_kernel == 0) gemm_kernel = get_kernel_by_name("gemm_fast", cl_options);
     cl_command_queue queue = cl.queue;
 
-    //printf("\t\t\t\t\tgemm_fast_cl %d %d: %d %d %d, tile: \n", TA, TB, M, N, K);//, M_tile, N_tile, K_tile);
+    printf("\t\t\t\t\tgemm_fast_cl %d %d: %d %d %d, tile: \n", TA, TB, M, N, K);//, M_tile, N_tile, K_tile);
     //printf("%d x %d -> %d x %d, %d, %d %d\n", M, N, (M + T_WIDTH - 1) / T_WIDTH, (N + T_WIDTH - 1) / T_WIDTH);
     cl_uint i = 0;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
@@ -281,7 +284,7 @@ void gemm_fast_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                         float BETA,
                         cl_mem C_gpu, int c_off, int ldc)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("gemm_fast_image", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_fast_image", cl_options);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -303,7 +306,7 @@ void gemm_fast_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
 
 void gemm_matrix_transpose_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("matrix_transpose_cl", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("matrix_transpose_cl", 0);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -320,7 +323,7 @@ void gemm_matrix_transpose_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height)
 
 void gemm_matrix_transpose_direct_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("matrix_transpose_direct_cl", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("matrix_transpose_direct_cl", 0);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -341,7 +344,8 @@ void gemm_fast_direct_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                          float BETA,
                          cl_mem C_gpu, int c_off, int ldc, int M_tile)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("gemm_fast_direct", "-cl-fast-relaxed-math ");
+    static cl_kernel gemm_kernel = 0;
+    if(gemm_kernel == 0) gemm_kernel = get_kernel_by_name("gemm_fast_direct", cl_options);
     cl_command_queue queue = cl.queue;
 
     //printf("\t\t\t\t\tgemm_fast_direct_cl %d %d: %d %d %d, tile: \n", TA, TB, M, N, K);//, M_tile, N_tile, K_tile);
@@ -367,7 +371,7 @@ void gemm_with_local_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                   float BETA,
                   cl_mem C_gpu, int c_off, int ldc)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("gemm_with_local", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_with_local", cl_options);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;
@@ -392,7 +396,7 @@ void gemm_with_local_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                   float BETA,
                   cl_mem C_gpu, int c_off, int ldc)
 {
-    cl_kernel gemm_kernel = get_kernel_by_name("gemm_with_local_image", "-cl-fast-relaxed-math ");
+    cl_kernel gemm_kernel = get_kernel_by_name("gemm_with_local_image", cl_options);
     cl_command_queue queue = cl.queue;
 
     cl_uint i = 0;

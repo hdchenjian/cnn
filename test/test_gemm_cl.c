@@ -5,6 +5,7 @@
 #include "opencl.h"
 #include "utils.h"
 #include "gemm.h"
+#include "blas.h"
 
 void gemm_native_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                     cl_mem A_gpu, int a_off, int lda,
@@ -219,15 +220,15 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
 
     for(int i = 0; i < 1; i++){
         //gemm_cl(0,0,m,n,k,1,a_cl,0,n,b_cl,0,n,0,c_cl,0,n);
+        //cl_memset_array(c_cl, m*n);
+        //gemm_native_cl(0,0,m,n,k,1,a_cl,0,k,b_cl,0,n,0,c_cl,0,n);
+        //cl_compare_array(c_cl, c, m*n, "gemm_native diff: ", 22);
         cl_memset_array(c_cl, m*n);
-        gemm_native_cl(0,0,m,n,k,1,a_cl,0,k,b_cl,0,n,0,c_cl,0,n);
-        cl_compare_array(c_cl, c, m*n, "gemm_native diff: ", 22);
-        cl_memset_array(c_cl, m*n);
-        //gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n, n);//, m,n,k);
+        gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n, n);//, m,n,k);
         //gemm_with_local_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
         //gemm_with_local_image_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_image,0,n,0,c_cl,0,n);
         //cl_print_array(a_transpose_cl, 16*8, "conv input: ", 1);
-        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n, m);
+        //gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n, m);
         //gemm_image_cl(0,0,m,n,k,1,a_cl,0,k,b_image,0,n,0,c_cl,0,n);
         float diff_error = cl_compare_array(c_cl, c, m*n, "gemm diff: ", 56);
         if(diff_error > 0.0001) exit(-1);
@@ -238,11 +239,11 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
 
     start = what_time_is_it_now();
     for(int i = 0; i < try_times; i++){
-        gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n, m);
+        //gemm_fast_direct_cl(0,0,m,n,k,1,a_transpose_cl,0,k,b_cl,0,n,0,c_cl,0,n, m);
         //gemm_image_cl(0,0,m,n,k,1,a_cl,0,k,b_image,0,n,0,c_cl,0,n);
         //gemm_with_local_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
         //gemm_with_local_image_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_image,0,n,0,c_cl,0,n);
-        //gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n, n);//, m,n,k);
+        gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n, n);//, m,n,k);
         printf("%d\n", i);
     }
     end = what_time_is_it_now();
@@ -262,6 +263,25 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
     free(c);
 }
 
+void test_array_add_cl(int n)
+{
+    float *a = calloc(n, sizeof(float));
+    for(int i = 0; i < n; ++i) a[i] = rand_uniform(0, 10);
+    float *b = calloc(n, sizeof(float));
+    for(int i = 0; i < n; ++i) b[i] = rand_uniform(0, 10);
+    float *c = calloc(n, sizeof(float));
+    axpy_cpu(n, 1, a, 1, c, 1);
+    axpy_cpu(n, 1, b, 1, c, 1);
+
+    cl_setup();
+    cl_mem a_cl = cl_make_array(a, n);
+    cl_mem b_cl = cl_make_array(b, n);
+    cl_mem c_cl = cl_make_array(0, n);
+    array_add_cl(a_cl, b_cl, c_cl, n);
+    cl_compare_array(c_cl, c, n, "gemm_native diff : ", 56);
+    return;
+}
+
 int main(int argc, char **argv)
 {
     // https://pjreddie.com/projects/mnist-in-csv/
@@ -269,14 +289,13 @@ int main(int argc, char **argv)
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
+    //test_array_add_cl(2768896);
     srand(time(0));
     int m = 1024;
     int n = 1024;
     int k = 1024;
-    //test_gemm_fast_direct_cl(32, 173056/4, 27);
-    test_gemm_fast_direct_cl(18, 169, 1024);
-    //test_gemm_fast_direct_cl(8+8, 8, 8);
     //test_gemm_fast_direct_cl(m, n, k);
+    test_gemm_fast_direct_cl(64, 43264, 288);
     /*
     for(int i = 7; i < 100; i++){
         for(int j = 0; j < 100; j++){

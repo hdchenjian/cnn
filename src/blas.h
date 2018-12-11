@@ -86,6 +86,7 @@ void mult_add_into_gpu(int num, float *a, float *b, float *c);
 void upsample_gpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
 #elif defined(OPENCL)
 #include "opencl.h"
+void array_add_cl(cl_mem A, cl_mem B, cl_mem C, int n);
 void axpy_cl(int N, float ALPHA, cl_mem X, int INCX, cl_mem Y, int INCY);
 void copy_cl(int N, cl_mem X, int INCX, cl_mem Y, int INCY);
 void scal_cl(int N, float ALPHA, cl_mem X, int INCX);
