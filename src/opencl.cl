@@ -1369,6 +1369,35 @@ __kernel void copy_cl(int N, __global float *X, int INCX, __global float *Y, int
     Y[i*INCY] = X[i*INCX];
 }
 
+__kernel void im2col_cl_3x3(__global float *data_im, int offset, int height, int width, int ksize, int pad, int stride,
+                        int height_col, int width_col, __global float *data_col, int width_tile)
+{
+    int w_out = get_global_id(0) % width_col;
+    int h_index = get_global_id(0) / width_col;
+    int h_out = h_index % height_col;
+    int channel_in = h_index / height_col;
+    int channel_out = channel_in * ksize * ksize;
+    int h_in = h_out * stride - pad;
+    int w_in = w_out * stride - pad;
+    int data_col_index = channel_out * width_tile + h_out * width_col + w_out;
+    int data_im_index = offset + (channel_in * height + h_in) * width + w_in;
+    for (int i = 0; i < ksize; ++i) {
+        int h = h_in + i;
+        float3 tmp = vload3(0, data_im + data_im_index + i * width);
+        int w = w_in;
+        data_col[data_col_index] = (h >= 0 && w >= 0 && h < height && w < width) ? tmp.s0 : 0;
+        data_col_index += width_tile;
+
+        w = w_in + 1;
+        data_col[data_col_index] = (h >= 0 && w >= 0 && h < height && w < width) ? tmp.s1 : 0;
+        data_col_index += width_tile;
+
+        w = w_in + 2;
+        data_col[data_col_index] = (h >= 0 && w >= 0 && h < height && w < width) ? tmp.s2 : 0;
+        data_col_index += width_tile;
+    }
+}
+
 __kernel void im2col_cl(__global float *data_im, int offset, int height, int width, int ksize, int pad, int stride,
                         int height_col, int width_col, __global float *data_col, int width_tile)
 {

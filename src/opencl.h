@@ -3,8 +3,18 @@
 
 #ifdef OPENCL
 #include <CL/cl.h>
+#include <CL/cl_ext_qcom.h>
+#include <linux/ion.h>
+#include "msm_ion.h"
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
+
+typedef struct {
+    void *host_addr;
+    size_t size;
+    int fd;
+    struct ion_handle_data handle_data;
+} cl_share_mem_bakeup;
 
 typedef struct {
     int initialized;
@@ -13,6 +23,11 @@ typedef struct {
     cl_device_id device;
     cl_context context;
     cl_command_queue queue;
+    int share_mem_index;
+    int share_mem_index_max;
+    cl_share_mem_bakeup share_mem_struct[256];
+    cl_uint device_page_size;
+    int m_ion_device_fd;
 }cl_info;
 
 extern cl_info cl;

@@ -4,6 +4,12 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+
 #ifdef CLBLAS
 #include <clBLAS.h>
 #endif
@@ -31,6 +37,9 @@ void check_error(cl_info info)
 cl_info cl_init(int index)
 {
     cl_info info;
+    info.share_mem_index = 0;
+    info.share_mem_struct;
+    info.share_mem_index_max = 256;
     info.initialized = 0;
     if(index < 0) error("Won't initialize negative gpu id\n");
     cl_uint num_platforms, num_devices;
@@ -45,6 +54,16 @@ cl_info cl_init(int index)
     index = index%num_devices;
     info.device = devices[index];
     check_error(info);
+    cl_uint device_page_size;
+    info.error = clGetDeviceInfo(info.device, CL_DEVICE_PAGE_SIZE_QCOM, sizeof(device_page_size), &device_page_size, NULL);
+    check_error(info);
+    info.device_page_size = device_page_size;
+    int m_ion_device_fd = open("/dev/ion", O_RDONLY);
+    if(m_ion_device_fd < 0) {
+        printf("Error: failed opening /dev/ion\n");
+        exit(-1);
+    }
+    info.m_ion_device_fd = m_ion_device_fd;
 
     cl_context_properties properties[]={
         CL_CONTEXT_PLATFORM, (cl_context_properties)info.platform, 0};
@@ -393,6 +412,61 @@ cl_mem cl_make_weights(int h, int w, float *weights)
     cl_mem weights_cl = cl_make_array(weights, h * w);
     gemm_matrix_transpose_tile_cl(weights_cl, mem, w, h, h_tile);
     clReleaseMemObject(weights_cl);
+    return mem;
+}
+
+cl_mem cl_make_share_array(float *x, int element_num)
+{
+    int mem_byte = element_num * sizeof(float);
+    if(gpu_index < 0) return 0;
+    struct ion_allocation_data allocation_data;
+    allocation_data.len = mem_byte;
+    allocation_data.align = cl.device_page_size;
+    allocation_data.heap_id_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
+    allocation_data.flags = 0;
+    if(ioctl(cl.m_ion_device_fd, ION_IOC_ALLOC, &allocation_data)) {
+        printf("Error allocating ion memory: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    struct ion_handle_data handle_data;
+    struct ion_fd_data fd_data;
+    handle_data.handle = allocation_data.handle;
+    fd_data.handle = allocation_data.handle;
+    if(ioctl(cl.m_ion_device_fd, ION_IOC_MAP, &fd_data)) {
+        ioctl(cl.m_ion_device_fd, ION_IOC_FREE, &handle_data);
+        printf("Error mapping ion memory to cpu-addressable fd: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    void *host_addr = mmap(NULL, allocation_data.len, PROT_READ | PROT_WRITE, MAP_SHARED, fd_data.fd, 0);
+    if (MAP_FAILED == host_addr) {
+        close(fd_data.fd);
+        ioctl(cl.m_ion_device_fd, ION_IOC_FREE, &handle_data);
+        printf("Error: mmapping fd to pointer: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    cl_mem_ion_host_ptr ion_mem;
+    ion_mem.ext_host_ptr.allocation_type = CL_MEM_ION_HOST_PTR_QCOM;
+    ion_mem.ext_host_ptr.host_cache_policy = CL_MEM_HOST_UNCACHED_QCOM;
+    ion_mem.ion_filedesc = fd_data.fd;
+    ion_mem.ion_hostptr = host_addr;
+
+    if(cl.share_mem_index >= cl.share_mem_index_max){
+        printf("Error: cl.share_mem_index exceeds\n");
+        eixt(-1);
+    }
+    cl.share_mem_struct[cl.share_mem_index].host_addr = ion_mem.ion_hostptr;
+    cl.share_mem_struct[cl.share_mem_index].size = allocation_data.len;
+    cl.share_mem_struct[cl.share_mem_index].fd = fd_data.fd;
+    cl.share_mem_struct[cl.share_mem_index].handle_data = handle_data;
+    cl.share_mem_index += 1;
+
+    if(x) memcpy(ion_mem.ion_hostptr, x, mem_byte);
+    else memset(ion_mem.ion_hostptr, 0, mem_byte);
+    cl_mem mem = clCreateBuffer(cl.context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_EXT_HOST_PTR_QCOM, mem_byte, &ion_mem, &cl.error);
+    check_error(cl);
     return mem;
 }
 

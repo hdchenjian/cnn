@@ -1,6 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
+
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <linux/ion.h>
+#include "msm_ion.h"
 
 #include "opencl.h"
 #include "utils.h"
@@ -282,6 +290,241 @@ void test_array_add_cl(int n)
     return;
 }
 
+void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
+               int ksize,  int stride,  int pad, cl_mem data_col, int width_tile);
+
+#define HANDLE_THREAD_NUM 3
+pthread_t handle_thread_id[HANDLE_THREAD_NUM];
+typedef struct {
+    int c_start, c_end, height_col, width_col, height, width, ksize, stride, pad;
+    float *data_im, *data_col;
+} im2col_arg_struct;
+    
+void *im2col_thread(void *input)
+{
+    im2col_arg_struct *args = (im2col_arg_struct *)input;
+    int c_start = args->c_start;
+    int c_end = args->c_end;
+    //printf("im2col_thread %d %d\n", c_start, c_end);
+    int height_col = args->height_col;
+    int width_col = args->width_col;
+    int height = args->height;
+    int width = args->width;
+    int ksize = args->ksize;
+    int stride = args->stride;
+    int pad = args->pad;
+    float *data_im = args->data_im;
+    float *data_col = args->data_col;
+    for(int c = c_start; c < c_end; ++c) {
+        int w_offset = c % ksize;
+        int h_offset = (c / ksize) % ksize;
+        int c_im = c / ksize / ksize;
+        for(int h = 0; h < height_col; ++h) {
+            int row = h_offset + h * stride - pad;
+            for(int w = 0; w < width_col; ++w) {
+                int col = w_offset + w * stride - pad;
+                int col_index = (c * height_col + h) * width_col + w;
+                //if(row >= 0 && col >= 0 && row < height && col < width) data_col[col_index] = data_im[col + width*(row + height*c_im)];
+                //else data_col[col_index] = 0;
+                if(row < 0 || col < 0 || row >= height || col >= width) data_col[col_index] = 0;
+                else data_col[col_index] = data_im[col + width*(row + height*c_im)];
+            }
+        }
+    }
+
+}
+void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
+{
+    int height_col = (height + 2*pad - ksize) / stride + 1;
+    int width_col = (width + 2*pad - ksize) / stride + 1;
+
+    int channels_col = channels * ksize * ksize;
+    //printf("im2col_cpu_thread %d\n", channels_col);
+    im2col_arg_struct args[HANDLE_THREAD_NUM];
+    int row_index = 0;
+    int element = (channels_col + HANDLE_THREAD_NUM - 1) / HANDLE_THREAD_NUM;
+    for(int i = 0; i < HANDLE_THREAD_NUM; i++){
+        args[i].c_start = row_index;
+        args[i].c_end = (row_index + element > channels_col) ? channels_col : row_index + element;
+        row_index += element;
+        args[i].height_col = height_col;
+        args[i].width_col = width_col;
+        args[i].height = height;
+        args[i].width = width;
+        args[i].ksize = ksize;
+        args[i].stride = stride;
+        args[i].pad = pad;
+        args[i].data_im = data_im;
+        args[i].data_col = data_col;
+        pthread_create(handle_thread_id + i, NULL, im2col_thread, &args[i]);
+    }
+    for(int i = 0; i < HANDLE_THREAD_NUM; i++){
+        pthread_join(handle_thread_id[i], NULL);
+    }
+}
+
+void im2col_cpu_local(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
+{
+    int height_col = (height + 2*pad - ksize) / stride + 1;
+    int width_col = (width + 2*pad - ksize) / stride + 1;
+
+    int channels_col = channels * ksize * ksize;
+    //printf("im2col_cpu_local %d\n", channels_col);
+//#pragma omp parallel for
+    for(int c = 0; c < channels_col; ++c) {
+        int w_offset = c % ksize;
+        int h_offset = (c / ksize) % ksize;
+        int c_im = c / ksize / ksize;
+        for(int h = 0; h < height_col; ++h) {
+            int row = h_offset + h * stride - pad;
+            for(int w = 0; w < width_col; ++w) {
+                int col = w_offset + w * stride - pad;
+                int col_index = (c * height_col + h) * width_col + w;
+                //if(row >= 0 && col >= 0 && row < height && col < width) data_col[col_index] = data_im[col + width*(row + height*c_im)];
+                //else data_col[col_index] = 0;
+                if(row < 0 || col < 0 || row >= height || col >= width) data_col[col_index] = 0;
+                else data_col[col_index] = data_im[col + width*(row + height*c_im)];
+            }
+        }
+    }
+}
+
+void test_im2col()
+{
+    int n = 208 * 208;
+    int w = 416;
+    int h = 416;
+    int c = 32;
+    int in_size = w * h * c;
+    int out_size = 288 * n;
+    float *in = calloc(in_size, sizeof(float));
+    float *out = calloc(out_size, sizeof(float));
+    for(int i = 0; i < in_size; i++) in[i] = rand_uniform(0, 10);
+    for(int i = 0; i < out_size; i++) out[i] = rand_uniform(0, 10);
+    cl_setup();
+    cl_mem in_cl = cl_make_array(in, in_size);
+    cl_mem out_cl = cl_make_array(out, out_size);
+    im2col_cl(in_cl, 0, c, h, w, 3, 2, 1, out_cl, n);
+
+    int try_times = 50;
+    double start = what_time_is_it_now();
+    for(int i = 0; i < try_times; i++){
+        im2col_cl(in_cl, 0, c, h, w, 3, 2, 1, out_cl, n);
+    }
+    printf("im2col_cl: %f\n", (what_time_is_it_now() - start) / try_times);
+
+    start = what_time_is_it_now();
+    for(int i = 0; i < try_times; i++){
+        im2col_cpu_local(in, c, h, w, 3, 2, 1, out);
+    }
+    printf("im2col_cpu: %f\n", (what_time_is_it_now() - start) / try_times);
+    cl_compare_array(out_cl, out, out_size, "im2col diff : ", 56);
+
+    try_times = 100;
+    start = what_time_is_it_now();
+    for(int i = 0; i < try_times; i++){
+        im2col_cpu_thread(in, c, h, w, 3, 2, 1, out);
+    }
+    printf("im2col_cpu_thread: %f\n", (what_time_is_it_now() - start) / try_times);
+    cl_compare_array(out_cl, out, out_size, "im2col diff : ", 56);
+}
+
+void test_share_memery()
+{
+    int share_mem_struct_index = 0;
+    cl_share_mem_bakeup share_mem_struct[256];
+    int n = 10;
+    int size = n * sizeof(float);
+    float *in = calloc(n, sizeof(float));
+    for(int i = 0; i < n; i++) in[i] = i;
+    cl_setup();
+    cl_uint device_page_size;
+    cl_device_id m_device;
+    cl_platform_id platform;
+    cl_int err = clGetPlatformIDs(1, &platform, NULL);
+    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &m_device, NULL);
+    err = clGetDeviceInfo(m_device, CL_DEVICE_PAGE_SIZE_QCOM, sizeof(device_page_size), &device_page_size, NULL);
+    if (err != CL_SUCCESS) {
+        printf("Error with clGetDeviceInfo for page size.\n");
+        exit(-1);
+    }
+    
+    struct ion_allocation_data allocation_data;
+    allocation_data.len = size;
+    allocation_data.align = device_page_size;
+    allocation_data.heap_id_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
+    allocation_data.flags = 0;
+    int m_ion_device_fd;
+    m_ion_device_fd = open("/dev/ion", O_RDONLY);
+    if(m_ion_device_fd < 0) {
+        printf("Error opening /dev/ion\n");
+        exit(-1);
+    }
+    if(ioctl(m_ion_device_fd, ION_IOC_ALLOC, &allocation_data)) {
+        printf("Error allocating ion memory: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    struct ion_handle_data handle_data;
+    struct ion_fd_data fd_data;
+    handle_data.handle = allocation_data.handle;
+    fd_data.handle = allocation_data.handle;
+    if(ioctl(m_ion_device_fd, ION_IOC_MAP, &fd_data)) {
+        ioctl(m_ion_device_fd, ION_IOC_FREE, &handle_data);
+        printf("Error mapping ion memory to cpu-addressable fd: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    void *host_addr = mmap(NULL, allocation_data.len, PROT_READ | PROT_WRITE, MAP_SHARED, fd_data.fd, 0);
+    if (MAP_FAILED == host_addr) {
+        close(fd_data.fd);
+        ioctl(m_ion_device_fd, ION_IOC_FREE, &handle_data);
+        printf("Error: mmapping fd to pointer: %s\n", strerror(errno));
+        exit(-1);
+    }
+
+    cl_mem_ion_host_ptr ion_mem;
+    ion_mem.ext_host_ptr.allocation_type = CL_MEM_ION_HOST_PTR_QCOM;
+    ion_mem.ext_host_ptr.host_cache_policy = CL_MEM_HOST_UNCACHED_QCOM;
+    ion_mem.ion_filedesc = fd_data.fd;
+    ion_mem.ion_hostptr = host_addr;
+
+    share_mem_struct[share_mem_struct_index].host_addr = ion_mem.ion_hostptr;
+    share_mem_struct[share_mem_struct_index].size = allocation_data.len;
+    share_mem_struct[share_mem_struct_index].fd = fd_data.fd;
+    share_mem_struct[share_mem_struct_index].handle_data = handle_data;
+    share_mem_struct_index += 1;
+
+    memcpy(ion_mem.ion_hostptr, in, size);    
+    cl_mem mem = clCreateBuffer(cl.context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_EXT_HOST_PTR_QCOM, size, &ion_mem, &cl.error);
+    check_error(cl);
+    cl_float *ptr = (cl_float *)(clEnqueueMapBuffer(cl.queue, mem, CL_BLOCKING, CL_MAP_READ, 0, size, 0, NULL, NULL, &cl.error));
+    check_error(cl);
+    for(int i = 0; i < n; i++) printf("unmap cl mem: %d %f\n", i, ptr[i]);
+    err = clEnqueueUnmapMemObject(cl.queue, mem, ptr, 0, NULL, NULL);
+    check_error(cl);
+
+    for(int i = 0; i < share_mem_struct_index; i++) {
+        
+        if (munmap(share_mem_struct[share_mem_struct_index].host_addr, share_mem_struct[share_mem_struct_index].size) < 0) {
+            printf("Error munmap-ing ion alloc: %s\n", strerror(errno));
+            exit(-1);
+        }
+        close(share_mem_struct[share_mem_struct_index].fd);
+        if (ioctl(m_ion_device_fd, ION_IOC_FREE, share_mem_struct[share_mem_struct_index].handle_data) < 0) {
+            printf("Error freeing ion alloc with ioctl: %s\n", strerror(errno));
+            exit(-1);
+        }            
+    }
+    if(close(m_ion_device_fd) < 0) {
+        printf("Error closing ion device fd: %s\n", strerror(errno));
+        exit(-1);
+    }
+    //clReleaseKernel(kernel);
+    //clReleaseProgram(program);
+    //clReleaseContext(m_context);
+}
+
 int main(int argc, char **argv)
 {
     // https://pjreddie.com/projects/mnist-in-csv/
@@ -290,12 +533,14 @@ int main(int argc, char **argv)
     //test_convolutional_layer();
     //time_gemm(2000, 2000);
     //test_array_add_cl(2768896);
+    //test_im2col();
+    test_share_memery();
     srand(time(0));
     int m = 1024;
     int n = 1024;
     int k = 1024;
     //test_gemm_fast_direct_cl(m, n, k);
-    test_gemm_fast_direct_cl(64, 43264, 288);
+    //test_gemm_fast_direct_cl(64, 43264, 288);
     /*
     for(int i = 7; i < 100; i++){
         for(int j = 0; j < 100; j++){
