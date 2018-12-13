@@ -371,7 +371,9 @@ void init_recognition(const char *cfgfile, const char *weightfile)
     srand(time(0));
     net_recognition = load_network(cfgfile, weightfile, 1);
     fprintf(stderr, "net->classes: %d, net->batch: %d\n", net_recognition->classes, net_recognition->batch);
+#ifdef FORWARD_GPU
     free_network_weight_bias_cpu(net_recognition);
+#endif
 }
 
 void run_recognition(float *image_data, int face_num, float *feature)
@@ -453,7 +455,9 @@ void init_spoofing(const char *cfgfile, const char *weightfile)
         //uninit_spoofing();
         //exit(-1);
     }
+#ifdef FORWARD_GPU
     free_network_weight_bias_cpu(net_spoofing);
+#endif
 }
 
 void run_spoofing(float *image_data, int face_num, int *is_real_face)
@@ -533,7 +537,7 @@ void init_mtcnn(const char *cfgfile, const char *weightfile)
     if(net_mtcnn->batch != 1){
         printf("\nerror: net->batch != 1\n");
     }
-#ifdef GPU
+#ifdef FORWARD_GPU
     free_network_weight_bias_cpu(net_mtcnn);
 #endif
 }

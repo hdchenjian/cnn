@@ -257,7 +257,12 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
     int m = layer->batch;
     int n = layer->outputs;
     int k = layer->inputs;
-    gemm(0, 1, m, n, k, 1, a, k, b, k, 0, c, n);
+#ifdef QML
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1, a, k, b, k, 0, c, n);
+#else
+        gemm(0, 1, m, n, k, 1, a, k, b, k, 0, c, n);
+#endif
+
     if(layer->batch_normalize){
         forward_connected_batchnorm_layer(layer, test);
     }

@@ -44,7 +44,13 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
         l->delta =  calloc(outputs*batch, sizeof(float));
     }
 #ifndef FORWARD_GPU
-    l->output = calloc(outputs*batch, sizeof(float));;
+    l->output = calloc(outputs*batch, sizeof(float));
+#ifdef QML
+    if(l->n == 1){
+        free(l->output);
+        l->output = get_network_layer_data(net, l->input_layers[0], 0, 0);
+    }
+#endif
 #endif
 
 #ifdef GPU
@@ -70,6 +76,9 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
 
 void forward_route_layer(const route_layer *l, network *net)
 {
+#ifdef QML
+    if(l->n == 1) return;
+#endif
     int offset = 0;
     for(int i = 0; i < l->n; ++i){
         int index = l->input_layers[i];

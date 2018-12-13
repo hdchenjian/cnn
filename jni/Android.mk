@@ -8,7 +8,8 @@ LOCAL_C_INCLUDES += /home/luyao/git/cnn/jni
 LOCAL_C_INCLUDES += /home/luyao/download/Snapdragon/opencl-sdk-1.2.2/inc
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/include
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/include
-LOCAL_CFLAGS := -Ofast -std=c11 -DOPENCL #-DFORWARD_GPU
+LOCAL_SHARED_LIBRARIES := QML
+LOCAL_CFLAGS := -Ofast -std=c11 -DQML #-DOPENCL #-DFORWARD_GPU
 # Using android logging library
 # LOCAL_LDLIBS := -llog
 #LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
@@ -85,10 +86,16 @@ LOCAL_MODULE := thirdparty6
 LOCAL_SRC_FILES := /home/luyao/git/cnn/obj/local/arm64-v8a/libface_detect_cnn.a
 include $(PREBUILT_STATIC_LIBRARY)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := QML
+LOCAL_SRC_FILES := /home/luyao/download/Snapdragon/qml-1.0.0/opt/Qualcomm/QML/1.0.0/arm64/lp64/lib/libQML-1.0.0.so
+LOCAL_EXPORT_C_INCLUDES := /home/luyao/download/Snapdragon/qml-1.0.0/opt/Qualcomm/QML/1.0.0/arm64/lp64/include
+include $(PREBUILT_SHARED_LIBRARY)
+
 common_static_libraries := thirdparty6
 common_shared_libraries := opencl_lib opencl_lib3 opencl_lib4 opencl_lib5 opencl_lib6 opencl_lib7 opencl_lib8 \
                            opencl_lib9 opencl_lib10 opencl_lib11 opencl_lib12 \
-                           opencl_lib1 opencl_lib2
+                           opencl_lib1 opencl_lib2 QML
 
 include $(CLEAR_VARS)
 LOCAL_MODULE    := test_gemm_cl
@@ -99,11 +106,12 @@ LOCAL_C_INCLUDES += /home/luyao/download/Snapdragon/opencl-sdk-1.2.2/inc
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/include
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/include
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/platforms/android-21/arch-arm64/usr/include
+#LOCAL_C_INCLUDES += /home/luyao/download/Snapdragon/qml-1.0.0/opt/Qualcomm/QML/1.0.0/arm64/lp64/include
 LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
 LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 
 LOCAL_LDLIBS := -fopenmp
-LOCAL_CFLAGS := -Ofast -std=c11 -DOPENCL -fopenmp
+LOCAL_CFLAGS := -Ofast -std=c11 -DOPENCL #-fopenmp
 
 include $(BUILD_EXECUTABLE)
 

@@ -54,7 +54,11 @@ void free_network(network *net)
             free_gru_layer(net->layers[i]);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
+#ifdef QML
+            if(layer->output && layer->n != 1) free_ptr((void *)&(layer->output));
+#else
             if(layer->output) free_ptr((void *)&(layer->output));
+#endif
             if(layer->delta) free_ptr((void *)&(layer->delta));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
@@ -289,8 +293,10 @@ float update_current_learning_rate(network *net)
 
 void forward_network(network *net, float *input)
 {
+    //double start = what_time_is_it_now();
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
-        printf("forward_network layer: %d %d\n", i, net->layers_type[i]);
+        //double start_ms = what_time_is_it_now();
+        //printf("forward_network layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
@@ -394,6 +400,7 @@ void forward_network(network *net, float *input)
             printf("forward_network layers_type error, layer: %d\n", i);
             exit(-1);
         }
+        //printf("forward_network layer: %d %d %f  %f\n", i, net->layers_type[i], what_time_is_it_now() - start, what_time_is_it_now() - start_ms);
     }
 }
 

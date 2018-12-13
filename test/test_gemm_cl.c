@@ -14,6 +14,18 @@
 #include "gemm.h"
 #include "blas.h"
 
+float *make_matrix(int rows, int cols)
+{
+    int i;
+    float *m = calloc(rows*cols, sizeof(float));
+    for(i = 0; i < rows*cols; ++i){
+        m[i] = rand_uniform(0, 30 / (float)rows);
+        //m[i] = i;
+    }
+    return m;
+}
+
+#ifdef OPENCL
 void gemm_native_cl(int TA, int TB, int M, int N, int K, float ALPHA,
                     cl_mem A_gpu, int a_off, int lda,
                     cl_mem B_gpu, int b_off, int ldb,
@@ -53,17 +65,6 @@ void gemm_with_local_image_cl(int TA, int TB, int M, int N, int K, float ALPHA,
 
 void gemm_matrix_transpose_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height);
 void gemm_matrix_transpose_direct_cl(cl_mem A_gpu, cl_mem B_gpu, int width, int height);
-
-float *make_matrix(int rows, int cols)
-{
-    int i;
-    float *m = calloc(rows*cols, sizeof(float));
-    for(i = 0; i < rows*cols; ++i){
-        m[i] = rand_uniform(0, 30 / (float)rows);
-        //m[i] = i;
-    }
-    return m;
-}
 
 void test_gemm_cl(int w, int h)
 {
@@ -289,83 +290,6 @@ void test_array_add_cl(int n)
     return;
 }
 
-void im2col_cpu_local(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
-{
-    int height_col = (height + 2*pad - ksize) / stride + 1;
-    int width_col = (width + 2*pad - ksize) / stride + 1;
-
-    int channels_col = channels * ksize * ksize;
-    //printf("im2col_cpu_local %d\n", channels_col);
-//#pragma omp parallel for
-    for(int c = 0; c < channels_col; ++c) {
-        int w_offset = c % ksize;
-        int h_offset = (c / ksize) % ksize;
-        int c_im = c / ksize / ksize;
-        for(int h = 0; h < height_col; ++h) {
-            int row = h_offset + h * stride - pad;
-            for(int w = 0; w < width_col; ++w) {
-                int col = w_offset + w * stride - pad;
-                int col_index = (c * height_col + h) * width_col + w;
-                //if(row >= 0 && col >= 0 && row < height && col < width) data_col[col_index] = data_im[col + width*(row + height*c_im)];
-                //else data_col[col_index] = 0;
-                if(row < 0 || col < 0 || row >= height || col >= width) data_col[col_index] = 0;
-                else data_col[col_index] = data_im[col + width*(row + height*c_im)];
-            }
-        }
-    }
-}
-
-void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col, int n_tile);
-void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
-               int ksize,  int stride,  int pad, cl_mem data_col, int width_tile);
-
-void test_im2col()
-{
-    int n = 208 * 208;
-    int w = 416;
-    int h = 416;
-    int c = 32;
-    int in_size = w * h * c;
-    int out_size = 288 * n;
-    float *in = calloc(in_size, sizeof(float));
-    float *out = calloc(out_size, sizeof(float));
-    for(int i = 0; i < in_size; i++) in[i] = rand_uniform(0, 10);
-    for(int i = 0; i < out_size; i++) out[i] = rand_uniform(0, 10);
-    cl_setup();
-    cl_mem in_cl = cl_make_array(in, in_size);
-    cl_mem out_cl = cl_make_array(out, out_size);
-    im2col_cl(in_cl, 0, c, h, w, 3, 2, 1, out_cl, n);
-
-    int try_times = 50;
-    double start = what_time_is_it_now();
-    for(int i = 0; i < try_times; i++){
-        im2col_cl(in_cl, 0, c, h, w, 3, 2, 1, out_cl, n);
-    }
-    printf("im2col_cl: %f\n", (what_time_is_it_now() - start) / try_times);
-
-    start = what_time_is_it_now();
-    for(int i = 0; i < try_times; i++){
-        im2col_cpu_local(in, c, h, w, 3, 2, 1, out);
-    }
-    printf("im2col_cpu: %f\n", (what_time_is_it_now() - start) / try_times);
-    cl_compare_array(out_cl, out, out_size, "im2col diff : ", 56);
-
-    try_times = 100;
-    start = what_time_is_it_now();
-    for(int i = 0; i < try_times; i++){
-        int tile_width = 8;
-        int size = 3;
-        int stride = 2;
-        int pad = 1;
-        int out_h = (h + 2*pad - size) / stride + 1;
-        int out_w = (w + 2*pad - size) / stride + 1;
-        int n_tile = ((out_h * out_w + tile_width - 1) / tile_width) * tile_width;
-        im2col_cpu_thread(in, c, h, w, size, stride, pad, out, n_tile);
-    }
-    printf("im2col_cpu_thread_local: %f\n", (what_time_is_it_now() - start) / try_times);
-    cl_compare_array(out_cl, out, out_size, "im2col diff : ", 56);
-}
-
 void test_share_memery()
 {
     int share_mem_struct_index = 0;
@@ -464,6 +388,108 @@ void test_share_memery()
     //clReleaseContext(m_context);
 }
 
+void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col, int n_tile);
+void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
+               int ksize,  int stride,  int pad, cl_mem data_col, int width_tile);
+
+void im2col_cpu_local(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
+{
+    int height_col = (height + 2*pad - ksize) / stride + 1;
+    int width_col = (width + 2*pad - ksize) / stride + 1;
+
+    int channels_col = channels * ksize * ksize;
+    //printf("im2col_cpu_local %d\n", channels_col);
+//#pragma omp parallel for
+    for(int c = 0; c < channels_col; ++c) {
+        int w_offset = c % ksize;
+        int h_offset = (c / ksize) % ksize;
+        int c_im = c / ksize / ksize;
+        for(int h = 0; h < height_col; ++h) {
+            int row = h_offset + h * stride - pad;
+            for(int w = 0; w < width_col; ++w) {
+                int col = w_offset + w * stride - pad;
+                int col_index = (c * height_col + h) * width_col + w;
+                //if(row >= 0 && col >= 0 && row < height && col < width) data_col[col_index] = data_im[col + width*(row + height*c_im)];
+                //else data_col[col_index] = 0;
+                if(row < 0 || col < 0 || row >= height || col >= width) data_col[col_index] = 0;
+                else data_col[col_index] = data_im[col + width*(row + height*c_im)];
+            }
+        }
+    }
+}
+
+void test_im2col()
+{
+    int n = 208 * 208;
+    int w = 416;
+    int h = 416;
+    int c = 32;
+    int in_size = w * h * c;
+    int out_size = 288 * n;
+    float *in = calloc(in_size, sizeof(float));
+    float *out = calloc(out_size, sizeof(float));
+    for(int i = 0; i < in_size; i++) in[i] = rand_uniform(0, 10);
+    for(int i = 0; i < out_size; i++) out[i] = rand_uniform(0, 10);
+    cl_setup();
+    cl_mem in_cl = cl_make_array(in, in_size);
+    cl_mem out_cl = cl_make_array(out, out_size);
+    im2col_cl(in_cl, 0, c, h, w, 3, 2, 1, out_cl, n);
+
+    int try_times = 50;
+    double start = what_time_is_it_now();
+    for(int i = 0; i < try_times; i++){
+        im2col_cl(in_cl, 0, c, h, w, 3, 2, 1, out_cl, n);
+    }
+    printf("im2col_cl: %f\n", (what_time_is_it_now() - start) / try_times);
+
+    start = what_time_is_it_now();
+    for(int i = 0; i < try_times; i++){
+        im2col_cpu_local(in, c, h, w, 3, 2, 1, out);
+    }
+    printf("im2col_cpu: %f\n", (what_time_is_it_now() - start) / try_times);
+    cl_compare_array(out_cl, out, out_size, "im2col diff : ", 56);
+
+    try_times = 100;
+    start = what_time_is_it_now();
+    for(int i = 0; i < try_times; i++){
+        int tile_width = 8;
+        int size = 3;
+        int stride = 2;
+        int pad = 1;
+        int out_h = (h + 2*pad - size) / stride + 1;
+        int out_w = (w + 2*pad - size) / stride + 1;
+        int n_tile = ((out_h * out_w + tile_width - 1) / tile_width) * tile_width;
+        im2col_cpu_thread(in, c, h, w, size, stride, pad, out, n_tile);
+    }
+    printf("im2col_cpu_thread_local: %f\n", (what_time_is_it_now() - start) / try_times);
+    cl_compare_array(out_cl, out, out_size, "im2col diff : ", 56);
+}
+
+#endif
+
+
+#define TEST_QML_GEMM
+
+#ifdef QML
+#include <qml_cblas3.h>
+void test_qml_gemm(int m, int n, int k)
+{
+    float *a = make_matrix(m, k);
+    float *b = make_matrix(k, n);
+    float *c = make_matrix(m, n);
+    int try_times = 10;
+    double start = what_time_is_it_now();
+    printf("cblas_dgemm: %lu, %d %d %d\n", sizeof(int), m, n, k);
+    for(int i = 0; i < try_times; i++){
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0F, a, k, b, n, 0.0F, c, n);
+    }
+    printf("cblas_dgemm: %f\n", (what_time_is_it_now() - start) / try_times);
+}
+
+#else
+void test_qml_gemm(int m, int n, int k){}
+#endif
+
 int main(int argc, char **argv)
 {
     // https://pjreddie.com/projects/mnist-in-csv/
@@ -473,11 +499,12 @@ int main(int argc, char **argv)
     //time_gemm(2000, 2000);
     //test_array_add_cl(2768896);
     //test_im2col();
-    test_share_memery();
+    //test_share_memery();
     srand(time(0));
     int m = 1024;
     int n = 1024;
     int k = 1024;
+    test_qml_gemm(64, 43264, 288);
     //test_gemm_fast_direct_cl(m, n, k);
     //test_gemm_fast_direct_cl(64, 43264, 288);
     /*

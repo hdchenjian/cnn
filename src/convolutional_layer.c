@@ -259,6 +259,7 @@ float im2col_get_pixel(float *im, int height, int width, int channels, int row, 
     return im[col + width*(row + height*channel)];
 }
 
+void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col, int n_tile);
 void im2col_cpu(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
 {
     int c,h,w;
@@ -356,6 +357,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
     int n = layer->out_h * layer->out_w;
     int k = layer->size*layer->size*layer->c;
     //memset(layer->output, 0, layer->batch * m*n*sizeof(float));
+    //double start = what_time_is_it_now();
     for(int i = 0; i < layer->batch; ++i){
         float *a = layer->weights;
         float *b = workspace;
@@ -364,10 +366,18 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
             b = in + i * layer->w * layer->h * layer->c;
         } else {
             memset(workspace, 0, n*k*sizeof(float));
-            im2col_cpu(in + i * layer->w * layer->h * layer->c,
-                       layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
+            /*im2col_cpu(in + i * layer->w * layer->h * layer->c,
+              layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);*/
+            im2col_cpu_thread(in + i * layer->w * layer->h * layer->c,
+                              layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b, layer->out_h * layer->out_w);
+            //printf("im2col_cpu_thread: %d %f\n", index, what_time_is_it_now() - start);
         }
+#ifdef QML
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1, a, k, b, n, 0, c, n);
+        //printf("cblas_sgemm: %d %f, %d %d %d\n", index, what_time_is_it_now() - start, m, n, k);
+#else
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
+#endif
     }
     //if(index == 23) return;
 
@@ -523,7 +533,7 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
     }
 }
 
-#define HANDLE_THREAD_NUM 2
+#define HANDLE_THREAD_NUM 3
 pthread_t handle_thread_id[HANDLE_THREAD_NUM];
 typedef struct {
     int c_start, c_end, height_col, width_col, height, width, ksize, stride, pad, n_tile;

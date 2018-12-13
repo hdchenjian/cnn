@@ -50,6 +50,17 @@ shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, i
     return l;
 }
 
+#ifdef QML
+void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net)
+{
+    copy_cpu(l->outputs*l->batch, input, 1, l->output, 1);
+    float *shortcut_layer_output = get_network_layer_data(net, l->index, 0, 0);
+    axpy_cpu(l->outputs*l->batch, l->prev_layer_weight, shortcut_layer_output, 1, l->output, 1);
+    if (l->activation != LINEAR) {
+        activate_array(l->output, l->outputs*l->batch, l->activation);
+    }
+}
+#else
 void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net)
 {
     copy_cpu(l->outputs*l->batch, input, 1, l->output, 1);
@@ -60,6 +71,7 @@ void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net)
         activate_array(l->output, l->outputs*l->batch, l->activation);
     }
 }
+#endif
 
 void backward_shortcut_layer(const shortcut_layer *l, float *delta, network *net)
 {

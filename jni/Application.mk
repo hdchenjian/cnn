@@ -7,3 +7,4 @@ NDK_TOOLCHAIN_VERSION := 4.9
 ##APP_OPTIM := debug
 APP_PLATFORM := android-21
 APP_OPTIM := release
+#APP_PIE := true
