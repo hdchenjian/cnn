@@ -56,6 +56,7 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     if(0 == l->test){    // 0: train, 1: valid
         l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
     }
+    //l->output_cl = cl_make_share_array(l->output, l->outputs*batch);
     l->output_cl = cl_make_array(l->output, l->outputs*batch);
     if(l->n == 1) {
         clReleaseMemObject(l->output_cl);

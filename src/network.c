@@ -1065,7 +1065,7 @@ void forward_network_cl(network *net, cl_mem input)
             layer->batch = net->batch;
             //cl_print_array(input, 1, "conv input: ", i);
             //cl_memset_array(net->workspace_cl, (net->workspace_size-1)/sizeof(float)+1);
-            forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test, i);
+            forward_convolutional_layer_cl(layer, input, net->workspace_cl, net->test, i, net->workspace_size);
             //printf("forward_network_cl %d %f\n", i, layer->output[0]);
             //cl_print_array(layer->output_cl, 1, "conv output: ", i);
             input = layer->output_cl;

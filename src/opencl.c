@@ -1,4 +1,5 @@
 #ifdef OPENCL
+
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -8,7 +9,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <stdlib.h>
 
 #ifdef CLBLAS
 #include <clBLAS.h>
@@ -28,7 +28,7 @@ void check_error(cl_info info)
     if (info.error != CL_SUCCESS) {
         printf("\n Error number %d\n", info.error);
         abort();
-        exit(1);
+        exit(-1);
     }
 }
 
@@ -39,7 +39,7 @@ cl_info cl_init(int index)
     cl_info info;
     info.share_mem_index = 0;
     info.share_mem_struct;
-    info.share_mem_index_max = 256;
+    info.share_mem_index_max = 512;
     info.initialized = 0;
     if(index < 0) error("Won't initialize negative gpu id\n");
     cl_uint num_platforms, num_devices;
@@ -455,7 +455,7 @@ cl_mem cl_make_share_array(float *x, int element_num)
 
     if(cl.share_mem_index >= cl.share_mem_index_max){
         printf("Error: cl.share_mem_index exceeds\n");
-        eixt(-1);
+        exit(-1);
     }
     cl.share_mem_struct[cl.share_mem_index].host_addr = ion_mem.ion_hostptr;
     cl.share_mem_struct[cl.share_mem_index].size = allocation_data.len;

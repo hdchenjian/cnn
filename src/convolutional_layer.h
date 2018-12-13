@@ -83,7 +83,7 @@ void add_bias_gpu(float *output, float *biases, int batch, int n, int size);
 void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int size);
 
 #elif defined(OPENCL)
-void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test, int index);
+void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test, int index, int workspace_size);
 void push_convolutional_layer_cl(convolutional_layer *layer);
 #endif
 #endif

@@ -44,6 +44,7 @@ shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, i
     if(0 == l->test){    // 0: train, 1: valid
         l->delta_cl =  cl_make_array(l->delta, l->outputs*batch);
     }
+    //l->output_cl = cl_make_share_array(l->output, l->outputs*batch);
     l->output_cl = cl_make_array(l->output, l->outputs*batch);
 #endif
     return l;

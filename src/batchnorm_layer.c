@@ -68,6 +68,7 @@ batchnorm_layer *make_batchnorm_layer(int batch, int subdivisions, int w, int h,
     cudnnSetTensor4dDescriptor(l->normTensorDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, l->out_c, 1, 1); 
     #endif
 #elif defined(OPENCL)
+    //l->output_cl = cl_make_share_array(l->output, batch * l->out_h * l->out_w * c);
     l->output_cl = cl_make_array(l->output, batch * l->out_h * l->out_w * c);
     l->scales_cl = cl_make_array(l->scales, c);
     l->biases_cl = cl_make_array(l->biases, c);

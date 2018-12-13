@@ -25,7 +25,7 @@ typedef struct {
     cl_command_queue queue;
     int share_mem_index;
     int share_mem_index_max;
-    cl_share_mem_bakeup share_mem_struct[256];
+    cl_share_mem_bakeup share_mem_struct[512];
     cl_uint device_page_size;
     int m_ion_device_fd;
 }cl_info;
@@ -36,6 +36,7 @@ void cl_setup();
 void check_error(cl_info info);
 void cl_read_array(cl_mem mem, float *x, int n);
 void cl_write_array(cl_mem mem, float *x, int n);
+cl_mem cl_make_share_array(float *x, int element_num);
 cl_mem cl_make_array(float *x, int n);
 cl_mem cl_make_weights(int h, int w, float *weights);
 cl_mem cl_make_int_array(int *x, int n);

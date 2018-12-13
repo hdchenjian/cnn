@@ -676,13 +676,14 @@ network *parse_network_cfg(const char *filename, int test)
     if(net->workspace_size){
 #ifdef GPU
         if(net->gpu_index >= 0){
-            net->workspace_gpu = cuda_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
+            net->workspace_gpu = cuda_make_array(0, net->workspace_size / sizeof(float));
         }else {
             printf("net->gpu_index < 0!\n");
             exit(-1);
         }
 #elif defined(OPENCL)
-        net->workspace_cl = cl_make_array(0, (net->workspace_size-1)/sizeof(float)+1);
+        //net->workspace_cl = cl_make_share_array(0, net->workspace_size / sizeof(float));
+        net->workspace_cl = cl_make_array(0, net->workspace_size / sizeof(float));
 #endif
         net->workspace = calloc(1, net->workspace_size);
     }

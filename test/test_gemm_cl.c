@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <pthread.h>
 
 #include <fcntl.h>
@@ -290,79 +289,6 @@ void test_array_add_cl(int n)
     return;
 }
 
-void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
-               int ksize,  int stride,  int pad, cl_mem data_col, int width_tile);
-
-#define HANDLE_THREAD_NUM 3
-pthread_t handle_thread_id[HANDLE_THREAD_NUM];
-typedef struct {
-    int c_start, c_end, height_col, width_col, height, width, ksize, stride, pad;
-    float *data_im, *data_col;
-} im2col_arg_struct;
-    
-void *im2col_thread(void *input)
-{
-    im2col_arg_struct *args = (im2col_arg_struct *)input;
-    int c_start = args->c_start;
-    int c_end = args->c_end;
-    //printf("im2col_thread %d %d\n", c_start, c_end);
-    int height_col = args->height_col;
-    int width_col = args->width_col;
-    int height = args->height;
-    int width = args->width;
-    int ksize = args->ksize;
-    int stride = args->stride;
-    int pad = args->pad;
-    float *data_im = args->data_im;
-    float *data_col = args->data_col;
-    for(int c = c_start; c < c_end; ++c) {
-        int w_offset = c % ksize;
-        int h_offset = (c / ksize) % ksize;
-        int c_im = c / ksize / ksize;
-        for(int h = 0; h < height_col; ++h) {
-            int row = h_offset + h * stride - pad;
-            for(int w = 0; w < width_col; ++w) {
-                int col = w_offset + w * stride - pad;
-                int col_index = (c * height_col + h) * width_col + w;
-                //if(row >= 0 && col >= 0 && row < height && col < width) data_col[col_index] = data_im[col + width*(row + height*c_im)];
-                //else data_col[col_index] = 0;
-                if(row < 0 || col < 0 || row >= height || col >= width) data_col[col_index] = 0;
-                else data_col[col_index] = data_im[col + width*(row + height*c_im)];
-            }
-        }
-    }
-
-}
-void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
-{
-    int height_col = (height + 2*pad - ksize) / stride + 1;
-    int width_col = (width + 2*pad - ksize) / stride + 1;
-
-    int channels_col = channels * ksize * ksize;
-    //printf("im2col_cpu_thread %d\n", channels_col);
-    im2col_arg_struct args[HANDLE_THREAD_NUM];
-    int row_index = 0;
-    int element = (channels_col + HANDLE_THREAD_NUM - 1) / HANDLE_THREAD_NUM;
-    for(int i = 0; i < HANDLE_THREAD_NUM; i++){
-        args[i].c_start = row_index;
-        args[i].c_end = (row_index + element > channels_col) ? channels_col : row_index + element;
-        row_index += element;
-        args[i].height_col = height_col;
-        args[i].width_col = width_col;
-        args[i].height = height;
-        args[i].width = width;
-        args[i].ksize = ksize;
-        args[i].stride = stride;
-        args[i].pad = pad;
-        args[i].data_im = data_im;
-        args[i].data_col = data_col;
-        pthread_create(handle_thread_id + i, NULL, im2col_thread, &args[i]);
-    }
-    for(int i = 0; i < HANDLE_THREAD_NUM; i++){
-        pthread_join(handle_thread_id[i], NULL);
-    }
-}
-
 void im2col_cpu_local(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col)
 {
     int height_col = (height + 2*pad - ksize) / stride + 1;
@@ -388,6 +314,10 @@ void im2col_cpu_local(float* data_im, int channels,  int height,  int width, int
         }
     }
 }
+
+void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col, int n_tile);
+void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
+               int ksize,  int stride,  int pad, cl_mem data_col, int width_tile);
 
 void test_im2col()
 {
@@ -423,9 +353,16 @@ void test_im2col()
     try_times = 100;
     start = what_time_is_it_now();
     for(int i = 0; i < try_times; i++){
-        im2col_cpu_thread(in, c, h, w, 3, 2, 1, out);
+        int tile_width = 8;
+        int size = 3;
+        int stride = 2;
+        int pad = 1;
+        int out_h = (h + 2*pad - size) / stride + 1;
+        int out_w = (w + 2*pad - size) / stride + 1;
+        int n_tile = ((out_h * out_w + tile_width - 1) / tile_width) * tile_width;
+        im2col_cpu_thread(in, c, h, w, size, stride, pad, out, n_tile);
     }
-    printf("im2col_cpu_thread: %f\n", (what_time_is_it_now() - start) / try_times);
+    printf("im2col_cpu_thread_local: %f\n", (what_time_is_it_now() - start) / try_times);
     cl_compare_array(out_cl, out, out_size, "im2col diff : ", 56);
 }
 
@@ -498,20 +435,22 @@ void test_share_memery()
     memcpy(ion_mem.ion_hostptr, in, size);    
     cl_mem mem = clCreateBuffer(cl.context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR | CL_MEM_EXT_HOST_PTR_QCOM, size, &ion_mem, &cl.error);
     check_error(cl);
-    cl_float *ptr = (cl_float *)(clEnqueueMapBuffer(cl.queue, mem, CL_BLOCKING, CL_MAP_READ, 0, size, 0, NULL, NULL, &cl.error));
+    float *ptr = (float *)(clEnqueueMapBuffer(cl.queue, mem, CL_TRUE, CL_MAP_READ, 0, size, 0, NULL, NULL, &cl.error));
     check_error(cl);
     for(int i = 0; i < n; i++) printf("unmap cl mem: %d %f\n", i, ptr[i]);
     err = clEnqueueUnmapMemObject(cl.queue, mem, ptr, 0, NULL, NULL);
     check_error(cl);
 
     for(int i = 0; i < share_mem_struct_index; i++) {
-        
-        if (munmap(share_mem_struct[share_mem_struct_index].host_addr, share_mem_struct[share_mem_struct_index].size) < 0) {
+        if (munmap(share_mem_struct[i].host_addr, share_mem_struct[i].size) < 0) {
             printf("Error munmap-ing ion alloc: %s\n", strerror(errno));
             exit(-1);
         }
-        close(share_mem_struct[share_mem_struct_index].fd);
-        if (ioctl(m_ion_device_fd, ION_IOC_FREE, share_mem_struct[share_mem_struct_index].handle_data) < 0) {
+        if(close(share_mem_struct[i].fd) < 0) {
+            printf("Error closing ion_fd_data fd: %s\n", strerror(errno));
+            exit(-1);
+        }
+        if (ioctl(m_ion_device_fd, ION_IOC_FREE, &(share_mem_struct[i].handle_data)) < 0) {
             printf("Error freeing ion alloc with ioctl: %s\n", strerror(errno));
             exit(-1);
         }            

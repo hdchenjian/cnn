@@ -1,5 +1,6 @@
 #include "convolutional_layer.h"
 #include <float.h>
+#include <pthread.h>
 
 image get_convolutional_image(const convolutional_layer *layer)
 {
@@ -210,6 +211,7 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
     layer->weights_cl = cl_make_weights(layer->n, layer->size*layer->size*layer->c, layer->weights);
     //layer->weights_cl = cl_make_array(layer->weights, c*n*size*size);
     layer->biases_cl = cl_make_array(layer->biases, n);
+    //layer->output_cl = cl_make_share_array(layer->output, batch * layer->out_h * layer->out_w * n);
     layer->output_cl = cl_make_array(layer->output, batch * layer->out_h * layer->out_w * n);
     if(0 == layer->test){    // 0: train, 1: valid
         layer->weight_updates_cl = cl_make_array(layer->weight_updates, c*n*size*size);
@@ -521,6 +523,78 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
     }
 }
 
+#define HANDLE_THREAD_NUM 2
+pthread_t handle_thread_id[HANDLE_THREAD_NUM];
+typedef struct {
+    int c_start, c_end, height_col, width_col, height, width, ksize, stride, pad, n_tile;
+    float *data_im, *data_col;
+} im2col_arg_struct;
+
+void *im2col_thread(void *input)
+{
+    im2col_arg_struct *args = (im2col_arg_struct *)input;
+    int c_start = args->c_start;
+    int c_end = args->c_end;
+    //printf("im2col_thread %d %d\n", c_start, c_end);
+    int height_col = args->height_col;
+    int width_col = args->width_col;
+    int height = args->height;
+    int width = args->width;
+    int ksize = args->ksize;
+    int stride = args->stride;
+    int pad = args->pad;
+    int n_tile = args->n_tile;
+    float *data_im = args->data_im;
+    float *data_col = args->data_col;
+    for(int c = c_start; c < c_end; ++c) {
+        int w_offset = c % ksize;
+        int h_offset = (c / ksize) % ksize;
+        int c_im = c / ksize / ksize;
+        for(int h = 0; h < height_col; ++h) {
+            int row = h_offset + h * stride - pad;
+            for(int w = 0; w < width_col; ++w) {
+                int col = w_offset + w * stride - pad;
+                int col_index = c * n_tile + h * width_col + w;
+                //if(row >= 0 && col >= 0 && row < height && col < width) data_col[col_index] = data_im[col + width*(row + height*c_im)];
+                //else data_col[col_index] = 0;
+                if(row < 0 || col < 0 || row >= height || col >= width) data_col[col_index] = 0;
+                else data_col[col_index] = data_im[col + width*(row + height*c_im)];
+            }
+        }
+    }
+
+}
+void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col, int n_tile)
+{
+    int height_col = (height + 2*pad - ksize) / stride + 1;
+    int width_col = (width + 2*pad - ksize) / stride + 1;
+
+    int channels_col = channels * ksize * ksize;
+    //printf("im2col_cpu_thread %d\n", channels_col);
+    im2col_arg_struct args[HANDLE_THREAD_NUM];
+    int row_index = 0;
+    int element = (channels_col + HANDLE_THREAD_NUM - 1) / HANDLE_THREAD_NUM;
+    for(int i = 0; i < HANDLE_THREAD_NUM; i++){
+        args[i].c_start = row_index;
+        args[i].c_end = (row_index + element > channels_col) ? channels_col : row_index + element;
+        row_index += element;
+        args[i].height_col = height_col;
+        args[i].width_col = width_col;
+        args[i].height = height;
+        args[i].width = width;
+        args[i].ksize = ksize;
+        args[i].stride = stride;
+        args[i].pad = pad;
+        args[i].data_im = data_im;
+        args[i].data_col = data_col;
+        args[i].n_tile = n_tile;
+        pthread_create(handle_thread_id + i, NULL, im2col_thread, &args[i]);
+    }
+    for(int i = 0; i < HANDLE_THREAD_NUM; i++){
+        pthread_join(handle_thread_id[i], NULL);
+    }
+}
+
 #ifdef OPENCL
 void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
                int ksize,  int stride,  int pad, cl_mem data_col, int width_tile)
@@ -574,17 +648,28 @@ void forward_conv_batchnorm_layer_cl(const convolutional_layer *layer, int test,
     }
 }
 
-void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test, int index)
+void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in, cl_mem workspace, int test, int index, int workspace_size)
 {
     int m = layer->n;
     int n = layer->out_h * layer->out_w;
     int k = layer->size*layer->size*layer->c;
     int tile_width = 8;
-    //double start = what_time_is_it_now();
+    double start = what_time_is_it_now();
+    int n_tile = ((layer->out_h * layer->out_w + tile_width - 1) / tile_width) * tile_width;
+    //int k_tile = ((layer->size*layer->size*layer->c + tile_width - 1) / tile_width) * tile_width;
+    cl_mem a = layer->weights_cl;
+    cl_mem b = workspace;
+    cl_mem c = layer->output_cl;
+    /*
+    cl_float *in_cpu = (cl_float *)(clEnqueueMapBuffer(cl.queue, in, CL_TRUE, CL_MAP_READ, 0,
+                                                       layer->batch * layer->c * layer->h * layer->w * sizeof(float),
+                                                       0, NULL, NULL, &cl.error));
+    check_error(cl);
+    cl_float *workspace_cpu = (cl_float *)(clEnqueueMapBuffer(cl.queue, workspace, CL_TRUE, CL_MAP_WRITE, 0,
+                                                              workspace_size, 0, NULL, NULL, &cl.error));
+    check_error(cl);*/
+
     for(int i = 0; i < layer->batch; ++i){
-        cl_mem a = layer->weights_cl;
-        cl_mem b = workspace;
-        cl_mem c = layer->output_cl;
         if (layer->size == 1 && layer->stride == 1){
             b = in;
             if(m % 8 == 0 && n % 8 == 0){
@@ -598,14 +683,22 @@ void forward_convolutional_layer_cl(const convolutional_layer *layer, cl_mem in,
                 //exit(-1);
             }
         } else {
-            int n_tile = ((layer->out_h * layer->out_w + tile_width - 1) / tile_width) * tile_width;
-            int k_tile = ((layer->size*layer->size*layer->c + tile_width - 1) / tile_width) * tile_width;
             //cl_memset_array(workspace, n_tile * k_tile);
+            //printf("%d %d %d,   %d %d %d,  %d %d %d\n", layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, m, n, k);
             im2col_cl(in, i*layer->c*layer->h*layer->w, layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b, n_tile);
             //printf("gemm im2col_cl: %d %f\n", index, what_time_is_it_now() - start);
+            //im2col_cpu_thread(in_cpu + i*layer->c*layer->h*layer->w, layer->c,  layer->h,  layer->w,
+            //                  layer->size,  layer->stride, layer->pad, workspace_cpu, n_tile);
+            //printf("gemm im2col_cpu: %d %f\n", index, what_time_is_it_now() - start);
             gemm_fast_cl(0,0,m,n,k,1,a,0,k,b,0,n,0,c,i*n*m,n, n_tile);
         }
     }
+    //cl.error = clEnqueueUnmapMemObject(cl.queue, in, in_cpu, 0, NULL, NULL);
+    //check_error(cl);
+    //cl.error = clEnqueueUnmapMemObject(cl.queue, workspace, workspace_cpu, 0, NULL, NULL);
+    //check_error(cl);
+
+
     //printf("gemm: %d %f\n", index, what_time_is_it_now() - start);
     //if(index == 23) return;
     //cl_print_array(layer->output_cl, 1, "conv output: ", index);
