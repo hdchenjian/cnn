@@ -742,7 +742,13 @@ __kernel void gemm_fast(int M, int N, int N_tile, int K,  __global float *a, __g
     for(k = 0; k < K; k += 1 ) {
         a_r = ((global float8 const *)a)[a_off];
         b_r = ((global float8 const *)b)[b_off];
+        //break;
+#ifdef FP_FAST_FMAF
+        c_r[0] = fma(a_r.s0, b_r.s0, c_r[0]);
+        printf("have FP_FAST_FMAF\n");
+#else
         c_r[0] += a_r.s0*b_r.s0;
+#endif
         c_r[1] += a_r.s0*b_r.s1;
         c_r[2] += a_r.s0*b_r.s2;
         c_r[3] += a_r.s0*b_r.s3;
@@ -821,92 +827,108 @@ __kernel void gemm_fast(int M, int N, int N_tile, int K,  __global float *a, __g
     switch(path) {
     case 0:
         a_off = (a_off * N + b_off) * T_WIDTH;
-        for(k = 0; k < T_WIDTH; k++) {
-            switch(k) {
-            case 0:
-                b_r.s0 = c_r[0];
-                b_r.s1 = c_r[1];
-                b_r.s2 = c_r[2];
-                b_r.s3 = c_r[3];
-                b_r.s4 = c_r[4];
-                b_r.s5 = c_r[5];
-                b_r.s6 = c_r[6];
-                b_r.s7 = c_r[7];
-                break;
-            case 1:
-                b_r.s0 = c_r[8];
-                b_r.s1 = c_r[9];
-                b_r.s2 = c_r[10];
-                b_r.s3 = c_r[11];
-                b_r.s4 = c_r[12];
-                b_r.s5 = c_r[13];
-                b_r.s6 = c_r[14];
-                b_r.s7 = c_r[15];
-                break;
-            case 2:
-                b_r.s0 = c_r[16];
-                b_r.s1 = c_r[17];
-                b_r.s2 = c_r[18];
-                b_r.s3 = c_r[19];
-                b_r.s4 = c_r[20];
-                b_r.s5 = c_r[21];
-                b_r.s6 = c_r[22];
-                b_r.s7 = c_r[23];
-                break;
-            case 3:
-                b_r.s0 = c_r[24];
-                b_r.s1 = c_r[25];
-                b_r.s2 = c_r[26];
-                b_r.s3 = c_r[27];
-                b_r.s4 = c_r[28];
-                b_r.s5 = c_r[29];
-                b_r.s6 = c_r[30];
-                b_r.s7 = c_r[31];
-                break;
-            case 4:
-                b_r.s0 = c_r[32];
-                b_r.s1 = c_r[33];
-                b_r.s2 = c_r[34];
-                b_r.s3 = c_r[35];
-                b_r.s4 = c_r[36];
-                b_r.s5 = c_r[37];
-                b_r.s6 = c_r[38];
-                b_r.s7 = c_r[39];
-                break;
-            case 5:
-                b_r.s0 = c_r[40];
-                b_r.s1 = c_r[41];
-                b_r.s2 = c_r[42];
-                b_r.s3 = c_r[43];
-                b_r.s4 = c_r[44];
-                b_r.s5 = c_r[45];
-                b_r.s6 = c_r[46];
-                b_r.s7 = c_r[47];
-                break;
-            case 6:
-                b_r.s0 = c_r[48];
-                b_r.s1 = c_r[49];
-                b_r.s2 = c_r[50];
-                b_r.s3 = c_r[51];
-                b_r.s4 = c_r[52];
-                b_r.s5 = c_r[53];
-                b_r.s6 = c_r[54];
-                b_r.s7 = c_r[55];
-                break;
-            case 7:
-                b_r.s0 = c_r[56];
-                b_r.s1 = c_r[57];
-                b_r.s2 = c_r[58];
-                b_r.s3 = c_r[59];
-                b_r.s4 = c_r[60];
-                b_r.s5 = c_r[61];
-                b_r.s6 = c_r[62];
-                b_r.s7 = c_r[63];
-                break;
-            }
-            *((global float8 *)(c + a_off)) = b_r;
-            a_off += N;
-        }
+//#pragma unroll
+        //for(k = 0; k < T_WIDTH; k++) {
+        //switch(k) {
+        //case 0:
+        b_r.s0 = c_r[0];
+        b_r.s1 = c_r[1];
+        b_r.s2 = c_r[2];
+        b_r.s3 = c_r[3];
+        b_r.s4 = c_r[4];
+        b_r.s5 = c_r[5];
+        b_r.s6 = c_r[6];
+        b_r.s7 = c_r[7];
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //break;
+        //case 1:
+        b_r.s0 = c_r[8];
+        b_r.s1 = c_r[9];
+        b_r.s2 = c_r[10];
+        b_r.s3 = c_r[11];
+        b_r.s4 = c_r[12];
+        b_r.s5 = c_r[13];
+        b_r.s6 = c_r[14];
+        b_r.s7 = c_r[15];
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //break;
+        //case 2:
+        b_r.s0 = c_r[16];
+        b_r.s1 = c_r[17];
+        b_r.s2 = c_r[18];
+        b_r.s3 = c_r[19];
+        b_r.s4 = c_r[20];
+        b_r.s5 = c_r[21];
+        b_r.s6 = c_r[22];
+        b_r.s7 = c_r[23];
+        //break;
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //case 3:
+        b_r.s0 = c_r[24];
+        b_r.s1 = c_r[25];
+        b_r.s2 = c_r[26];
+        b_r.s3 = c_r[27];
+        b_r.s4 = c_r[28];
+        b_r.s5 = c_r[29];
+        b_r.s6 = c_r[30];
+        b_r.s7 = c_r[31];
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //break;
+        //case 4:
+        b_r.s0 = c_r[32];
+        b_r.s1 = c_r[33];
+        b_r.s2 = c_r[34];
+        b_r.s3 = c_r[35];
+        b_r.s4 = c_r[36];
+        b_r.s5 = c_r[37];
+        b_r.s6 = c_r[38];
+        b_r.s7 = c_r[39];
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //break;
+        //case 5:
+        b_r.s0 = c_r[40];
+        b_r.s1 = c_r[41];
+        b_r.s2 = c_r[42];
+        b_r.s3 = c_r[43];
+        b_r.s4 = c_r[44];
+        b_r.s5 = c_r[45];
+        b_r.s6 = c_r[46];
+        b_r.s7 = c_r[47];
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //break;
+        //case 6:
+        b_r.s0 = c_r[48];
+        b_r.s1 = c_r[49];
+        b_r.s2 = c_r[50];
+        b_r.s3 = c_r[51];
+        b_r.s4 = c_r[52];
+        b_r.s5 = c_r[53];
+        b_r.s6 = c_r[54];
+        b_r.s7 = c_r[55];
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //break;
+        //case 7:
+        b_r.s0 = c_r[56];
+        b_r.s1 = c_r[57];
+        b_r.s2 = c_r[58];
+        b_r.s3 = c_r[59];
+        b_r.s4 = c_r[60];
+        b_r.s5 = c_r[61];
+        b_r.s6 = c_r[62];
+        b_r.s7 = c_r[63];
+        *((global float8 *)(c + a_off)) = b_r;
+        a_off += N;
+        //break;
+        //*((global float8 *)(c + a_off)) = b_r;
+        //a_off += N;
+        //}
         break;
     case 1:  // right upper
         for(i = 0; i < T_WIDTH; i++){

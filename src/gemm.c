@@ -261,7 +261,7 @@ void gemm_fast_cl(int TA, int TB, int M, int N, int K, float ALPHA,
     cl_command_queue queue = cl.queue;
 
     //printf("\t\t\t\t\tgemm_fast_cl %d %d: %d %d %d, tile: \n", TA, TB, M, N, K);//, M_tile, N_tile, K_tile);
-    //printf("%d x %d -> %d x %d, %d, %d %d\n", M, N, (M + T_WIDTH - 1) / T_WIDTH, (N + T_WIDTH - 1) / T_WIDTH);
+    //printf("%d x %d -> %d x %d\n", M, N, (M + T_WIDTH - 1) / T_WIDTH, (N + T_WIDTH - 1) / T_WIDTH);
     cl_uint i = 0;
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(M), (void*) &M);
     cl.error = clSetKernelArg(gemm_kernel, i++, sizeof(N), (void*) &N);

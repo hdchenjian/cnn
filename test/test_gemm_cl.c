@@ -243,7 +243,7 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
         //return;
         cl_memset_array(c_cl, m*n);
     }
-    int try_times = 1;
+    int try_times = 10;
 
     start = what_time_is_it_now();
     for(int i = 0; i < try_times; i++){
@@ -252,7 +252,7 @@ void test_gemm_fast_direct_cl(int m, int n, int k)
         //gemm_with_local_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n);
         //gemm_with_local_image_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_image,0,n,0,c_cl,0,n);
         gemm_fast_cl(0,0,m,n,k,1,a_transpose_cl,0,n,b_cl,0,n,0,c_cl,0,n, n);//, m,n,k);
-        printf("%d\n", i);
+        //printf("%d\n", i);
     }
     end = what_time_is_it_now();
     cl_compare_array(c_cl, c, m*n, "gemm diff: ", 0);
@@ -468,8 +468,6 @@ void test_im2col()
 #endif
 
 
-#define TEST_QML_GEMM
-
 #ifdef QML
 #include <qml_cblas3.h>
 void test_qml_gemm(int m, int n, int k)
@@ -487,7 +485,7 @@ void test_qml_gemm(int m, int n, int k)
 }
 
 #else
-void test_qml_gemm(int m, int n, int k){}
+void test_qml_gemm(int m, int n, int k){printf("not define QML\n");}
 #endif
 
 int main(int argc, char **argv)
@@ -504,9 +502,12 @@ int main(int argc, char **argv)
     int m = 1024;
     int n = 1024;
     int k = 1024;
-    test_qml_gemm(64, 43264, 288);
-    //test_gemm_fast_direct_cl(m, n, k);
-    //test_gemm_fast_direct_cl(64, 43264, 288);
+    test_qml_gemm(64, 43264, k);
+    test_gemm_fast_direct_cl(m, n, k);
+    test_gemm_fast_direct_cl(64, 43264, 288);
+    test_gemm_fast_direct_cl(64, 43264, 288*2);
+    test_gemm_fast_direct_cl(64, 43264, 288*3);
+    //test_gemm_fast_direct_cl(64, 43264, 1024+1);
     /*
     for(int i = 7; i < 100; i++){
         for(int j = 0; j < 100; j++){
