@@ -244,7 +244,7 @@ upsample_layer *parse_upsample(struct list *options, network *net, int count)
     return layer;
 }
 
-int *parse_yolo_mask(char *a, int *num)
+int *parse_yolo_mask(const char *a, int *num)
 {
     int *mask = 0;
     if(a){
@@ -263,6 +263,35 @@ int *parse_yolo_mask(char *a, int *num)
         *num = n;
     }
     return mask;
+}
+
+yolo_layer *make_yolo_snpe(int c, int h, int w, const char *mask_str, const char *anchors)
+{
+    int count = 0;
+    int total = 6;
+    int batch = 1;
+    int classes = 1;
+    int num = 0;
+    int *mask = parse_yolo_mask(mask_str, &num);
+    yolo_layer *l = make_yolo_layer(batch, w, h, num, total, mask, classes, count);
+    assert(l->outputs == w * h * c);
+
+    l->ignore_thresh = 0.7;
+    l->truth_thresh = 1;
+    if(anchors){
+        int len = strlen(anchors);
+        int n = 1;
+        int i;
+        for(i = 0; i < len; ++i){
+            if (anchors[i] == ',') ++n;
+        }
+        for(i = 0; i < n; ++i){
+            float bias = atof(anchors);
+            l->biases[i] = bias;
+            anchors = strchr(anchors, ',')+1;
+        }
+    }
+    return l;
 }
 
 yolo_layer *parse_yolo(struct list *options, network *net, int count)

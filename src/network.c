@@ -1389,7 +1389,7 @@ void load_connected_weights(const connected_layer *l, FILE *fp, int gpu_index)
         fread(l->biases, sizeof(float), l->outputs, fp);
     }
     if(l->activation == PRELU){
-        size_t fff = fread(l->slope, sizeof(float), l->outputs, fp);
+        fread(l->slope, sizeof(float), l->outputs, fp);
         //printf("l->slope %f %lu\n", l->slope[0], fff);
     }
 #ifdef GPU

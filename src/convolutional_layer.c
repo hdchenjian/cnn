@@ -572,8 +572,9 @@ void *im2col_thread(void *input)
             }
         }
     }
-
+    return 0;
 }
+
 void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col, int n_tile)
 {
     int height_col = (height + 2*pad - ksize) / stride + 1;

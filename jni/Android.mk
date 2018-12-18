@@ -9,7 +9,7 @@ LOCAL_C_INCLUDES += /home/luyao/download/Snapdragon/opencl-sdk-1.2.2/inc
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/include
 LOCAL_C_INCLUDES += /home/luyao/download/opencv_arm/android-ndk-r12b/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/include
 LOCAL_SHARED_LIBRARIES := QML
-LOCAL_CFLAGS := -Ofast -std=c11 -DQML -DOPENCL #-DFORWARD_GPU
+LOCAL_CFLAGS := -Ofast -std=c11 #-DQML -DOPENCL #-DFORWARD_GPU
 # Using android logging library
 # LOCAL_LDLIBS := -llog
 #LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
@@ -111,7 +111,7 @@ LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
 LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 
 LOCAL_LDLIBS := -fopenmp
-LOCAL_CFLAGS := -Ofast -std=c11 -DQML -DOPENCL #-fopenmp
+LOCAL_CFLAGS := -Ofast -std=c11 #-DQML -DOPENCL #-fopenmp
 
 include $(BUILD_EXECUTABLE)
 

@@ -503,10 +503,12 @@ int main(int argc, char **argv)
     int n = 1024;
     int k = 1024;
     test_qml_gemm(64, 43264, k);
+    #ifdef OPENCL
     test_gemm_fast_direct_cl(m, n, k);
     test_gemm_fast_direct_cl(64, 43264, 288);
     test_gemm_fast_direct_cl(64, 43264, 288*2);
     test_gemm_fast_direct_cl(64, 43264, 288*3);
+    #endif
     //test_gemm_fast_direct_cl(64, 43264, 1024+1);
     /*
     for(int i = 7; i < 100; i++){
