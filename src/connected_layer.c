@@ -259,6 +259,8 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
     int k = layer->inputs;
 #ifdef QML
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1, a, k, b, k, 0, c, n);
+#elif defined(INTEL_MKL)
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1, a, k, b, k, 0, c, n);
 #else
         gemm(0, 1, m, n, k, 1, a, k, b, k, 0, c, n);
 #endif

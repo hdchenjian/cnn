@@ -10,6 +10,8 @@
 #include "cuda.h"
 #elif defined(OPENCL)
 #include "opencl.h"
+#elif defined(INTEL_MKL)
+#include "mkl.h"
 #endif
 
 float *make_matrix(int rows, int cols)
@@ -35,6 +37,16 @@ void time_gemm(int w, int h)
     float sum = 0;
     for(int i = 0; i < w * h; i++) sum += c[i];
     printf("Matrix Multiplication cpu %dx%d * %dx%d, sum: %f, %lf s\n", h, w, h, w, sum, end-start);
+
+#if defined(INTEL_MKL)
+    start = what_time_is_it_now();
+    cblas_sgemm(CblasRowMajor,CblasNoTrans,CblasNoTrans,h,w,w,1,a,w,b,w,0,c,w);
+    end = what_time_is_it_now();
+    sum = 0;
+    for(int i = 0; i < w * h; i++) sum += c[i];
+    printf("Matrix Multiplication mkl cpu %dx%d * %dx%d, sum: %f, %lf s\n", h, w, h, w, sum, end-start);
+#endif
+
     free(a);
     free(b);
     free(c);
@@ -187,7 +199,6 @@ int main(int argc, char **argv)
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_train.csv", "/home/luyao/git/cnn/.data/mnist/train");
     //load_csv_image("/home/luyao/git/cnn/.data/mnist/mnist_test.csv", "/home/luyao/git/cnn/.data/mnist/test");
     //test_convolutional_layer();
-    //time_gemm(2000, 2000);
 #ifdef GPU
     int w = 4096 * 2;
     int h = 4096 * 2;
@@ -196,8 +207,10 @@ int main(int argc, char **argv)
     int w = 4096 * 2;
     int h = 4096 * 2;
     test_gemm_cl(w, h);
-#endif
+#else
+    time_gemm(2000, 2000);
     //test_image();
     //test_load_csv_image();
+#endif
     return 0;
 }

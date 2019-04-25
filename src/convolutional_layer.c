@@ -375,6 +375,8 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
 #ifdef QML
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1, a, k, b, n, 0, c, n);
         //printf("cblas_sgemm: %d %f, %d %d %d\n", index, what_time_is_it_now() - start, m, n, k);
+#elif defined(INTEL_MKL)
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1, a, k, b, n, 0, c, n);
 #else
         gemm(0,0,m,n,k,1,a,k,b,n,0,c,n);
 #endif

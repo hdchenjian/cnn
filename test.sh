@@ -1,3 +1,4 @@
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/mkl/lib/intel64:/opt/intel/lib/intel64
 #LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cudnn/cudnn-v5/
 #export LD_LIBRARY_PATH=/opt/ego/cudnn-v7
 

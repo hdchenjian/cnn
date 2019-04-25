@@ -1,5 +1,7 @@
 FORWARD_GPU=0
 GPU=0
+INTEL_MKL=1
+QML=0
 DEBUG=0
 CUDNN=0
 OPENMP=0
@@ -29,6 +31,12 @@ CFLAGS=-Wall -Wno-unknown-pragmas -Wfatal-errors -fPIC --std=gnu11 -Wunused-but-
 ifeq ($(FORWARD_GPU), 1)
 COMMON+= -DFORWARD_GPU
 CFLAGS+= -DFORWARD_GPU
+endif
+
+ifeq ($(INTEL_MKL), 1)
+COMMON+= -DINTEL_MKL -I/opt/intel/mkl/include
+CFLAGS+= -DINTEL_MKL
+LDFLAGS+= -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
 endif
 
 ifeq ($(OPENMP), 1) 
