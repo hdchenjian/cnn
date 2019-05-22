@@ -880,7 +880,7 @@ void train_network_detect(network *net, batch_detect d)
         if(net->subdivisions - 1 == i) update_network(net);
 #endif
     }
-    net->seen += net->batch * net->time_steps * net->subdivisions;
+    net->seen += net->batch * net->subdivisions;
     net->batch_train += 1;
 }
 
@@ -930,7 +930,7 @@ void train_network(network *net, float *input, int *truth_label_index)
         update_network(net);
 #endif
     }
-    net->seen += net->batch * net->subdivisions * net->time_steps;
+    net->seen += net->batch * net->subdivisions;
     net->accuracy_count += net->batch;
     net->batch_train += 1;
 }

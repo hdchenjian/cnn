@@ -17,7 +17,7 @@ typedef struct {
     int *y;
 } float_pair;
 
-float_pair get_rnn_data(wint_t *text, size_t *offsets, int inputs, size_t len, int batch, int steps)
+float_pair get_rnn_data(wint_t *text, size_t *offsets, int inputs, size_t train_set_size, int batch, int steps)
 {
     float *x = calloc(batch * steps * inputs, sizeof(float));
     int *y = calloc(batch * steps, sizeof(int));
@@ -25,12 +25,12 @@ float_pair get_rnn_data(wint_t *text, size_t *offsets, int inputs, size_t len, i
     for(int j = 0; j < steps; ++j){
         for(int i = 0; i < batch; ++i){
             //offsets[i] = 0;
-            int curr = (int)text[offsets[i] % len];
-            int next = (int)text[(offsets[i] + 1) % len];
+            int curr = (int)text[offsets[i] % train_set_size];
+            int next = (int)text[(offsets[i] + 1) % train_set_size];
             x[(j*batch + i)*inputs + curr] = 1;
             y[j*batch + i] = next;
             //printf("%d %d %lc %d %lc", i, curr, curr, next, next);
-            offsets[i] = (offsets[i] + 1) % len;
+            offsets[i] = (offsets[i] + 1) % train_set_size;
         }
     }
     float_pair p;
@@ -101,6 +101,7 @@ void train_char_rnn(char *cfgfile, char *weightfile, char *filename)
         update_current_learning_rate(net);
         time=clock();
         float_pair p = get_rnn_data(text, offsets, net->inputs, train_set_size, net->batch, net->time_steps);
+        //for(int i = 0; i < 10; ++i) printf("%d %f %d\n", i, p.x[i], p.y[i]);
         train_network(net, p.x, p.y);
         free(p.x);
         free(p.y);

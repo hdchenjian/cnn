@@ -26,19 +26,19 @@ rnn_layer *make_rnn_layer(int batch, int inputs, int outputs, int steps, ACTIVAT
     float sigma = 0;
     int connected_layer_batch = batch * steps;
     fprintf(stderr, "\t");
-    l->input_layer = make_connected_layer(inputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
+    l->input_layer = make_connected_layer(inputs, outputs, connected_layer_batch, activation, weight_normalize,
                                           bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
                                           sigma, batch_normalize, 1, 0);
     l->input_layer->batch = batch;
 
     fprintf(stderr, "\t");
-    l->self_layer = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
+    l->self_layer = make_connected_layer(outputs, outputs, connected_layer_batch, activation, weight_normalize,
                                          bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
                                          sigma, batch_normalize, 1, 0);
     l->self_layer->batch = batch;
 
     fprintf(stderr, "\t");
-    l->output_layer = make_connected_layer(outputs, outputs, connected_layer_batch, steps, activation, weight_normalize,
+    l->output_layer = make_connected_layer(outputs, outputs, connected_layer_batch, activation, weight_normalize,
                                            bias_term, lr_mult, lr_decay_mult, bias_mult, bias_decay_mult, weight_filler,
                                            sigma, batch_normalize, 1, 0);
     l->output_layer->batch = batch;

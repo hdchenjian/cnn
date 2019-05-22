@@ -9,7 +9,7 @@ image get_connected_image(const connected_layer *layer)
     return float_to_image(h,w,c,NULL);
 }
 
-connected_layer *make_connected_layer(int inputs, int outputs, int batch, int steps, ACTIVATION activation,
+connected_layer *make_connected_layer(int inputs, int outputs, int batch, ACTIVATION activation,
                                       int weight_normalize, int bias_term, float lr_mult, float lr_decay_mult,
                                       float bias_mult, float bias_decay_mult, int weight_filler, float sigma,
                                       int batch_normalize, int subdivisions, int test)
@@ -30,7 +30,6 @@ connected_layer *make_connected_layer(int inputs, int outputs, int batch, int st
     layer->subdivisions = subdivisions;
     layer->test = test;
     layer->batch = batch;
-    layer->steps = steps;
 #ifndef FORWARD_GPU
     layer->output = calloc(batch*outputs, sizeof(float));
 #endif
@@ -285,6 +284,7 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
             layer->output[i] = activate(layer->output[i], layer->activation);
         }
     }
+    //for(int i = 0; i < 10; ++i) printf("%d : %f\n", i, layer->output[i]);printf("\n");
 
     /*
     float max = -FLT_MAX, min = FLT_MAX;
@@ -299,15 +299,15 @@ void update_connected_layer(connected_layer *layer, float learning_rate, float m
 {
     int batch = layer->subdivisions * layer->batch;
     for(int i = 0; i < layer->outputs; i++){
-        layer->bias_updates[i] += -decay * layer->bias_decay_mult * (batch* layer->steps) * layer->biases[i];
-        layer->biases[i] += learning_rate * layer->bias_mult / (batch* layer->steps) * layer->bias_updates[i];
+        layer->bias_updates[i] += -decay * layer->bias_decay_mult * batch * layer->biases[i];
+        layer->biases[i] += learning_rate * layer->bias_mult / batch * layer->bias_updates[i];
         layer->bias_updates[i] *= momentum;
     }
 
     int size = layer->inputs*layer->outputs;
     for(int i = 0; i < size; i++){
-        layer->weight_updates[i] += -decay * layer->lr_decay_mult *(batch* layer->steps)*layer->weights[i];
-        layer->weights[i] += learning_rate * layer->lr_mult / (batch* layer->steps) * layer->weight_updates[i];
+        layer->weight_updates[i] += -decay * layer->lr_decay_mult * batch *layer->weights[i];
+        layer->weights[i] += learning_rate * layer->lr_mult / batch * layer->weight_updates[i];
         layer->weight_updates[i] *= momentum;
     }
 
