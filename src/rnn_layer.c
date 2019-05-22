@@ -101,6 +101,9 @@ void forward_rnn_layer(const rnn_layer *l, float *input, int test)
 {
     if(0 == test){    // 0: train, 1: valid
         copy_cpu(l->outputs*l->batch, l->state, 1, l->prev_state, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->input_layer->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->self_layer->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->output_layer->delta, 1);
     }
     for (int i = 0; i < l->steps; ++i) {
         forward_connected_layer(l->input_layer, input, test);
@@ -188,6 +191,9 @@ void forward_rnn_layer_gpu(const rnn_layer *l, float *input, int test)
 {
     if(0 == test){    // 0: train, 1: valid
         copy_gpu(l->outputs*l->batch, l->state_gpu, 1, l->prev_state_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->input_layer->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->self_layer->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->output_layer->delta_gpu, 1);
     }
 
     for(int i = 0; i < l->steps; ++i) {

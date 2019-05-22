@@ -320,19 +320,19 @@ void forward_network(network *net, float *input)
         }else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             layer->batch = net->batch;
-            if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
+            //if(layer->delta) fill_cpu(layer->outputs * layer->batch, 0, layer->delta, 1);
             forward_rnn_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == LSTM){
             lstm_layer *layer = (lstm_layer *)net->layers[i];
             layer->batch = net->batch;
-            if(layer->delta) fill_cpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta, 1);
+            //if(layer->delta) fill_cpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta, 1);
             forward_lstm_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == GRU){
             gru_layer *layer = (gru_layer *)net->layers[i];
             layer->batch = net->batch;
-            if(layer->delta) fill_cpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta, 1);
+            //if(layer->delta) fill_cpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta, 1);
             forward_gru_layer(layer, input, net->test);
             input = layer->output;
         }else if(net->layers_type[i] == ROUTE){
@@ -653,19 +653,19 @@ void forward_network_gpu(network *net, float *input)
         }else if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
             layer->batch = net->batch;
-            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
+            //if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch, 0, layer->delta_gpu, 1);
             forward_rnn_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == LSTM){
             lstm_layer *layer = (lstm_layer *)net->layers[i];
             layer->batch = net->batch;
-            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta_gpu, 1);
+            //if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta_gpu, 1);
             forward_lstm_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == GRU){
             gru_layer *layer = (gru_layer *)net->layers[i];
             layer->batch = net->batch;
-            if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta_gpu, 1);
+            //if(layer->delta_gpu) fill_gpu(layer->outputs * layer->batch * layer->steps, 0, layer->delta_gpu, 1);
             forward_gru_layer_gpu(layer, input, net->test);
             input = layer->output_gpu;
         }else if(net->layers_type[i] == ROUTE){
@@ -1510,38 +1510,28 @@ void reset_rnn_state(network *net, int b)
     for(int i = 0; i < net->n; ++i){
         if(net->layers_type[i] == RNN){
             rnn_layer *layer = (rnn_layer *)net->layers[i];
-            fill_cpu(layer->outputs, 0, layer->state + layer->outputs*b, 1);
 #ifdef GPU
             fill_gpu(layer->outputs, 0, layer->state_gpu + layer->outputs*b, 1);
+#else
+            fill_cpu(layer->outputs, 0, layer->state + layer->outputs*b, 1);
 #endif
-        }
-    }
-}
-
-void reset_lstm_state(network *net, int b)
-{
-    for(int i = 0; i < net->n; ++i){
-        if(net->layers_type[i] == LSTM){
+        } else if(net->layers_type[i] == LSTM){
             lstm_layer *layer = (lstm_layer *)net->layers[i];
-            fill_cpu(layer->outputs, 0, layer->c_cpu + layer->outputs*b, 1);
-            fill_cpu(layer->outputs, 0, layer->h_cpu + layer->outputs*b, 1);
 #ifdef GPU
             fill_gpu(layer->outputs, 0, layer->c_gpu + layer->outputs*b, 1);
             fill_gpu(layer->outputs, 0, layer->h_gpu + layer->outputs*b, 1);
+#else
+            fill_cpu(layer->outputs, 0, layer->c_cpu + layer->outputs*b, 1);
+            fill_cpu(layer->outputs, 0, layer->h_cpu + layer->outputs*b, 1);
 #endif
-        }
-    }
-}
-
-void reset_gru_state(network *net, int b)
-{
-    for(int i = 0; i < net->n; ++i){
-        if(net->layers_type[i] == GRU){
+        } else if(net->layers_type[i] == GRU){
             gru_layer *layer = (gru_layer *)net->layers[i];
-            fill_cpu(layer->outputs, 0, layer->state + layer->outputs*b, 1);
 #ifdef GPU
             fill_gpu(layer->outputs, 0, layer->state_gpu + layer->outputs*b, 1);
+#else
+            fill_cpu(layer->outputs, 0, layer->state + layer->outputs*b, 1);
 #endif
+        } else {
         }
     }
 }

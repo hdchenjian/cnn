@@ -203,8 +203,6 @@ void forward_shortcut_layer_cl(const shortcut_layer *l, cl_mem input_cl, network
 
 float *get_network_layer_data(network *net, int i, int data_type, int is_gpu);
 void reset_rnn_state(network *net, int b);
-void reset_lstm_state(network *net, int b);
-void reset_gru_state(network *net, int b);
 network *make_network(int n);
 network *load_network(const char *cfg, const char *weights, int test);
 void free_network(network *net);

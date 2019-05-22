@@ -175,6 +175,14 @@ void forward_lstm_layer(lstm_layer *l, float *input, int test)
     if(0 == test){    // 0: train, 1: valid
         copy_cpu(l->outputs*l->batch, l->c_cpu, 1, l->c_cpu_bak, 1);
         copy_cpu(l->outputs*l->batch, l->h_cpu, 1, l->h_cpu_bak, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->wf->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->wi->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->wg->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->wo->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->uf->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->ui->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->ug->delta, 1);
+        fill_cpu(l->outputs * l->batch * l->steps, 0, l->uo->delta, 1);
     }
     for(int i = 0; i < l->steps; ++i) {
         forward_connected_layer(l->wf, l->h_cpu, test);
@@ -354,6 +362,14 @@ void forward_lstm_layer_gpu(lstm_layer *l, float *input, int test)
     if(0 == test){    // 0: train, 1: valid
         copy_gpu(l->outputs*l->batch, l->c_gpu, 1, l->c_gpu_bak, 1);
         copy_gpu(l->outputs*l->batch, l->h_gpu, 1, l->h_gpu_bak, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->wf->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->wi->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->wg->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->wo->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->uf->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->ui->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->ug->delta_gpu, 1);
+        fill_gpu(l->outputs * l->batch * l->steps, 0, l->uo->delta_gpu, 1);
     }
     for(int i = 0; i < l->steps; ++i) {
         forward_connected_layer_gpu(l->wf, l->h_gpu, test);
