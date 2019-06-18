@@ -50,7 +50,7 @@ shortcut_layer *make_shortcut_layer(int batch, int index, int w, int h, int c, i
     return l;
 }
 
-#ifdef QML
+#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
 void forward_shortcut_layer(const shortcut_layer *l, float *input, network *net)
 {
     copy_cpu(l->outputs*l->batch, input, 1, l->output, 1);

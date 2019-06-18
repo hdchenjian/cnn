@@ -12,6 +12,10 @@
 #include "opencl.h"
 #elif defined(INTEL_MKL)
 #include "mkl.h"
+#elif defined(OPENBLAS_ARM)
+#include "cblas.h"
+#elif defined(QML)
+#include <qml_cblas3.h>
 #endif
 
 float *make_matrix(int rows, int cols)
@@ -44,7 +48,27 @@ void time_gemm(int w, int h)
     end = what_time_is_it_now();
     sum = 0;
     for(int i = 0; i < w * h; i++) sum += c[i];
-    printf("Matrix Multiplication mkl cpu %dx%d * %dx%d, sum: %f, %lf s\n", h, w, h, w, sum, end-start);
+    printf("Matrix Multiplication df mkl cpu %dx%d * %dx%d, sum: %f, %lf s\n", h, w, h, w, sum, end-start);
+#endif
+
+#if defined(OPENBLAS_ARM)
+    start = what_time_is_it_now();
+    cblas_sgemm(CblasRowMajor,CblasNoTrans,CblasNoTrans,h,w,w,1,a,w,b,w,0,c,w);
+    end = what_time_is_it_now();
+    sum = 0;
+    for(int i = 0; i < w * h; i++) sum += c[i];
+    int num_threads = openblas_get_num_threads();
+    printf("Matrix Multiplication OPENBLAS_ARM cpu %d num, %dx%d * %dx%d, sum: %f, %lf s\n", num_threads, h, w, h, w, sum, end-start);
+#endif
+
+#if defined(QML)
+    start = what_time_is_it_now();
+    cblas_sgemm(CblasRowMajor,CblasNoTrans,CblasNoTrans,h,w,w,1,a,w,b,w,0,c,w);
+    end = what_time_is_it_now();
+    sum = 0;
+    for(int i = 0; i < w * h; i++) sum += c[i];
+    int num_threads = 1;//openblas_get_num_threads();
+    printf("Matrix Multiplication QML cpu %d num, %dx%d * %dx%d, sum: %f, %lf s\n", num_threads, h, w, h, w, sum, end-start);
 #endif
 
     free(a);
@@ -122,7 +146,7 @@ void test_gemm_cl(int w, int h)
     free(c);
 }
 #endif
-
+/*
 void load_csv_image(char *filename, char *save_dir)
 {
     FILE *fp = fopen(filename, "r");
@@ -192,6 +216,7 @@ void test_load_csv_image()
         free(line);
     }
 }
+*/
 
 int main(int argc, char **argv)
 {

@@ -9,6 +9,10 @@
 #include "mkl.h"
 #endif
 
+#ifdef OPENBLAS_ARM
+#include "cblas.h"
+#endif
+
 /* C = ALPHA * A * B + BETA * C,     C: M * N,      lda ldb ldc is the column of A B C */
 void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
         float *A, int lda, 

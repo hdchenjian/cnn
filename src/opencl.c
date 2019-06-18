@@ -38,7 +38,7 @@ cl_info cl_init(int index)
 {
     cl_info info;
     info.share_mem_index = 0;
-    info.share_mem_struct;
+    //info.share_mem_struct;
     info.share_mem_index_max = 512;
     info.initialized = 0;
     if(index < 0) error("Won't initialize negative gpu id\n");
@@ -53,7 +53,7 @@ cl_info cl_init(int index)
 
     index = index%num_devices;
     info.device = devices[index];
-    check_error(info);
+    /*
     cl_uint device_page_size;
     info.error = clGetDeviceInfo(info.device, CL_DEVICE_PAGE_SIZE_QCOM, sizeof(device_page_size), &device_page_size, NULL);
     check_error(info);
@@ -63,7 +63,7 @@ cl_info cl_init(int index)
         printf("Error: failed opening /dev/ion\n");
         exit(-1);
     }
-    info.m_ion_device_fd = m_ion_device_fd;
+    info.m_ion_device_fd = m_ion_device_fd; */
 
     cl_context_properties properties[]={
         CL_CONTEXT_PLATFORM, (cl_context_properties)info.platform, 0};
@@ -178,7 +178,6 @@ cl_kernel get_kernel(char *kernelname, char *options)
 cl_kernel get_kernel_by_name(char *kernelname, char *options)
 {
     //printf("get_kernel_by_name kernelname: %s, options: %s\n", kernelname, options);
-    if(options == 0) options = "-cl-fast-relaxed-math -cl-mad-enable -cl-no-signed-zeros -w -Werror -cl-std=CL2.0";
     static cl_kernel kernel_im2col_cl = 0;
     static cl_kernel kernel_convolutional_bias = 0;
     static cl_kernel kernel_gemm = 0;
@@ -415,6 +414,7 @@ cl_mem cl_make_weights(int h, int w, float *weights)
     return mem;
 }
 
+/*
 cl_mem cl_make_share_array(float *x, int element_num)
 {
     int mem_byte = element_num * sizeof(float);
@@ -469,6 +469,7 @@ cl_mem cl_make_share_array(float *x, int element_num)
     check_error(cl);
     return mem;
 }
+*/
 
 cl_mem cl_make_array(float *x, int n)
 {

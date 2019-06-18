@@ -3,7 +3,7 @@
 
 #include "gemm.h"
 
-char *cl_options = "-cl-fast-relaxed-math -cl-mad-enable -cl-no-signed-zeros -w -Werror -cl-std=CL2.0";
+char *cl_options = "-cl-fast-relaxed-math -cl-mad-enable -cl-no-signed-zeros -w -Werror -cl-std=CL1.2 -DFP_FAST_FMAF";
 
 void gemm_nn(int M, int N, int K, float ALPHA, 
         float *A, int lda, 

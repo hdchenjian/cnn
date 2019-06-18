@@ -1,3 +1,4 @@
+*.so
 libs/
 model/
 .data

@@ -6,10 +6,8 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <linux/ion.h>
-#include "msm_ion.h"
 
-#include "opencl.h"
+//#include "opencl.h"
 #include "utils.h"
 #include "gemm.h"
 #include "blas.h"
@@ -290,6 +288,7 @@ void test_array_add_cl(int n)
     return;
 }
 
+/*
 void test_share_memery()
 {
     int share_mem_struct_index = 0;
@@ -387,6 +386,7 @@ void test_share_memery()
     //clReleaseProgram(program);
     //clReleaseContext(m_context);
 }
+*/
 
 void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, int ksize,  int stride, int pad, float* data_col, int n_tile);
 void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
@@ -502,12 +502,12 @@ int main(int argc, char **argv)
     int m = 1024;
     int n = 1024;
     int k = 1024;
-    test_qml_gemm(64, 43264, k);
+    //test_qml_gemm(64, 43264, k);
     #ifdef OPENCL
     test_gemm_fast_direct_cl(m, n, k);
-    test_gemm_fast_direct_cl(64, 43264, 288);
-    test_gemm_fast_direct_cl(64, 43264, 288*2);
-    test_gemm_fast_direct_cl(64, 43264, 288*3);
+    //test_gemm_fast_direct_cl(64, 43264, 288);
+    //test_gemm_fast_direct_cl(64, 43264, 288*2);
+    //test_gemm_fast_direct_cl(64, 43264, 288*3);
     #endif
     //test_gemm_fast_direct_cl(64, 43264, 1024+1);
     /*

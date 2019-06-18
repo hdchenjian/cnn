@@ -168,7 +168,7 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
     }
     if(len) c = seed[len-1];
     printf("%lc", c);
-    printf("\nseed string over, generate start:\n\n");
+    printf("\nseed string over, generate start:\n");
     for(int i = 0; i < num; ++i){
         input[c] = 1;
         forward_network_test(net, input);
@@ -215,15 +215,6 @@ void test_char_rnn(char *cfgfile, char *weightfile, int num, char *seed)
     free_ptr((void *)&input);
 }
 
-void generate_token(char *token_file)
-{
-    size_t n = 0;
-    if(token_file){
-        parse_tokens(token_file, &n);
-    }
-    printf("%lu\n", n);
-}
-
 void run_char_rnn(int argc, char **argv)
 {
     double time_start = what_time_is_it_now();;
@@ -241,8 +232,6 @@ void run_char_rnn(int argc, char **argv)
         train_char_rnn(cfg, weights, filename);
     } else if(0==strcmp(argv[2], "generate")){
         test_char_rnn(cfg, weights, len, seed);
-    } else if(0==strcmp(argv[2], "generate_token")){
-        generate_token(filename);
     } else {
         fprintf(stderr, "usage: %s %s [train/generate] [cfg] [weights (optional)]\n", argv[0], argv[1]);
     }

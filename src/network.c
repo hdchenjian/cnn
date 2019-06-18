@@ -54,7 +54,7 @@ void free_network(network *net)
             free_gru_layer(net->layers[i]);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
-#ifdef QML
+#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
             if(layer->output && layer->n != 1) free_ptr((void *)&(layer->output));
 #else
             if(layer->output) free_ptr((void *)&(layer->output));
