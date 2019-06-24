@@ -562,7 +562,6 @@ void run_mtcnn(float *image_data, int face_num, float *landmark)
 #if defined(GPU)  || defined(OPENCL)
     float *network_output = malloc(net_batch * network_output_size * sizeof(float));
 #endif
-    int face_index = 0;
     for(int i = 0; i < forward_times; i++){
         if(face_num <= net_batch){
             net_mtcnn->batch = face_num;
@@ -586,9 +585,8 @@ void run_mtcnn(float *image_data, int face_num, float *landmark)
 #else
         float *network_output = get_network_layer_data(net_mtcnn, net_mtcnn->output_layer, 0, 0);
 #endif
-        memcpy(landmark + face_index * network_output_size,
+        memcpy(landmark + i * net_batch * network_output_size,
                network_output, network_output_size * net_mtcnn->batch * sizeof(float));
-        face_index += net_mtcnn->batch;
     }
 #if defined(GPU) || defined(OPENCL)
     free(network_output);
