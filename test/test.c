@@ -18,7 +18,7 @@
 #include <qml_cblas3.h>
 #endif
 
-float *make_matrix(int rows, int cols)
+float *make_matrix_local(int rows, int cols)
 {
     int i;
     float *m = calloc(rows*cols, sizeof(float));
@@ -32,9 +32,9 @@ float *make_matrix(int rows, int cols)
 
 void time_gemm(int w, int h)
 {
-    float *a = make_matrix(h, w);
-    float *b = make_matrix(h, w);
-    float *c = make_matrix(h, w);
+    float *a = make_matrix_local(h, w);
+    float *b = make_matrix_local(h, w);
+    float *c = make_matrix_local(h, w);
     double start = what_time_is_it_now(), end;
     gemm(0,0,h,w,w,1,a,w,b,w,0,c,w);
     end = what_time_is_it_now();
@@ -80,9 +80,9 @@ void time_gemm(int w, int h)
 
 int test_gemm_gpu(int w, int h)
 {
-    float *a = make_matrix(h, w);
-    float *b = make_matrix(h, w);
-    float *c = make_matrix(h, w);
+    float *a = make_matrix_local(h, w);
+    float *b = make_matrix_local(h, w);
+    float *c = make_matrix_local(h, w);
     float *a_gpu = cuda_make_array(a, w * h);
     float *b_gpu = cuda_make_array(b, w * h);
     float *c_gpu = cuda_make_array(0, w * h);
@@ -116,9 +116,9 @@ int test_gemm_gpu(int w, int h)
 void test_gemm_cl(int w, int h)
 {
     cl_setup();
-    float *a = make_matrix(h, w);
-    float *b = make_matrix(h, w);
-    float *c = make_matrix(h, w);
+    float *a = make_matrix_local(h, w);
+    float *b = make_matrix_local(h, w);
+    float *c = make_matrix_local(h, w);
     cl_mem a_cl = cl_make_array(a, w * h);
     cl_mem b_cl = cl_make_array(b, w * h);
     cl_mem c_cl = cl_make_array(0, w * h);
@@ -218,6 +218,47 @@ void test_load_csv_image()
 }
 */
 
+void init_detector(const char *cfgfile, const char *weightfile);
+void run_detection(float *image_data, int width, int height, int channel, int image_original_w, int image_original_h,
+                   int *detection_bbox, int max_bbox_num, int *total_bbox_num);
+void uninit_detector();
+
+void init_recognition(const char *cfgfile, const char *weightfile);
+void run_recognition(float *image_data, int face_num, float *feature);
+void uninit_recognition();
+
+void init_mtcnn(const char *cfgfile, const char *weightfile);
+void run_mtcnn(float *image_data, int face_num, float *landmark);
+void uninit_mtcnn();
+
+void test_network(){
+    int face_count = 1;
+    int face_width = 112;
+    int face_height = 112;
+    int channels = 3;
+    //init_mtcnn("cfg/mtcnn_onet.cfg", "model/mtcnn_final.weights");
+    float *landmark = (float *)malloc(10 * face_count * sizeof(float));
+    init_recognition("cfg/cosface_new.cfg", "model/model.cnn.50");
+    for(int i = 0; i < 1; i++){
+        float *face_data = (float *)malloc(face_width * face_height * channels *sizeof(float));
+        for(int k= 0; k < channels; ++k){
+            for(int m = 0; m < face_height; ++m){
+                for(int n = 0; n < face_width; ++n){
+                    face_data[k* face_width * face_height + m * face_width + n] = 0.5;
+                }
+            }
+        }
+        float *feature = (float *)malloc(face_count * 512 * sizeof(float));
+        run_recognition(face_data, face_count, feature);
+        //run_mtcnn(face_data, face_count, landmark);
+        free(face_data);
+        free(feature);
+    }
+    free(landmark);
+    //uninit_mtcnn();
+    uninit_recognition();
+}
+
 int main(int argc, char **argv)
 {
     // https://pjreddie.com/projects/mnist-in-csv/
@@ -233,9 +274,10 @@ int main(int argc, char **argv)
     int h = 4096 * 2;
     test_gemm_cl(w, h);
 #else
-    time_gemm(2000, 2000);
+    //time_gemm(2000, 2000);
     //test_image();
     //test_load_csv_image();
+    test_network();
 #endif
     return 0;
 }

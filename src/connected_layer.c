@@ -155,6 +155,7 @@ void free_connected_layer(void *input)
     if(layer->bias_updates) free_ptr((void *)&(layer->bias_updates));
     if(layer->output) free_ptr((void *)&(layer->output));
     if(layer->delta) free_ptr((void *)&(layer->delta));
+    if(layer->slope) free_ptr((void *)&(layer->slope));
     if(layer->scales) free_ptr((void *)&(layer->scales));
     if(layer->scale_updates) free_ptr((void *)&(layer->scale_updates));
     if(layer->mean) free_ptr((void *)&(layer->mean));
@@ -172,6 +173,7 @@ void free_connected_layer(void *input)
     if(layer->bias_updates_gpu) cuda_free(layer->bias_updates_gpu);
     if(layer->output_gpu) cuda_free(layer->output_gpu);
     if(layer->delta_gpu) cuda_free(layer->delta_gpu);
+    if(layer->slope_gpu) cuda_free(layer->slope_gpu);
     if(layer->scales_gpu) cuda_free(layer->scales_gpu);
     if(layer->scale_updates_gpu) cuda_free(layer->scale_updates_gpu);
     if(layer->mean_gpu) cuda_free(layer->mean_gpu);

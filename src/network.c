@@ -54,6 +54,8 @@ void free_network(network *net)
             free_gru_layer(net->layers[i]);
         } else if(net->layers_type[i] == ROUTE){
             route_layer *layer = (route_layer *)net->layers[i];
+            if(layer->input_layers) free_ptr((void *)&(layer->input_layers));
+            if(layer->input_sizes) free_ptr((void *)&(layer->input_sizes));
 #if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
             if(layer->output && layer->n != 1) free_ptr((void *)&(layer->output));
 #else
@@ -136,10 +138,12 @@ void free_network(network *net)
             if(layer->delta) free_ptr((void *)&(layer->delta));
             if(layer->loss) free_ptr((void *)&(layer->loss));
             if(layer->cost) free_ptr((void *)&(layer->cost));
+            if(layer->input_backup) free_ptr((void *)&(layer->input_backup));
 #ifdef GPU
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
             if(layer->loss_gpu) cuda_free(layer->loss_gpu);
+            if(layer->input_backup_gpu) cuda_free(layer->input_backup_gpu);
 #endif
             free_ptr((void *)&layer);
         } else if(net->layers_type[i] == COST){

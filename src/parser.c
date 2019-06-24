@@ -481,6 +481,7 @@ struct list *read_cfg(const char *filename)
                 list_insert(sections, current);
                 current->options = make_list();
                 current->type = line;
+                //printf("here 0 %p %s\n", current, current->type);
                 break;
             case '\0':
             case '#':
@@ -492,6 +493,7 @@ struct list *read_cfg(const char *filename)
                     printf("Config file error line %d, could parse: %s\n", nu, line);
                     free(line);
                 }
+                //printf("here 0 %p %s %s\n", current->options, ((kvp *)current->options->front->val)->key, ((kvp *)current->options->front->val)->val);
                 break;
         }
     }
@@ -592,6 +594,7 @@ network *parse_network_cfg(const char *filename, int test)
     if(!(strcmp(s->type, "[network]")==0)) error("First section must be [network]");
     struct list *options = s->options;
     parse_net_options(options, net);
+    free_section(s);
 
     float total_bflop = 0;
     n = n->next;
@@ -720,6 +723,36 @@ network *parse_network_cfg(const char *filename, int test)
         //printf("net->workspace_gpu is not null, calloc for net->workspace just for test!!!\n\n\n");
         //net->workspace = calloc(1, net->workspace_size);
     }
+    /*
+    struct node *start_node = sections->front;
+    struct node *next;
+    while(start_node) {
+        next = start_node->next;
+
+        printf("here 0\n");
+        printf("here 0 %p\n", start_node->val);
+        struct section *section_local = start_node->val;
+        printf("%s\n", section_local->type);
+        free(section_local->type);
+        struct node *start_node_inner = section_local->options->front;
+        struct node *next_inner;
+        while(start_node_inner) {
+            next_inner = start_node_inner->next;
+            kvp *kvp_val = start_node_inner->val;
+            printf("%s %s\n", kvp_val->key, kvp_val->val);
+            free(kvp_val->key);
+            free(start_node_inner);
+            start_node_inner = next_inner;
+            printf("well %p\n", start_node_inner);
+        }
+        free(section_local->options);
+        free(start_node);
+        printf("here 1\n");
+        start_node = next;
+        printf("here 2 %p\n", next);
+    }
+    free(sections);
+    */
     free_list(sections);
     fprintf(stderr, "\nnetwork total_bflop: %5.3f BFLOPs\n", total_bflop);;
     return net;
