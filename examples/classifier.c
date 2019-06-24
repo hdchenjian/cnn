@@ -419,8 +419,8 @@ void run_recognition(float *image_data, int face_num, float *feature)
 #else
         float *network_output = get_network_layer_data(net_recognition, net_recognition->output_layer, 0, 0);
 #endif
-        //printf("network_output_size %d\n", network_output_size);
-        memcpy(feature, network_output, net_recognition->batch * network_output_size * sizeof(float));
+        //printf("network_output_size %d %lu\n", network_output_size, net_recognition->batch * network_output_size * sizeof(float));
+        memcpy(feature + i * net_batch * network_output_size, network_output, net_recognition->batch * network_output_size * sizeof(float));
     }
 #if defined(GPU)  || defined(OPENCL)
     free(network_output);
