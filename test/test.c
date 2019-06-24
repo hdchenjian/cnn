@@ -235,10 +235,15 @@ void test_network(){
     int face_count = 1;
     int face_width = 112;
     int face_height = 112;
+    face_width = 48;
+    face_height = 48;
+    face_width = 416;
+    face_height = 416;
     int channels = 3;
     //init_mtcnn("cfg/mtcnn_onet.cfg", "model/mtcnn_final.weights");
     float *landmark = (float *)malloc(10 * face_count * sizeof(float));
-    init_recognition("cfg/cosface_new.cfg", "model/model.cnn.50");
+    //init_recognition("cfg/cosface_new.cfg", "model/model.cnn.50");
+    init_detector("cfg/yolov3-small.cfg", "model/yolov3-small_final_max_epoch_15.weights");
     for(int i = 0; i < 1; i++){
         float *face_data = (float *)malloc(face_width * face_height * channels *sizeof(float));
         for(int k= 0; k < channels; ++k){
@@ -248,15 +253,21 @@ void test_network(){
                 }
             }
         }
-        float *feature = (float *)malloc(face_count * 512 * sizeof(float));
-        run_recognition(face_data, face_count, feature);
+        //float *feature = (float *)malloc(face_count * 512 * sizeof(float));
+        //run_recognition(face_data, face_count, feature);
+        //free(feature);
+
         //run_mtcnn(face_data, face_count, landmark);
+
+        int MAX_BBOX_NUM = 10;
+        int detection_bbox[MAX_BBOX_NUM * 4];
+        run_detection(face_data, face_width, face_height, channels, face_width, face_height, detection_bbox, MAX_BBOX_NUM, &face_count);
         free(face_data);
-        free(feature);
     }
     free(landmark);
     //uninit_mtcnn();
-    uninit_recognition();
+    //uninit_recognition();
+    uninit_detector();
 }
 
 int main(int argc, char **argv)
