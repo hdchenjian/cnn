@@ -109,7 +109,6 @@ convolutional_layer *make_convolutional_layer(int h, int w, int c, int n, int si
         float scale = sqrtf(2.0F/(size*size*c));
         for(int i = 0; i < c*n*size*size; ++i){
             layer->weights[i] = scale*rand_uniform(-1, 1);
-            layer->weights[i] = 1;
             //if(i < 5) printf("%d %f\n", i, layer->weights[i]);
         }
         //scale = sqrtf(2./(size*size*c));
