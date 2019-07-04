@@ -1,7 +1,7 @@
-#include <unistd.h>
-#include <sys/time.h>
+//#include <unistd.h>
+//#include <sys/time.h>
 #include <assert.h>
-#include <pthread.h>
+//#include <pthread.h>
 
 #include "utils.h"
 #include "parser.h"
@@ -9,6 +9,7 @@
 #include "option_list.h"
 #include "network.h"
 
+#ifdef USE_LINUX
 pthread_mutex_t mutex;
 int load_over;
 batch train_global;
@@ -237,6 +238,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
     }
     free(base);
 }
+#endif
 
 void validate_classifier(char *datacfg, char *cfgfile, char *weightfile)
 {

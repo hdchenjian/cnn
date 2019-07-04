@@ -1,5 +1,5 @@
-#include <unistd.h>
-#include <sys/time.h>
+//#include <unistd.h>
+//#include <sys/time.h>
 #include <assert.h>
 
 #include "utils.h"
@@ -8,6 +8,7 @@
 #include "option_list.h"
 #include "network.h"
 
+#ifdef USE_LINUX
 pthread_mutex_t mutex;
 int load_over;
 batch_detect train_global;
@@ -166,6 +167,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile)
     }
     free(base);
 }
+#endif
 
 void print_detector_detections(FILE **fps, char *id, detection *dets, int total, int classes, int w, int h)
 {

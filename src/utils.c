@@ -3,13 +3,38 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <float.h>
 #include <limits.h>
 #include <time.h>
-#include <sys/time.h>
 
 #include "utils.h"
+
+#ifndef USE_LINUX
+#include <Windows.h>
+#include <stdint.h> // portable: uint64_t   MSVC: __int64
+int gettimeofday(struct timeval * tp, struct timezone * tzp) {
+    // Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
+    // This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
+    // until 00:00:00 January 1, 1970
+    static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
+
+    SYSTEMTIME  system_time;
+    FILETIME    file_time;
+    uint64_t    time;
+
+    GetSystemTime( &system_time );
+    SystemTimeToFileTime( &system_time, &file_time );
+    time =  ((uint64_t)file_time.dwLowDateTime )      ;
+    time += ((uint64_t)file_time.dwHighDateTime) << 32;
+
+    tp->tv_sec  = (long) ((time - EPOCH) / 10000000L);
+    tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
+    return 0;
+}
+#else
+#include <sys/time.h>
+#endif
 
 double what_time_is_it_now()
 {
@@ -62,29 +87,6 @@ int *read_map(char *filename)
         map[n-1] = atoi(str);
     }
     return map;
-}
-
-void sorta_shuffle(void *arr, size_t n, size_t size, size_t sections)
-{
-    size_t i;
-    for(i = 0; i < sections; ++i){
-        size_t start = n*i/sections;
-        size_t end = n*(i+1)/sections;
-        size_t num = end-start;
-        shuffle(arr+(start*size), num, size);
-    }
-}
-
-void shuffle(void *arr, size_t n, size_t size)
-{
-    size_t i;
-    void *swp = calloc(1, size);
-    for(i = 0; i < n-1; ++i){
-        size_t j = i + rand()/(RAND_MAX / (n-i)+1);
-        memcpy(swp,          arr+(j*size), size);
-        memcpy(arr+(j*size), arr+(i*size), size);
-        memcpy(arr+(i*size), swp,          size);
-    }
 }
 
 int *random_index_order(int min, int max)
@@ -696,18 +698,6 @@ float rand_normal_me(float mean, float sigma)
     rand2 = (rand() / ((double) RAND_MAX)) * TWO_PI;
 
     return sqrtf(rand1) * cos(rand2) * sigma + mean;
-}
-
-size_t rand_size_t()
-{
-    return  ((size_t)(rand()&0xff) << 56) | 
-        ((size_t)(rand()&0xff) << 48) |
-        ((size_t)(rand()&0xff) << 40) |
-        ((size_t)(rand()&0xff) << 32) |
-        ((size_t)(rand()&0xff) << 24) |
-        ((size_t)(rand()&0xff) << 16) |
-        ((size_t)(rand()&0xff) << 8) |
-        ((size_t)(rand()&0xff) << 0);
 }
 
 float rand_scale(float s)

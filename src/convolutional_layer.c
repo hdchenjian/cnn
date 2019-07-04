@@ -1,6 +1,9 @@
 #include "convolutional_layer.h"
 #include <float.h>
+
+#ifdef USE_LINUX
 #include <pthread.h>
+#endif
 
 image get_convolutional_image(const convolutional_layer *layer)
 {
@@ -365,10 +368,13 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
             b = in + i * layer->w * layer->h * layer->c;
         } else {
             memset(workspace, 0, n*k*sizeof(float));
-            /*im2col_cpu(in + i * layer->w * layer->h * layer->c,
-              layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);*/
+            #ifndef USE_LINUX
+            im2col_cpu(in + i * layer->w * layer->h * layer->c,
+              layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b);
+            #else
             im2col_cpu_thread(in + i * layer->w * layer->h * layer->c,
                               layer->c,  layer->h,  layer->w,  layer->size,  layer->stride, layer->pad, b, layer->out_h * layer->out_w);
+            #endif
             //printf("im2col_cpu_thread: %d %f\n", index, what_time_is_it_now() - start);
         }
 #if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
@@ -532,6 +538,7 @@ void update_convolutional_layer(const convolutional_layer *layer, float learning
     }
 }
 
+#ifdef USE_LINUX
 #define HANDLE_THREAD_NUM 3
 pthread_t handle_thread_id[HANDLE_THREAD_NUM];
 typedef struct {
@@ -604,6 +611,7 @@ void im2col_cpu_thread(float* data_im, int channels,  int height,  int width, in
         pthread_join(handle_thread_id[i], NULL);
     }
 }
+#endif
 
 #ifdef OPENCL
 void im2col_cl(cl_mem data_im, int offset, int channels,  int height,  int width,
