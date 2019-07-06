@@ -43,7 +43,6 @@ void upsample_cpu(float *in, int w, int h, int c, int batch, int stride, int for
 void axpy_gpu(int N, float ALPHA, float * X, int INCX, float * Y, int INCY);
 void axpy_gpu_offset(int N, float ALPHA, float * X, int OFFX, int INCX, float * Y, int OFFY, int INCY);
 void copy_gpu(int N, float * X, int INCX, float * Y, int INCY);
-void copy_gpu_offset(int N, float * X, int OFFX, int INCX, float * Y, int OFFY, int INCY);
 void scal_gpu(int N, float ALPHA, float * X, int INCX);
 void const_gpu(int N, float ALPHA, float *X, int INCX);
 void pow_gpu(int N, float ALPHA, float *X, int INCX, float *Y, int INCY);

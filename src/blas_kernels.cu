@@ -160,38 +160,6 @@ void dot_error_gpu(layer l)
 }
 */
 
-
-__global__ void adam_kernel(int N, float *x, float *m, float *v, float B1, float B2, float rate, float eps, int t)
-{
-    int index = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if (index >= N) return;
-
-    float mhat = m[index] / (1.f - powf(B1, t));
-    float vhat = v[index] / (1.f - powf(B2, t));
-    
-    x[index] = x[index] + rate * mhat / (sqrtf(vhat) + eps);
-}
-
-extern "C" void adam_gpu(int n, float *x, float *m, float *v, float B1, float B2, float rate, float eps, int t)
-{
-    adam_kernel<<<cuda_gridsize(n), BLOCK>>>(n, x, m, v, B1, B2, rate, eps, t);
-    check_error(cudaPeekAtLastError());
-}
-
-extern "C" void adam_update_gpu(float *w, float *d, float *m, float *v, float B1, float B2, float eps, float decay, float rate, int n, int batch, int t)
-{
-    scal_gpu(n, B1, m, 1);
-    scal_gpu(n, B2, v, 1);
-    axpy_gpu(n, -decay*batch, w, 1, d, 1);
-
-    axpy_gpu(n, (1-B1), d, 1, m, 1);
-    mul_gpu(n, d, 1, d, 1);
-    axpy_gpu(n, (1-B2), d, 1, v, 1);
-
-    adam_gpu(n, w, m, v, B1, B2, rate, eps, t);
-    fill_gpu(n, 0, d, 1);
-}
-
 __global__ void normalize_kernel(int N, float *x, float *mean, float *variance, int batch, int filters, int spatial)
 {
     int index = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
@@ -399,38 +367,6 @@ __global__ void reorg_kernel(int N, float *x, int w, int h, int c, int batch, in
     //else out[0] = x[0];
 }
 
-__global__ void pow_kernel(int N, float ALPHA, float *X, int INCX, float *Y, int INCY)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) Y[i*INCY] = pow(X[i*INCX], ALPHA);
-}
-
-__global__ void const_kernel(int N, float ALPHA, float *X, int INCX)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) X[i*INCX] = ALPHA;
-}
-
-__global__ void constrain_kernel(int N, float ALPHA, float *X, int INCX)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) X[i*INCX] = fminf(ALPHA, fmaxf(-ALPHA, X[i*INCX]));
-}
-
-__global__ void supp_kernel(int N, float ALPHA, float *X, int INCX)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) {
-        if((X[i*INCX] * X[i*INCX]) < (ALPHA * ALPHA)) X[i*INCX] = 0;
-    }
-}
-
-__global__ void add_kernel(int N, float ALPHA, float *X, int INCX)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) X[i*INCX] += ALPHA;
-}
-
 __global__ void scal_kernel(int N, float ALPHA, float *X, int INCX)
 {
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
@@ -454,16 +390,17 @@ extern "C" void fill_gpu(int N, float ALPHA, float *X, int INCX)
     }
 }
 
-__global__ void copy_kernel(int N,  float *X, int OFFX, int INCX, float *Y, int OFFY, int INCY)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) Y[i*INCY + OFFY] = X[i*INCX + OFFX];
-}
-
 __global__ void mul_kernel(int N, float *X, int INCX, float *Y, int INCY)
 {
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
     if(i < N) Y[i*INCY] *= X[i*INCX];
+}
+
+
+extern "C" void mul_gpu(int N, float *X, int INCX, float *Y, int INCY)
+{
+    mul_kernel<<<cuda_gridsize(N), BLOCK>>>(N, X, INCX, Y, INCY);
+    check_error(cudaPeekAtLastError());
 }
 
 
@@ -677,48 +614,43 @@ extern "C" void variance_gpu(float *x, float *mean, int batch, int filters, int 
     check_error(cudaPeekAtLastError());
 }
 
-extern "C" void axpy_gpu(int N, float ALPHA, float * X, int INCX, float * Y, int INCY)
-{
-    axpy_gpu_offset(N, ALPHA, X, 0, INCX, Y, 0, INCY);
-}
-
-extern "C" void pow_gpu(int N, float ALPHA, float * X, int INCX, float * Y, int INCY)
-{
-    pow_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX, Y, INCY);
-    check_error(cudaPeekAtLastError());
-}
-
-__global__ void axpy_kernel(int N, float ALPHA, float *X, int OFFX, int INCX,  float *Y, int OFFY, int INCY)
+__global__ void axpy_kernel(int N, float ALPHA, float *X, int INCX,  float *Y, int INCY)
 {
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < N) Y[OFFY+i*INCY] += ALPHA*X[OFFX+i*INCX];
+    if(i < N) Y[i*INCY] += ALPHA*X[i*INCX];
 }
 
-extern "C" void axpy_gpu_offset(int N, float ALPHA, float * X, int OFFX, int INCX, float * Y, int OFFY, int INCY)
+extern "C" void axpy_gpu(int N, float ALPHA, float *X, int INCX, float *Y, int INCY)
 {
-    axpy_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, OFFX, INCX, Y, OFFY, INCY);
+#ifdef USE_CUBLAS
+    printf("cublasSscal\n");
+    cublasSaxpy(cublas_handle, N, &ALPHA, X, INCX, Y, INCY);
+#else
+    printf("no cublasSscal\n");
+    axpy_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX, Y, INCY);
     check_error(cudaPeekAtLastError());
+#endif
 }
 
-extern "C" void copy_gpu(int N, float * X, int INCX, float * Y, int INCY)
+__global__ void copy_kernel(int N,  float *X, int OFFX, int INCX, float *Y, int OFFY, int INCY)
 {
-    if(INCX == 1 && INCY == 1){
-        cuda_mem_copy(Y, X, N);
-    } else {
-        copy_gpu_offset(N, X, 0, INCX, Y, 0, INCY);
-    }
-}
-
-extern "C" void mul_gpu(int N, float * X, int INCX, float * Y, int INCY)
-{
-    mul_kernel<<<cuda_gridsize(N), BLOCK>>>(N, X, INCX, Y, INCY);
-    check_error(cudaPeekAtLastError());
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if(i < N) Y[i*INCY + OFFY] = X[i*INCX + OFFX];
 }
 
 extern "C" void copy_gpu_offset(int N, float * X, int OFFX, int INCX, float * Y, int OFFY, int INCY)
 {
     copy_kernel<<<cuda_gridsize(N), BLOCK>>>(N, X, OFFX, INCX, Y, OFFY, INCY);
     check_error(cudaPeekAtLastError());
+}
+
+extern "C" void copy_gpu(int N, float *X, int INCX, float *Y, int INCY)
+{
+    if(INCX == 1 && INCY == 1){
+        cuda_mem_copy(Y, X, N);
+    } else {
+        copy_gpu_offset(N, X, 0, INCX, Y, 0, INCY);
+    }
 }
 
 __global__ void flatten_kernel(int N, float *x, int spatial, int layers, int batch, int forward, float *out)
@@ -752,47 +684,16 @@ extern "C" void reorg_gpu(float *x, int w, int h, int c, int batch, int stride, 
     check_error(cudaPeekAtLastError());
 }
 
-__global__ void scale_mask_kernel(int n,  float *x, float mask_num, float *mask, float scale)
+extern "C" void scal_gpu(int N, float ALPHA, float *X, int INCX)
 {
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n && mask[i] == mask_num) x[i] *= scale;
-}
-
-extern "C" void scale_mask_gpu(int N, float * X, float mask_num, float * mask, float scale)
-{
-    scale_mask_kernel<<<cuda_gridsize(N), BLOCK>>>(N, X, mask_num, mask, scale);
-    check_error(cudaPeekAtLastError());
-}
-
-extern "C" void const_gpu(int N, float ALPHA, float * X, int INCX)
-{
-    const_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
-    check_error(cudaPeekAtLastError());
-}
-
-extern "C" void constrain_gpu(int N, float ALPHA, float * X, int INCX)
-{
-    constrain_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
-    check_error(cudaPeekAtLastError());
-}
-
-
-extern "C" void add_gpu(int N, float ALPHA, float * X, int INCX)
-{
-    add_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
-    check_error(cudaPeekAtLastError());
-}
-
-extern "C" void scal_gpu(int N, float ALPHA, float * X, int INCX)
-{
+#ifdef USE_CUBLAS
+    printf("cublasSscal\n");
+    cublasSscal(cublas_handle, N, &ALPHA, X, INCX);
+#else
+    printf("no cublasSscal\n");
     scal_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
     check_error(cudaPeekAtLastError());
-}
-
-extern "C" void supp_gpu(int N, float ALPHA, float * X, int INCX)
-{
-    supp_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
-    check_error(cudaPeekAtLastError());
+#endif
 }
 
 __global__ void smooth_l1_kernel(int n, float *pred, float *truth, float *delta, float *error)
@@ -896,21 +797,6 @@ __global__ void l1_kernel(int n, float *pred, float *truth, float *delta, float 
 extern "C" void l1_gpu(int n, float *pred, float *truth, float *delta, float *error)
 {
     l1_kernel<<<cuda_gridsize(n), BLOCK>>>(n, pred, truth, delta, error);
-    check_error(cudaPeekAtLastError());
-}
-
-__global__ void wgan_kernel(int n, float *pred, float *truth, float *delta, float *error)
-{
-    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
-    if(i < n){
-        error[i] = truth[i] ? -pred[i] : pred[i];
-        delta[i] = (truth[i] > 0) ? 1 : -1;
-    }
-}
-
-extern "C" void wgan_gpu(int n, float *pred, float *truth, float *delta, float *error)
-{
-    wgan_kernel<<<cuda_gridsize(n), BLOCK>>>(n, pred, truth, delta, error);
     check_error(cudaPeekAtLastError());
 }
 

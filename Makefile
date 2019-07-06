@@ -1,6 +1,7 @@
-FORWARD_GPU=0
-GPU=0
-INTEL_MKL=1
+FORWARD_GPU=1
+GPU=1
+USE_CUBLAS=1
+INTEL_MKL=0
 QML=0
 DEBUG=0
 CUDNN=0
@@ -44,7 +45,7 @@ CFLAGS+= -fopenmp
 endif
 
 OPTS=-Ofast
-NVCC_OPTS="-Wall -fPIC"
+NVCC_OPTS="-Wall -fPIC -use_fast_math"
 ifeq ($(DEBUG), 1) 
 OPTS=-O0 -g
 NVCC_OPTS="-Wall -fPIC -lineinfo"
@@ -55,6 +56,11 @@ ifeq ($(GPU), 1)
 COMMON+= -DGPU -I/usr/local/cuda/include/
 CFLAGS+= -DGPU
 LDFLAGS+= -L/usr/local/cuda/lib64 -lcuda -lcudart -lcublas -lcurand
+endif
+
+ifeq ($(USE_CUBLAS), 1)
+COMMON+= -DUSE_CUBLAS
+CFLAGS+= -DUSE_CUBLAS
 endif
 
 ifeq ($(CUDNN), 1) 

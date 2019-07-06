@@ -29,6 +29,12 @@ network *load_network(const char *cfg, const char *weights, int test)
 #if defined(OPENCL)
     cl_setup();
 #endif
+#if defined(GPU)
+    if(cublas_handle == 0){
+        cublasStatus_t stat = cublasCreate(&cublas_handle);
+        check_error(stat);
+    }
+#endif
     network *net = parse_network_cfg(cfg, test);
     if(weights && weights[0] != 0){
         load_weights(net, weights);
@@ -38,6 +44,10 @@ network *load_network(const char *cfg, const char *weights, int test)
 
 void free_network(network *net)
 {
+#if defined(GPU)
+    cublasDestroy(cublas_handle);
+#endif
+
     for(int i = 0; i < net->n; ++i){
         //printf("free_network layer: %d %d\n", i, net->layers_type[i]);
         if(net->layers_type[i] == CONVOLUTIONAL){

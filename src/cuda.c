@@ -1,6 +1,7 @@
 #include "cuda.h"
 
 #ifdef GPU
+cublasHandle_t cublas_handle = 0;
 
 void cuda_set_device(int n)
 {

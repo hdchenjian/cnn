@@ -20,6 +20,8 @@
 #include "utils.h"
 #include "blas.h"
 
+extern cublasHandle_t cublas_handle;
+
 int cuda_get_device();
 void cuda_set_device(int n);
 void check_error(cudaError_t status);
