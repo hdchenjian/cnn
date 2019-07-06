@@ -1,4 +1,3 @@
-//#include <unistd.h>
 //#include <sys/time.h>
 #include <assert.h>
 
@@ -9,6 +8,9 @@
 #include "network.h"
 
 #ifdef USE_LINUX
+#include <unistd.h>
+#include <pthread.h>
+
 pthread_mutex_t mutex;
 int load_over;
 batch_detect train_global;
@@ -342,7 +344,9 @@ void run_detector(int argc, char **argv)
     char *cfg = argv[4];
     char *weights = (argc > 5) ? argv[5] : 0;
     if(0==strcmp(argv[2], "train")){
+        #ifdef USE_LINUX
         train_detector(datacfg, cfg, weights);
+        #endif
     } else if(0==strcmp(argv[2], "valid")){
         validate_detector(datacfg, cfg, weights);
     } else {

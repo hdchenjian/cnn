@@ -1,3 +1,10 @@
+*.obj
+*.exe
+data/linux.txt
+jni/libOpenCL.so_
+jni_arm/libOpenCL.so_
+jni_arm/run.sh
+test/run.sh
 *.so
 libs/
 model/

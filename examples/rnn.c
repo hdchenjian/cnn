@@ -12,6 +12,17 @@
 #include "option_list.h"
 #include "network.h"
 
+size_t rand_size_t() {
+    return  ((size_t)(rand()&0xff) << 56) | 
+        ((size_t)(rand()&0xff) << 48) |
+        ((size_t)(rand()&0xff) << 40) |
+        ((size_t)(rand()&0xff) << 32) |
+        ((size_t)(rand()&0xff) << 24) |
+        ((size_t)(rand()&0xff) << 16) |
+        ((size_t)(rand()&0xff) << 8) |
+        ((size_t)(rand()&0xff) << 0);
+}
+
 typedef struct {
     float *x;
     int *y;

@@ -3,7 +3,6 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
-//#include <unistd.h>
 #include <float.h>
 #include <limits.h>
 #include <time.h>
@@ -34,6 +33,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp) {
 }
 #else
 #include <sys/time.h>
+#include <unistd.h>
 #endif
 
 double what_time_is_it_now()

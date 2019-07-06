@@ -25,8 +25,8 @@ NVCC=/usr/local/cuda/bin/nvcc
 AR=ar
 ARFLAGS=rcs
 LDFLAGS= -lm -pthread
-COMMON= -Iinclude/ -Isrc/
-CFLAGS=-Wall -Wno-unknown-pragmas -Wfatal-errors -fPIC --std=gnu11 -Wunused-but-set-variable -Wno-unused-result
+COMMON= -Iinclude/ -Isrc/ -DUSE_LINUX
+CFLAGS=-Wall -Wno-unknown-pragmas -Wfatal-errors -fPIC --std=gnu11 -Wunused-but-set-variable -Wno-unused-result -DUSE_LINUX
 
 ifeq ($(FORWARD_GPU), 1)
 COMMON+= -DFORWARD_GPU
