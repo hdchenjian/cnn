@@ -392,8 +392,8 @@ void run_recognition(float *image_data, int face_num, float *feature)
     int network_output_size = get_network_output_size_layer(net_recognition, net_recognition->output_layer);
 #if defined(GPU)  || defined(OPENCL)
     float *network_output = malloc(net_batch * network_output_size * sizeof(float));
-    float *network_output_tmp = malloc(net_batch * network_output_size * sizeof(float));
 #endif
+    float *network_output_tmp = malloc(net_batch * network_output_size * sizeof(float));
 
     if(face_num <= net_batch){
         net_recognition->batch = face_num;
@@ -411,14 +411,15 @@ void run_recognition(float *image_data, int face_num, float *feature)
     cl_read_array(network_output_cl, network_output_for_gpu, network_output_size * net_recognition->batch);
 #else
     float *network_output = get_network_layer_data(net_recognition, net_recognition->output_layer, 0, 0);
+    l2normalize_cpu(network_output, net_recognition->batch, network_output_size, 1, network_output_tmp);
 #endif
     memcpy(feature, network_output, net_recognition->batch * network_output_size * sizeof(float));
 
 #if defined(GPU)  || defined(OPENCL)
     free(network_output);
-    free(network_output_tmp);
 #endif
     free(truth_label_index);
+    free(network_output_tmp);
 }
 
 void uninit_recognition()
