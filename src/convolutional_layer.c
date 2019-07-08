@@ -377,7 +377,7 @@ void forward_convolutional_layer(const convolutional_layer *layer, float *in, fl
             #endif
             //printf("im2col_cpu_thread: %d %f\n", index, what_time_is_it_now() - start);
         }
-#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
+#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM || defined ARM_BLAS
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1, a, k, b, n, 0, c, n);
         //printf("cblas_sgemm: %d %f, %d %d %d\n", index, what_time_is_it_now() - start, m, n, k);
 #else

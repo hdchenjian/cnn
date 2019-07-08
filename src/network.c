@@ -66,7 +66,7 @@ void free_network(network *net)
             route_layer *layer = (route_layer *)net->layers[i];
             if(layer->input_layers) free_ptr((void *)&(layer->input_layers));
             if(layer->input_sizes) free_ptr((void *)&(layer->input_sizes));
-#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
+#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM || defined ARM_BLAS
             if(layer->output && layer->n != 1) free_ptr((void *)&(layer->output));
 #else
             if(layer->output) free_ptr((void *)&(layer->output));

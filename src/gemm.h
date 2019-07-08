@@ -5,6 +5,10 @@
 #include <qml_cblas3.h>
 #endif
 
+#ifdef ARM_BLAS
+#include <armpl.h>
+#endif
+
 #ifdef INTEL_MKL
 #include "mkl.h"
 #endif

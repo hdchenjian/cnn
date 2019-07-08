@@ -45,7 +45,7 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
     }
 #ifndef FORWARD_GPU
     l->output = calloc(outputs*batch, sizeof(float));
-#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
+#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM || defined ARM_BLAS
     if(l->n == 1){
         free(l->output);
         l->output = get_network_layer_data(net, l->input_layers[0], 0, 0);
@@ -76,7 +76,7 @@ route_layer *make_route_layer(int batch, int n, int *input_layers, int *input_si
 
 void forward_route_layer(const route_layer *l, network *net)
 {
-#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
+#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM || defined ARM_BLAS
     if(l->n == 1) return;
 #endif
     int offset = 0;

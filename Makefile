@@ -1,8 +1,9 @@
-FORWARD_GPU=1
-GPU=1
-USE_CUBLAS=1
-INTEL_MKL=0
+FORWARD_GPU=0
+GPU=0
+USE_CUBLAS=0
+INTEL_MKL=1
 QML=0
+ARM_BLAS=0
 DEBUG=0
 CUDNN=0
 OPENMP=0
@@ -38,6 +39,11 @@ ifeq ($(INTEL_MKL), 1)
 COMMON+= -DINTEL_MKL -I/opt/intel/mkl/include
 CFLAGS+= -DINTEL_MKL
 LDFLAGS+= -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
+endif
+
+ifeq ($(ARM_BLAS), 1)
+COMMON+= -DARM_BLAS -I/opt/arm/armpl-19.2.0_Cortex-A72_Ubuntu-16.04_arm-hpc-compiler_19.2_aarch64-linux/include_mp
+CFLAGS+= -DARM_BLAS
 endif
 
 ifeq ($(OPENMP), 1) 

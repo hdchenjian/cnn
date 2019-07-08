@@ -258,7 +258,7 @@ void forward_connected_layer(connected_layer *layer, float *input, int test)
     int m = layer->batch;
     int n = layer->outputs;
     int k = layer->inputs;
-#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM
+#if defined QML || defined INTEL_MKL || defined OPENBLAS_ARM || defined ARM_BLAS
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, m, n, k, 1, a, k, b, k, 0, c, n);
 #else
     gemm(0, 1, m, n, k, 1, a, k, b, k, 0, c, n);
