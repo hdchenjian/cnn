@@ -232,7 +232,7 @@ void activation_prelu_connect(const connected_layer *layer, int test){
     }
     int count = layer->outputs * layer->batch;
     for (int i = 0; i < count; ++i) {
-        layer->output[i] = fmaxf(layer->output[i], 0.0F) + layer->slope[i] * fminf(layer->output[i], 0.0F);
+        layer->output[i] = fmaxf(layer->output[i], 0.0F) + layer->slope[i % layer->outputs] * fminf(layer->output[i], 0.0F);
     }
 }
 
