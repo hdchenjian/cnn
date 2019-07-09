@@ -623,10 +623,10 @@ __global__ void axpy_kernel(int N, float ALPHA, float *X, int INCX,  float *Y, i
 extern "C" void axpy_gpu(int N, float ALPHA, float *X, int INCX, float *Y, int INCY)
 {
 #ifdef USE_CUBLAS
-    printf("cublasSscal\n");
+    //printf("cublasSscal\n");
     cublasSaxpy(cublas_handle, N, &ALPHA, X, INCX, Y, INCY);
 #else
-    printf("no cublasSscal\n");
+    //printf("no cublasSscal\n");
     axpy_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX, Y, INCY);
     check_error(cudaPeekAtLastError());
 #endif
@@ -687,10 +687,10 @@ extern "C" void reorg_gpu(float *x, int w, int h, int c, int batch, int stride, 
 extern "C" void scal_gpu(int N, float ALPHA, float *X, int INCX)
 {
 #ifdef USE_CUBLAS
-    printf("cublasSscal\n");
+    //printf("cublasSscal\n");
     cublasSscal(cublas_handle, N, &ALPHA, X, INCX);
 #else
-    printf("no cublasSscal\n");
+    //printf("no cublasSscal\n");
     scal_kernel<<<cuda_gridsize(N), BLOCK>>>(N, ALPHA, X, INCX);
     check_error(cudaPeekAtLastError());
 #endif

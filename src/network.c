@@ -44,9 +44,6 @@ network *load_network(const char *cfg, const char *weights, int test)
 
 void free_network(network *net)
 {
-#if defined(GPU)
-    cublasDestroy(cublas_handle);
-#endif
 
     for(int i = 0; i < net->n; ++i){
         //printf("free_network layer: %d %d\n", i, net->layers_type[i]);
@@ -200,6 +197,13 @@ void free_network(network *net)
 
 #endif
     free_ptr((void *)&net);
+
+#if defined(GPU)
+    if(cublas_handle != 0){
+        cublasDestroy(cublas_handle);
+        cublas_handle = 0;
+    }
+#endif
 }
 
 void free_network_weight_bias_cpu(network *net)
