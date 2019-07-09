@@ -261,26 +261,26 @@ void test_network(){
     float *feature = (float *)malloc(face_count * 512 * sizeof(float));
     int MAX_BBOX_NUM = 10;
     int detection_bbox[MAX_BBOX_NUM * 4];
-    double start = what_time_is_it_now();
-    int run_times = 10;
+    int run_times = 1000;
     init_recognition("cfg/cosface_new.cfg", "model/model.cnn.50");
+    init_detector("cfg/yolov3-small.cfg", "model/yolov3-small_final_max_epoch_15.weights");
     run_recognition(face_data, face_count, feature);
+    double start = what_time_is_it_now();
     for(int i= 0; i < run_times; ++i){
         run_recognition(face_data, face_count, feature);
     }
-    uninit_recognition();
     double end = what_time_is_it_now();
     printf("run_recognition spend %lf s, average %lf s\n", end-start, (end-start) / run_times);
     for(int i= 0; i < 5; ++i) printf("%d %f ", i, feature[i]);
-    return;
-    
-    init_detector("cfg/yolov3-small.cfg", "model/yolov3-small_final_max_epoch_15.weights");
+
+    run_detection(detect_data, detect_width, detect_height, channels, detect_width, detect_height, detection_bbox, MAX_BBOX_NUM, &face_count);
+    run_times = 300;
     start = what_time_is_it_now();
     for(int i= 0; i < run_times; ++i){
-        run_detection(face_data, face_width, face_height, channels, face_width, face_height, detection_bbox, MAX_BBOX_NUM, &face_count);
+        run_detection(detect_data, detect_width, detect_height, channels, detect_width, detect_height, detection_bbox, MAX_BBOX_NUM, &face_count);
     }
     end = what_time_is_it_now();
-    printf("run_detection spend %lf s, average %lf s\n", end-start, (end-start) / run_times);
+    printf("\nrun_detection spend %lf s, average %lf s\n", end-start, (end-start) / run_times);
     //run_mtcnn(face_data, face_count, landmark);
     //free(landmark);
     free(feature);
@@ -288,6 +288,7 @@ void test_network(){
     free(detect_data);
     //uninit_mtcnn();
     uninit_detector();
+    uninit_recognition();
 }
 
 int main(int argc, char **argv)
