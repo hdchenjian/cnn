@@ -59,9 +59,10 @@ void do_nms_obj(detection *dets, int total, int classes, float thresh)
 void do_nms_sort(detection *dets, int total, int classes, float thresh)
 {
     int i, j, k;
+    /*
     k = total-1;
     for(i = 0; i <= k; ++i){
-        if(dets[i].objectness == 0){
+        if(dets[i].objectness < dets[i].objectness){
             detection swap = dets[i];
             dets[i] = dets[k];
             dets[k] = swap;
@@ -70,7 +71,7 @@ void do_nms_sort(detection *dets, int total, int classes, float thresh)
         }
     }
     total = k+1;
-
+    */
     for(k = 0; k < classes; ++k){
         for(i = 0; i < total; ++i){
             dets[i].sort_class = k;

@@ -316,7 +316,7 @@ void run_detection(float *image_data, int width, int height, int channel, int im
         if (xmax > image_original_w) xmax = image_original_w;
         if (ymax > image_original_h) ymax = image_original_h;
         for(int j = 0; j < net_detect->classes; ++j){
-            if (dets[i].prob[j] && bbox_num < max_bbox_num){
+            if (dets[i].prob[j] > thresh && bbox_num < max_bbox_num){
                 detection_bbox[bbox_num * 4] = xmin;
                 detection_bbox[bbox_num * 4 + 1] = ymin;
                 detection_bbox[bbox_num * 4 + 2] = xmax;

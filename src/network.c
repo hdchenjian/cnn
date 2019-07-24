@@ -314,7 +314,7 @@ void forward_network(network *net, float *input)
     //double start = what_time_is_it_now();
     for(int i = 0; i < net->n && i <= net->output_layer; ++i){
         //double start_ms = what_time_is_it_now();
-        //printf("forward_network layer: %d %d\n", i, net->layers_type[i]);
+        //printf("forward_network layer: %d %d %f %f %f %f %f\n", i, net->layers_type[i], input[0], input[1], input[2], input[3], input[4]);
         if(net->layers_type[i] == CONVOLUTIONAL){
             //memset(net->workspace, 0, net->workspace_size);
             convolutional_layer *layer = (convolutional_layer *)net->layers[i];
