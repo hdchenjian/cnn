@@ -1,8 +1,7 @@
 LOCAL_PATH := $(call my-dir)/..
 
-common_static_libraries := opencv_lib8 opencv_lib11 opencv_lib9 opencv_lib2 opencv_lib5 \
-                        opencv_lib6   \
-                        opencv_lib12 opencv_lib14  \
+common_static_libraries := opencv_lib14 opencv_lib8 opencv_lib11 opencv_lib9 opencv_lib2 opencv_lib5 \
+                        opencv_lib6 opencv_lib12 \
                         opencv_lib16 opencv_lib17 opencv_lib18 opencv_lib20 opencv_lib21  opencv_lib4 \
                         thirdparty1 thirdparty2 thirdparty3 thirdparty4 thirdparty5 \
                         thirdparty6 thirdparty7 thirdparty8 thirdparty9 thirdparty10

@@ -6,6 +6,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/objdetect.hpp>
 
 #include "utils/GraphUtils.h"
 #include "arm_compute/graph.h"
@@ -24,12 +25,22 @@ extern "C"{
     JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(JNIEnv *env, jobject obj);
     JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1stop(JNIEnv *env, jobject obj);
     JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
-        JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret);
+        JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret,
+        jint width, jint height);
+    JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_detect_1face(
+        JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height);
+    JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv2bitmap_1native(
+        JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height, jint height_out);
+    JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_bitmap2rgb_1native(
+        JNIEnv *env, jobject obj, jintArray image_data);
 #ifdef __cplusplus
 }
 #endif
 
+cv::CascadeClassifier faces_cascade;
+
 bool have_init = false;
+bool have_init_opencv_detect = false;
 std::string model_path_prefix = "/sdcard/A/";
 std::mutex gpu_lock;
 
@@ -1067,8 +1078,112 @@ void get_image_feature(cv::Mat &image_input, int *face_count, int *detection_bbo
     //for(int i = 0; i < 3; i++) printf("%d %f\n", i, face_feature[i]);
 }
 
+#define clamp_g(x, minValue, maxValue) ((x) < (minValue) ? (minValue) : ((x) > (maxValue) ? (maxValue) : (x)))
+
+JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv2bitmap_1native(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height, jint height_out)
+{
+    jboolean isCopy;
+    uchar *srcYVU = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    unsigned char *srcVU = srcYVU + width * height;
+    unsigned char Y, U, V;
+    int B, G, R;
+    int index = 0;
+    jintArray dst_java = env->NewIntArray(height_out * height);
+    int *dst = (int *)env->GetIntArrayElements(dst_java, &isCopy);
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < height_out; j++) {
+            Y = srcYVU[i * width + j];
+            V = srcVU[(i / 2 * width / 2 + j / 2) * 2 + 0];
+            U = srcVU[(i / 2 * width / 2 + j / 2) * 2 + 1];
+            R = 1.164f*(Y - 16) + 1.596f*(V - 128);
+            G = 1.164f*(Y - 16) - 0.813f*(V - 128) - 0.392f*(U - 128);
+            B = 1.164f*(Y - 16) + 2.017f*(U - 128);
+
+            B = clamp_g(B, 0, 255);
+            G = clamp_g(G, 0, 255);
+            R = clamp_g(R, 0, 255);
+            dst[i + (height_out - 1 - j) * height] = (R << 16) + (G << 8) + B | 0xFF000000;
+        }
+    }
+    env->ReleaseByteArrayElements(image_data, (jbyte *)srcYVU, 0);
+    env->ReleaseIntArrayElements(dst_java, (jint *)dst, 0);
+
+    //cv::Mat img_temp_local(height, width,  CV_8UC3, image_data_point);
+    return dst_java;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_bitmap2rgb_1native(
+    JNIEnv *env, jobject obj, jintArray image_data) {
+    jboolean isCopy;
+    int *src = (int *)env->GetIntArrayElements(image_data, &isCopy);
+    int length = env->GetArrayLength(image_data);
+    jbyteArray dst_java = env->NewByteArray(length * 3);
+    uchar *dst = (uchar *)env->GetByteArrayElements(dst_java, &isCopy);
+    for(int i = 0; i < length; i++){
+        dst[3 * i] = src[i] & 0xFF;
+        dst[3 * i + 1] = src[i] >> 8 & 0xFF;
+        dst[3 * i + 2] = src[i] >> 16 & 0xFF;
+    }
+    env->ReleaseIntArrayElements(image_data, (int *)src, 0);
+    env->ReleaseByteArrayElements(dst_java, (jbyte *)dst, 0);
+    return dst_java;
+}
+
+JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_detect_1face(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height){
+    if(!have_init_opencv_detect){
+        LOGE("init_opencv_detect!");
+        std::string model_path = model_path_prefix + "haarcascade_frontalface_alt.xml";
+        faces_cascade.load(model_path.c_str());
+        have_init_opencv_detect = true;
+    }
+
+    double start = what_time_is_it_now();
+    jboolean isCopy;    // JNI_TRUE表示原字符串的拷贝，返回JNI_FALSE表示返回原字符串的指针
+    if(NULL == image_data) {
+        return 0;
+    }
+    uchar *image_data_point = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    jsize image_data_size = env->GetArrayLength(image_data);
+    if (image_data_point == NULL || image_data_size < 1000) {
+        LOGE("features extraction: image_data is empty!");
+        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+        return 0;
+    }
+    cv::Mat img_temp(height, width,  CV_8UC3, image_data_point);
+    cv::Mat grayImage;
+    //cv::imwrite("/sdcard/A/color.jpg", img_temp);
+    cvtColor(img_temp, grayImage, CV_BGR2GRAY);
+    equalizeHist(grayImage, grayImage);
+    std::vector<cv::Rect> faces;
+    faces_cascade.detectMultiScale(grayImage, faces, 1.1, 3, 0, cv::Size(256, 256));
+    env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+    if(faces.size() < 1) {
+        return 0;
+    } else {
+        int index = -1;
+        int max_area = -1;
+        for(int i = 0; i < faces.size(); i++) {
+            if(faces[i].width > 256 && faces[i].height > 256 && faces[i].area() > max_area){
+                max_area = faces[i].area();
+                index = i;
+            }
+        }
+        if(index < 0) return 0;
+        int detection_bbox[4];
+        detection_bbox[0] = faces[index].x;
+        detection_bbox[1] = faces[index].y;
+        detection_bbox[2] = faces[index].x + faces[index].width;
+        detection_bbox[3] = faces[index].y + faces[index].height;
+        env->SetIntArrayRegion(face_region, 0, 4, detection_bbox);
+        return 1;
+    }
+}
+
 JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
-    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret){
+    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret, jint width, jint height){
     int code = 1000;
     double start = what_time_is_it_now();
     jboolean isCopy;    // JNI_TRUE表示原字符串的拷贝，返回JNI_FALSE表示返回原字符串的指针
@@ -1090,10 +1205,7 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
         env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
         return 0;
     }
-    std::vector<uchar> image_raw_data(image_data_size);
-    std::copy(image_data_point, image_data_point + image_data_size, image_raw_data.data());
-    cv::Mat img_temp = cv::imdecode(image_raw_data, CV_LOAD_IMAGE_COLOR);
-    env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+    cv::Mat img_temp(height, width,  CV_8UC3, image_data_point);
 
     /* 1001: blur, 1002: multiple face, 1003: image too small, 1004: image too large, 1005: image empty
        1006: none face, 1007: save aligned-image failed, 1008: save feature failed, 1009: Face is dark
@@ -1102,6 +1214,7 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
     int detection_bbox[MAX_BBOX_NUM * 4];
     //cv::imwrite("/sdcard/A/testss_.jpg", img_temp);
     get_image_feature(img_temp, &face_count, detection_bbox);
+    env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
     if(face_count == 0){
         code_point[0] = 1006;
         env->ReleaseLongArrayElements(code_ret, code_point, 0);
