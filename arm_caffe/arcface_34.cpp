@@ -42,6 +42,7 @@ cv::CascadeClassifier faces_cascade;
 bool have_init = false;
 bool have_init_opencv_detect = false;
 std::string model_path_prefix = "/sdcard/A/";
+//std::string model_path_prefix = "/storage/emulated/0/Android/data/com.iim.vbook/cache/A/";
 std::mutex gpu_lock;
 
 int yolo_num_detections(const yolo_layer *l, float thresh);
@@ -338,7 +339,9 @@ void run_arcface(cv::Mat &img){
 
 void init_arcface(float *face_feature, float *face_image_input){
     std::string data_path = model_path_prefix + "face34_glint_refine/";
+    LOGE("init_arcface %s start", data_path.c_str());
     fc1_w = load_npy(data_path + "fc1_w.npy");
+    LOGE("init_arcface %s load_npy over", data_path.c_str());
     fc1_b = load_npy(data_path + "fc1_b.npy");
     fc1_scale_w = load_npy(data_path + "fc1_scale_w.npy");
     fc1_scale_b = load_npy(data_path + "fc1_scale_b.npy");
@@ -1212,7 +1215,12 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
        1010: Face illuminaiton is unbalance, 1011: Image is side face, 1012: Face is noisy */
     int face_count = 0;
     int detection_bbox[MAX_BBOX_NUM * 4];
-    //cv::imwrite("/sdcard/A/testss_.jpg", img_temp);
+
+    /*
+    static int index = 0;
+    cv::imwrite(model_path_prefix + std::to_string(index) + ".jpg", img_temp);
+    index += 1;
+    */
     get_image_feature(img_temp, &face_count, detection_bbox);
     env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
     if(face_count == 0){
@@ -1235,9 +1243,12 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
 void init_network_cnn(){
     std::lock_guard<std::mutex> gpu_lock_guard(gpu_lock, std::adopt_lock);
     init_arcface(face_feature, face_image_input);
+    LOGE("init_arcface over");
     init_landmark(input_landmark, output_landmark);
+    LOGE("init_landmark over");
     //init_yolo(input_image_yolo, yolo1, yolo2);
     init_yolo_tiny(input_image_yolo, yolo1, yolo2);
+    LOGE("init_yolo_tiny over");
     have_init = true;
 }
 
