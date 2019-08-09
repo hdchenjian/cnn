@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <jni.h>
 #include <android/log.h>
 
@@ -22,7 +23,7 @@
 #ifdef __cplusplus
 extern "C"{
 #endif
-    JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(JNIEnv *env, jobject obj);
+    JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(JNIEnv *env, jobject obj, jstring model_path_java);
     JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1stop(JNIEnv *env, jobject obj);
     JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret,
@@ -58,8 +59,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #define MAX_BBOX_NUM 5
 #define FEATURE_LENGTH 512
 
-//arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
-arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
+arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
+//arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = false;
@@ -1241,7 +1242,6 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
 }
 
 void init_network_cnn(){
-    std::lock_guard<std::mutex> gpu_lock_guard(gpu_lock, std::adopt_lock);
     init_arcface(face_feature, face_image_input);
     LOGE("init_arcface over");
     init_landmark(input_landmark, output_landmark);
@@ -1252,8 +1252,24 @@ void init_network_cnn(){
     have_init = true;
 }
 
-JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(JNIEnv *env, jobject obj){
+JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(JNIEnv *env, jobject obj, jstring model_path_java){
+    std::lock_guard<std::mutex> gpu_lock_guard(gpu_lock, std::adopt_lock);
     if(have_init) return false;
+    jboolean isCopy;
+    const char* model_path = env->GetStringUTFChars(model_path_java, &isCopy);
+    if(model_path == NULL) {
+        LOGE("model path is empty! exit");
+        exit(-1);
+    }
+    LOGE("model path is : %s", model_path);
+    std::string model_path_string(model_path);
+    env->ReleaseStringUTFChars(model_path_java, model_path);
+    std::string data_path = model_path_string + "face34_glint_refine/fc1_w.npy";
+    if(access(data_path.c_str(), 0)){
+        LOGE("model path is not exist %s", model_path);
+        exit(-1);
+    }
+    model_path_prefix = model_path_string;
     init_network_cnn();
     return true;
 }
