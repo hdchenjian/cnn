@@ -34,6 +34,8 @@ extern "C"{
         JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height, jint height_out);
     JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_bitmap2rgb_1native(
         JNIEnv *env, jobject obj, jintArray image_data);
+    JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1spoofingimage(
+        JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height, jint is_rgb, jint is_real);
 #ifdef __cplusplus
 }
 #endif
@@ -59,8 +61,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #define MAX_BBOX_NUM 5
 #define FEATURE_LENGTH 512
 
-arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
-//arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
+//arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
+arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = false;
@@ -1186,6 +1188,75 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_detect_1
     }
 }
 
+JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1spoofingimage(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height, jint is_rgb, jint is_real){
+    if(NULL == image_data) {
+        return;
+    }
+    jboolean isCopy;
+    uchar *image_data_point = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    jsize image_data_size = env->GetArrayLength(image_data);
+    if (image_data_point == NULL || image_data_size < 1000) {
+        LOGE("image_data is empty %d !", image_data_size);
+        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+        return;
+    }
+    cv::Mat img_temp(height, width,  CV_8UC3, image_data_point);
+    jint* face_region_int = env->GetIntArrayElements(face_region, &isCopy);
+    int face_width = face_region_int[2] - face_region_int[0];
+    int face_height = face_region_int[3] - face_region_int[1];
+
+    int x_start = face_region_int[0];
+    if(face_region_int[0] - face_width / 2.0 >= 0) x_start = face_region_int[0] - face_width / 2.0;
+    else if(face_region_int[0] - face_width / 4.0 >= 0) x_start = face_region_int[0] - face_width / 4.0;
+    else if(face_region_int[0] - face_width / 8.0 >= 0) x_start = face_region_int[0] - face_width / 8.0;
+    int y_start = face_region_int[1];
+    if(face_region_int[1] - face_height / 2.0 >= 0) y_start = face_region_int[1] - face_height / 2.0;
+    else if(face_region_int[1] - face_height / 4.0 >= 0) y_start = face_region_int[1] - face_height / 4.0;
+    else if(face_region_int[1] - face_height / 8.0 >= 0) y_start = face_region_int[1] - face_height / 8.0;
+
+    if(x_start + 2 * face_width < img_temp.cols - 1) face_width = 2 * face_width;
+    else if(x_start + 1.5 * face_width < img_temp.cols - 1) face_width = 1.5 * face_width;
+    else if(x_start + 1.3 * face_width < img_temp.cols - 1) face_width = 1.3 * face_width;
+    else face_width = img_temp.cols - 1 - x_start;
+    if(y_start + 2 * face_height < img_temp.rows - 1) face_height = 2 * face_height;
+    else if(y_start + 1.5 * face_height < img_temp.rows - 1) face_height = 1.5 * face_height;
+    else if(y_start + 1.3 * face_height < img_temp.rows - 1) face_height = 1.3 * face_height;
+    else face_height = img_temp.rows - 1 - y_start;
+    if(x_start + face_width > img_temp.cols - 1 || y_start + face_height > img_temp.rows - 1) {
+        LOGE("rect size error %d %d %d %d, image size width %d height %d", x_start, y_start, face_width, face_height, img_temp.cols, img_temp.rows);
+        env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+        return;
+    }
+
+    cv::Rect r(x_start, y_start, face_width, face_height);
+    if(0 > r.x || 0 > r.width || r.x + r.width >= img_temp.cols || 0 > r.y || 0 > r.height || r.y + r.height >= img_temp.rows){
+        for(int i = 1; i < 4; ++i) LOGE("face_region %d\n", face_region_int[i]);
+        LOGE("rect 1 size error %d %d %d %d, image size width %d height %d", x_start, y_start, face_width, face_height, img_temp.cols, img_temp.rows);
+        env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+        return;
+    }
+
+    env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+    static int index = 0;
+    double start = what_time_is_it_now();
+    long long timestamp = (long long)start;
+    std::string image_path;
+    if(is_rgb == 1){
+        image_path = model_path_prefix + "spoofing/" +
+            std::to_string(is_real) + "_rgb_" + std::to_string(timestamp) + "_" + std::to_string(index) + ".jpg";
+    } else {
+        image_path = model_path_prefix + "spoofing/" +
+            std::to_string(is_real) + "_infrared_" + std::to_string(timestamp) + "_" + std::to_string(index) + ".jpg";
+    }
+    cv::Mat patch;
+    cv::resize(img_temp(r), patch, cv::Size(96, 112));
+    imwrite(image_path, patch);
+    LOGE("image_path %s", image_path.c_str());
+    index += 1;
+    return;
+}
+
 JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
     JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret, jint width, jint height){
     int code = 1000;
@@ -1209,7 +1280,15 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
         env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
         return 0;
     }
-    cv::Mat img_temp(height, width,  CV_8UC3, image_data_point);
+    cv::Mat img_temp;
+    if(width == 0 && height == 0){
+        std::vector<uchar> image_raw_data(image_data_size);
+        std::copy(image_data_point, image_data_point + image_data_size, image_raw_data.data());
+        img_temp = cv::imdecode(image_raw_data, CV_LOAD_IMAGE_COLOR);
+    } else {
+        cv::Mat img_local(height, width,  CV_8UC3, image_data_point);
+        img_temp = img_local;
+    }
 
     /* 1001: blur, 1002: multiple face, 1003: image too small, 1004: image too large, 1005: image empty
        1006: none face, 1007: save aligned-image failed, 1008: save feature failed, 1009: Face is dark
