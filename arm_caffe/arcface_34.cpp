@@ -23,7 +23,8 @@
 #ifdef __cplusplus
 extern "C"{
 #endif
-    JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(JNIEnv *env, jobject obj, jstring model_path_java);
+    JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(
+        JNIEnv *env, jobject obj, jstring model_path_java, jint use_spoofing);
     JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1stop(JNIEnv *env, jobject obj);
     JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret,
@@ -36,6 +37,8 @@ extern "C"{
         JNIEnv *env, jobject obj, jintArray image_data);
     JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1spoofingimage(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height, jint is_rgb, jint is_real);
+    JNIEXPORT int JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_run_1spoofing(
+        JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height);
 #ifdef __cplusplus
 }
 #endif
@@ -74,6 +77,12 @@ arm_compute::graph::frontend::Stream graph_face(0, "arcface_34");
 arm_compute::graph::frontend::Stream graph_yolo(0, "yolov3");
 arm_compute::graph::frontend::Stream graph_yolo_tiny(0, "yolov3-tiny");
 arm_compute::graph::frontend::Stream graph_landmark(0, "mtcnn_48net");
+
+arm_compute::graph::frontend::Stream graph_spoofing(0, "spoofing_binary");
+float spoofing_result[2] = {0};
+float spoofing_image_input[96 * 112 *3] = {0};
+bool spoofing_input_load = false;
+bool spoofing_output_load = false;
 
 float face_feature[FEATURE_LENGTH] = {0};
 float face_image_input[112 * 112 *3] = {0};
@@ -1084,6 +1093,126 @@ void get_image_feature(cv::Mat &image_input, int *face_count, int *detection_bbo
     //for(int i = 0; i < 3; i++) printf("%d %f\n", i, face_feature[i]);
 }
 
+void add_spoofing_residual_block(const std::string &data_path, const std::string &name, unsigned int channel, arm_compute::graph::frontend::Stream &graph_net) {
+    std::stringstream unit_path_ss;
+    unit_path_ss << name << "_unit" << 1 << "_";
+    std::string unit_path = unit_path_ss.str();
+    //const arm_compute::TensorShape last_shape = graph.graph().node(graph.tail_node())->output(0)->desc().shape;
+
+    arm_compute::graph::frontend::SubStream route(graph_net);
+    route << arm_compute::graph::frontend::ConvolutionLayer(1U, 1U, channel,
+                                                            get_weights_accessor(data_path, unit_path + "conv1sc_w.npy"),
+                                                            std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                                                            arm_compute::PadStrideInfo(2, 2, 0, 0)).set_name(unit_path + "conv1sc")
+          << arm_compute::graph::frontend::BatchNormalizationLayer(
+              get_weights_accessor(data_path, unit_path + "sc_w.npy"),
+              get_weights_accessor(data_path, unit_path + "sc_b.npy"),
+              get_weights_accessor(data_path, unit_path + "sc_scale_w.npy"),
+              get_weights_accessor(data_path, unit_path + "sc_scale_b.npy"), 0.00002f).set_name(unit_path + "sc");
+
+    arm_compute::graph::frontend::SubStream residual(graph_net);
+    residual << arm_compute::graph::frontend::BatchNormalizationLayer(get_weights_accessor(data_path, unit_path + "bn1_w.npy"),
+                                                                      get_weights_accessor(data_path, unit_path + "bn1_b.npy"),
+                                                                      get_weights_accessor(data_path, unit_path + "bn1_scale_w.npy"),
+                                                                      get_weights_accessor(data_path, unit_path + "bn1_scale_b.npy"), 0.00002f).set_name(unit_path + "bn1")
+             << arm_compute::graph::frontend::ConvolutionLayer(
+                 3U, 3U, channel,
+                 get_weights_accessor(data_path, unit_path + "conv1_w.npy"),
+                 std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                 arm_compute::PadStrideInfo(1, 1, 1, 1)).set_name(unit_path + "conv1")
+             << arm_compute::graph::frontend::BatchNormalizationLayer(
+                 get_weights_accessor(data_path, unit_path + "bn2_w.npy"),
+                 get_weights_accessor(data_path, unit_path + "bn2_b.npy"),
+                 get_weights_accessor(data_path, unit_path + "bn2_scale_w.npy"),
+                 get_weights_accessor(data_path, unit_path + "bn2_scale_b.npy"), 0.00002f).set_name(unit_path + "bn2")
+             << arm_compute::graph::frontend::PreluLayer(get_weights_accessor(data_path, unit_path + "relu1_w.npy")).set_name(unit_path + "relu1")
+             << arm_compute::graph::frontend::ConvolutionLayer(
+                 3U, 3U, channel,
+                 get_weights_accessor(data_path, unit_path + "conv2_w.npy"),
+                 std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                 arm_compute::PadStrideInfo(2, 2, 1, 1)).set_name(unit_path + "conv2")
+             << arm_compute::graph::frontend::BatchNormalizationLayer(
+                 get_weights_accessor(data_path, unit_path + "bn3_w.npy"),
+                 get_weights_accessor(data_path, unit_path + "bn3_b.npy"),
+                 get_weights_accessor(data_path, unit_path + "bn3_scale_w.npy"),
+                 get_weights_accessor(data_path, unit_path + "bn3_scale_b.npy"), 0.00002f).set_name(unit_path + "bn3");
+
+    graph_net << arm_compute::graph::frontend::EltwiseLayer(
+        std::move(route), std::move(residual), arm_compute::graph::frontend::EltwiseOperation::Add).set_name(unit_path + "add");
+}
+
+
+void init_spoofing(){
+    std::string data_path = model_path_prefix + "spoofing_binary/";
+    const arm_compute::DataLayout weights_layout = arm_compute::DataLayout::NCHW;
+    const arm_compute::TensorShape tensor_shape = arm_compute::TensorShape(96U, 112U, 3U, 1U);
+    arm_compute::graph::TensorDescriptor input_descriptor = arm_compute::graph::TensorDescriptor(
+        tensor_shape, arm_compute::DataType::F32).set_layout(weights_layout);
+
+    const char *prelu_weight_file[] = {"relu0_w.npy",
+                                       "stage1_unit1_relu1_w.npy", "stage1_unit2_relu1_w.npy", "stage1_unit3_relu1_w.npy",
+                                       "stage2_unit1_relu1_w.npy", "stage2_unit2_relu1_w.npy",
+                                       "stage2_unit3_relu1_w.npy", "stage2_unit4_relu1_w.npy",
+                                       "stage3_unit1_relu1_w.npy", "stage3_unit2_relu1_w.npy", "stage3_unit3_relu1_w.npy",
+                                       "stage3_unit4_relu1_w.npy", "stage3_unit5_relu1_w.npy", "stage3_unit6_relu1_w.npy",
+                                       "stage4_unit1_relu1_w.npy", "stage4_unit2_relu1_w.npy", "stage4_unit3_relu1_w.npy"};
+    graph_spoofing << graph_target
+               << fast_math_hint
+               << arm_compute::graph::frontend::InputLayer(
+                   input_descriptor, arm_compute::support::cpp14::make_unique<LoadInputData>(spoofing_image_input, &spoofing_input_load))
+               << arm_compute::graph::frontend::ConvolutionLayer(
+                   3U, 3U, 64U,
+                   get_weights_accessor(data_path, "conv0_w.npy"),
+                   std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                   arm_compute::PadStrideInfo(1, 1, 1, 1)).set_name("conv0")
+
+               << arm_compute::graph::frontend::BatchNormalizationLayer(
+                   get_weights_accessor(data_path, "bn0_w.npy"),
+                   get_weights_accessor(data_path, "bn0_b.npy"),
+                   get_weights_accessor(data_path, "bn0_scale_w.npy"),
+                   get_weights_accessor(data_path, "bn0_scale_b.npy"),
+                   0.00002f).set_name("bn0")
+
+               << arm_compute::graph::frontend::PreluLayer(get_weights_accessor(data_path, prelu_weight_file[0])).set_name("relu0");
+
+    add_spoofing_residual_block(data_path, "stage1", 64, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage2", 128, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage3", 256, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage4", 512, graph_spoofing);
+    graph_spoofing << arm_compute::graph::frontend::PoolingLayer(
+        arm_compute::PoolingLayerInfo(
+            arm_compute::PoolingType::AVG, arm_compute::Size2D(6, 7), arm_compute::PadStrideInfo(1, 1, 0, 0))).set_name("pool1")
+                   << arm_compute::graph::frontend::FullyConnectedLayer(2U,
+                                                                    get_weights_accessor(data_path, "fc1_w.npy"),
+                                                                    get_weights_accessor(data_path, "fc1_b.npy")).set_name("fc1");
+    graph_spoofing << arm_compute::graph::frontend::OutputLayer(
+        arm_compute::support::cpp14::make_unique<ReadOutputData>(spoofing_result, &spoofing_output_load));
+
+    arm_compute::graph::GraphConfig config;
+    config.num_threads = num_threads;
+    config.use_tuner = use_tuner;
+    config.tuner_mode = cl_tuner_mode;
+    config.tuner_file  = "acl_tuner_spoofing.csv";
+
+    graph_spoofing.finalize(graph_target, config);
+}
+
+void run_spoofing(cv::Mat &img){
+    int channels = img.channels();
+    int spoofing_width = 96;
+    int spoofing_height = 112;
+    for(int k= 0; k < channels; ++k){
+        int k_index = k* spoofing_width * spoofing_height;
+        for(int m = 0; m < spoofing_height; ++m){
+            int j_index = m * spoofing_width;
+            for(int n = 0; n < spoofing_width; ++n){
+                spoofing_image_input[k_index + j_index + n] = (img.at<cv::Vec3b>(m, n)[channels - k - 1] - 127.5) * 0.0078125;
+            }
+        }
+    }
+    graph_spoofing.run();
+}
+
 #define clamp_g(x, minValue, maxValue) ((x) < (minValue) ? (minValue) : ((x) > (maxValue) ? (maxValue) : (x)))
 
 JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv2bitmap_1native(
@@ -1188,21 +1317,8 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_detect_1
     }
 }
 
-JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1spoofingimage(
-    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height, jint is_rgb, jint is_real){
-    if(NULL == image_data) {
-        return;
-    }
-    jboolean isCopy;
-    uchar *image_data_point = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
-    jsize image_data_size = env->GetArrayLength(image_data);
-    if (image_data_point == NULL || image_data_size < 1000) {
-        LOGE("image_data is empty %d !", image_data_size);
-        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
-        return;
-    }
-    cv::Mat img_temp(height, width,  CV_8UC3, image_data_point);
-    jint* face_region_int = env->GetIntArrayElements(face_region, &isCopy);
+
+cv::Rect get_face_rect(cv::Mat &img_temp, jint* face_region_int){
     int face_width = face_region_int[2] - face_region_int[0];
     int face_height = face_region_int[3] - face_region_int[1];
 
@@ -1223,21 +1339,37 @@ JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1sp
     else if(y_start + 1.5 * face_height < img_temp.rows - 1) face_height = 1.5 * face_height;
     else if(y_start + 1.3 * face_height < img_temp.rows - 1) face_height = 1.3 * face_height;
     else face_height = img_temp.rows - 1 - y_start;
-    if(x_start + face_width > img_temp.cols - 1 || y_start + face_height > img_temp.rows - 1) {
-        LOGE("rect size error %d %d %d %d, image size width %d height %d", x_start, y_start, face_width, face_height, img_temp.cols, img_temp.rows);
-        env->ReleaseIntArrayElements(face_region, face_region_int, 0);
-        return;
-    }
 
     cv::Rect r(x_start, y_start, face_width, face_height);
-    if(0 > r.x || 0 > r.width || r.x + r.width >= img_temp.cols || 0 > r.y || 0 > r.height || r.y + r.height >= img_temp.rows){
-        for(int i = 1; i < 4; ++i) LOGE("face_region %d\n", face_region_int[i]);
-        LOGE("rect 1 size error %d %d %d %d, image size width %d height %d", x_start, y_start, face_width, face_height, img_temp.cols, img_temp.rows);
-        env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+    return r;
+}
+
+JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1spoofingimage(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height, jint is_rgb, jint is_real){
+    if(NULL == image_data) {
         return;
     }
+    jboolean isCopy;
+    uchar *image_data_point = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    jsize image_data_size = env->GetArrayLength(image_data);
+    if (image_data_point == NULL || image_data_size < 1000) {
+        LOGE("image_data is empty %d !", image_data_size);
+        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+        return;
+    }
+    cv::Mat img_temp(height, width,  CV_8UC3, image_data_point);
 
+    jint* face_region_int = env->GetIntArrayElements(face_region, &isCopy);
+    cv::Rect r = get_face_rect(img_temp, face_region_int);
+    if(0 > r.x || 0 > r.width || r.x + r.width >= img_temp.cols || 0 > r.y || 0 > r.height || r.y + r.height >= img_temp.rows){
+        for(int i = 1; i < 4; ++i) LOGE("face_region %d\n", face_region_int[i]);
+        LOGE("rect 1 size error %d %d %d %d, image size width %d height %d", r.x, r.y, r.width, r.height, img_temp.cols, img_temp.rows);
+        env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+        return;
+    }
     env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+    
     static int index = 0;
     double start = what_time_is_it_now();
     long long timestamp = (long long)start;
@@ -1251,10 +1383,46 @@ JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1sp
     }
     cv::Mat patch;
     cv::resize(img_temp(r), patch, cv::Size(96, 112));
+    env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
     imwrite(image_path, patch);
     LOGE("image_path %s", image_path.c_str());
     index += 1;
     return;
+}
+
+JNIEXPORT int JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_run_1spoofing(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height){
+    if(NULL == image_data) {
+        return 0;
+    }
+    jboolean isCopy;
+    uchar *image_data_point = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    jsize image_data_size = env->GetArrayLength(image_data);
+    if (image_data_point == NULL || image_data_size < 1000) {
+        LOGE("image_data is empty %d !", image_data_size);
+        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+        return 0;
+    }
+    cv::Mat img_temp(height, width,  CV_8UC3, image_data_point);
+
+    jint* face_region_int = env->GetIntArrayElements(face_region, &isCopy);
+    cv::Rect r = get_face_rect(img_temp, face_region_int);
+    if(0 > r.x || 0 > r.width || r.x + r.width >= img_temp.cols || 0 > r.y || 0 > r.height || r.y + r.height >= img_temp.rows){
+        for(int i = 1; i < 4; ++i) LOGE("face_region %d\n", face_region_int[i]);
+        LOGE("rect 1 size error %d %d %d %d, image size width %d height %d", r.x, r.y, r.width, r.height, img_temp.cols, img_temp.rows);
+        env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+        return 0;
+    }
+    env->ReleaseIntArrayElements(face_region, face_region_int, 0);
+
+    double start = what_time_is_it_now();
+    cv::Mat patch;
+    cv::resize(img_temp(r), patch, cv::Size(96, 112));
+    env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+    run_spoofing(patch);
+    if(spoofing_result[0] >= spoofing_result[1]) return 0;
+    else return 1;
 }
 
 JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
@@ -1320,7 +1488,7 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
     return face_count;
 }
 
-void init_network_cnn(){
+void init_network_cnn(jint use_spoofing){
     init_arcface(face_feature, face_image_input);
     LOGE("init_arcface over");
     init_landmark(input_landmark, output_landmark);
@@ -1328,10 +1496,15 @@ void init_network_cnn(){
     //init_yolo(input_image_yolo, yolo1, yolo2);
     init_yolo_tiny(input_image_yolo, yolo1, yolo2);
     LOGE("init_yolo_tiny over");
+    if(use_spoofing == 1){
+        init_spoofing();
+        LOGE("init_spoofing over");
+    }
     have_init = true;
 }
 
-JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(JNIEnv *env, jobject obj, jstring model_path_java){
+JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1start(
+    JNIEnv *env, jobject obj, jstring model_path_java, jint use_spoofing){
     std::lock_guard<std::mutex> gpu_lock_guard(gpu_lock, std::adopt_lock);
     if(have_init) return false;
     jboolean isCopy;
@@ -1349,7 +1522,7 @@ JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_reco
         exit(-1);
     }
     model_path_prefix = model_path_string;
-    init_network_cnn();
+    init_network_cnn(use_spoofing);
     return true;
 }
 
@@ -1367,9 +1540,9 @@ JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_reco
     return true;
 }
 
-int main_sdf(int argc, char **argv)
+int main(int argc, char **argv)
 {
-    init_network_cnn();
+    init_network_cnn(0);
     cv::Mat image_input = cv::imread("1.jpg");
     int detection_bbox[MAX_BBOX_NUM * 4];
     int face_count = 0;
