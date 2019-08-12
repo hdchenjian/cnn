@@ -150,7 +150,9 @@ void free_network(network *net)
             if(layer->output_gpu) cuda_free(layer->output_gpu);
             if(layer->delta_gpu) cuda_free(layer->delta_gpu);
             if(layer->loss_gpu) cuda_free(layer->loss_gpu);
-            if(layer->input_backup_gpu) cuda_free(layer->input_backup_gpu);
+            if(layer->label_specific_margin_bias < -0.01){
+                if(layer->input_backup_gpu) cuda_free(layer->input_backup_gpu);
+            }
 #endif
             free_ptr((void *)&layer);
         } else if(net->layers_type[i] == COST){

@@ -1,7 +1,7 @@
 train_data_type = -1
-train  = /var/darknet/face_anti_spoof/train.txt
-valid  = /var/darknet/face_anti_spoof/test.txt
-labels = /var/darknet/face_anti_spoof/labels.txt
-labels_test = /var/darknet/face_anti_spoof/labels.txt
+train  = /var/darknet/spoof/train.txt
+valid  = /var/darknet/spoof/val.txt
+labels = /var/darknet/spoof/labels.txt
+labels_test = /var/darknet/spoof/labels.txt
 backup = backup
 top=1
