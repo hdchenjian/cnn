@@ -323,6 +323,8 @@ void l2normalize_cpu_local(float *x, int batch, int filters, int spatial)
 }
 
 void run_arcface(cv::Mat &img){
+    arcface_input_load = false;
+    arcface_output_load = false;
     int channels = img.channels();
     int face_width = 112;
     int face_height = 112;
@@ -683,6 +685,9 @@ void init_yolo(float *input_image_yolo, float *yolo1, float *yolo2){
 }
 
 void run_yolo_tiny(cv::Mat &image_input, int *total_bbox_num, int *detection_bbox){
+    yolo_input_load = false;
+    yolo_output_load = false;
+    yolo_output1_load = false;
     double start = what_time_is_it_now();
     set_yolo_input(image_input);
     graph_yolo_tiny.run();
@@ -836,6 +841,9 @@ void init_yolo_tiny(float *input_image_yolo, float *yolo1, float *yolo2){
 }
 
 void run_landmark(cv::Mat& img, cv::Rect &faces, std::vector<cv::Point2f>& extracted_landmarks){
+    landmark_input_load = false;
+    landmark_output_load = false;
+
     int channels = img.channels();
     int face_width = 48;
     int face_height = 48;
@@ -1025,14 +1033,6 @@ void init_landmark(float *input_landmark, float *output_landmark){
 
 void get_image_feature(cv::Mat &image_input, int *face_count, int *detection_bbox){
     double start = what_time_is_it_now();
-    yolo_input_load = false;
-    landmark_input_load = false;
-    arcface_input_load = false;
-    yolo_output_load = false;
-    yolo_output1_load = false;
-    landmark_output_load = false;
-    arcface_output_load = false;
-
     run_yolo_tiny(image_input, face_count, detection_bbox);
     printf("run_yolo_tiny spend: %f s, face_count %d\n", what_time_is_it_now() - start, *face_count);
     //for(int i = 0; i < *face_count * 4; i++) printf("%d %d\n", i, detection_bbox[i]);
@@ -1093,98 +1093,112 @@ void get_image_feature(cv::Mat &image_input, int *face_count, int *detection_bbo
     //for(int i = 0; i < 3; i++) printf("%d %f\n", i, face_feature[i]);
 }
 
-void add_spoofing_residual_block(const std::string &data_path, const std::string &name, unsigned int channel, arm_compute::graph::frontend::Stream &graph_net) {
-    std::stringstream unit_path_ss;
-    unit_path_ss << name << "_unit" << 1 << "_";
-    std::string unit_path = unit_path_ss.str();
-    //const arm_compute::TensorShape last_shape = graph.graph().node(graph.tail_node())->output(0)->desc().shape;
+void add_spoofing_residual_block(const std::string &data_path, const std::string &unit_path, unsigned int channel,
+                              arm_compute::graph::frontend::Stream &graph_net){
+    arm_compute::ActivationLayerInfo active_info = arm_compute::ActivationLayerInfo(
+        arm_compute::ActivationLayerInfo::ActivationFunction::LEAKY_RELU, 0.1f);
+
+    arm_compute::graph::frontend::SubStream route(graph_net);
+    arm_compute::graph::frontend::SubStream residual(graph_net);
+    residual << arm_compute::graph::frontend::ConvolutionLayer(
+                 3U, 3U, channel,
+                 get_weights_accessor(data_path, unit_path + "conv1_w.npy"),
+                 get_weights_accessor(data_path, unit_path + "conv1_b.npy"),
+                 arm_compute::PadStrideInfo(1, 1, 1, 1)).set_name(unit_path + "conv1")
+             << arm_compute::graph::frontend::ActivationLayer(active_info).set_name(unit_path + "relu1")
+    
+             << arm_compute::graph::frontend::ConvolutionLayer(
+                 3U, 3U, channel,
+                 get_weights_accessor(data_path, unit_path + "conv2_w.npy"),
+                 get_weights_accessor(data_path, unit_path + "conv2_b.npy"),
+                 arm_compute::PadStrideInfo(1, 1, 1, 1)).set_name(unit_path + "conv2")
+             << arm_compute::graph::frontend::ActivationLayer(active_info).set_name(unit_path + "relu2");
+
+    graph_net << arm_compute::graph::frontend::EltwiseLayer(
+        std::move(route), std::move(residual), arm_compute::graph::frontend::EltwiseOperation::Add).set_name(unit_path + "add");
+    
+}
+
+void add_spoofing_route_block(const std::string &data_path, const std::string &unit_path, unsigned int channel,
+                              arm_compute::graph::frontend::Stream &graph_net){
+    arm_compute::ActivationLayerInfo active_info = arm_compute::ActivationLayerInfo(
+        arm_compute::ActivationLayerInfo::ActivationFunction::LEAKY_RELU, 0.1f);
 
     arm_compute::graph::frontend::SubStream route(graph_net);
     route << arm_compute::graph::frontend::ConvolutionLayer(1U, 1U, channel,
                                                             get_weights_accessor(data_path, unit_path + "conv1sc_w.npy"),
-                                                            std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                                                            get_weights_accessor(data_path, unit_path + "conv1sc_b.npy"),
                                                             arm_compute::PadStrideInfo(2, 2, 0, 0)).set_name(unit_path + "conv1sc")
-          << arm_compute::graph::frontend::BatchNormalizationLayer(
-              get_weights_accessor(data_path, unit_path + "sc_w.npy"),
-              get_weights_accessor(data_path, unit_path + "sc_b.npy"),
-              get_weights_accessor(data_path, unit_path + "sc_scale_w.npy"),
-              get_weights_accessor(data_path, unit_path + "sc_scale_b.npy"), 0.00002f).set_name(unit_path + "sc");
+          << arm_compute::graph::frontend::ActivationLayer(active_info).set_name(unit_path + "relu3");
 
     arm_compute::graph::frontend::SubStream residual(graph_net);
-    residual << arm_compute::graph::frontend::BatchNormalizationLayer(get_weights_accessor(data_path, unit_path + "bn1_w.npy"),
-                                                                      get_weights_accessor(data_path, unit_path + "bn1_b.npy"),
-                                                                      get_weights_accessor(data_path, unit_path + "bn1_scale_w.npy"),
-                                                                      get_weights_accessor(data_path, unit_path + "bn1_scale_b.npy"), 0.00002f).set_name(unit_path + "bn1")
-             << arm_compute::graph::frontend::ConvolutionLayer(
+    residual << arm_compute::graph::frontend::ConvolutionLayer(
                  3U, 3U, channel,
                  get_weights_accessor(data_path, unit_path + "conv1_w.npy"),
-                 std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                 get_weights_accessor(data_path, unit_path + "conv1_b.npy"),
                  arm_compute::PadStrideInfo(1, 1, 1, 1)).set_name(unit_path + "conv1")
-             << arm_compute::graph::frontend::BatchNormalizationLayer(
-                 get_weights_accessor(data_path, unit_path + "bn2_w.npy"),
-                 get_weights_accessor(data_path, unit_path + "bn2_b.npy"),
-                 get_weights_accessor(data_path, unit_path + "bn2_scale_w.npy"),
-                 get_weights_accessor(data_path, unit_path + "bn2_scale_b.npy"), 0.00002f).set_name(unit_path + "bn2")
-             << arm_compute::graph::frontend::PreluLayer(get_weights_accessor(data_path, unit_path + "relu1_w.npy")).set_name(unit_path + "relu1")
+             << arm_compute::graph::frontend::ActivationLayer(active_info).set_name(unit_path + "relu1")
+    
              << arm_compute::graph::frontend::ConvolutionLayer(
                  3U, 3U, channel,
                  get_weights_accessor(data_path, unit_path + "conv2_w.npy"),
-                 std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
+                 get_weights_accessor(data_path, unit_path + "conv2_b.npy"),
                  arm_compute::PadStrideInfo(2, 2, 1, 1)).set_name(unit_path + "conv2")
-             << arm_compute::graph::frontend::BatchNormalizationLayer(
-                 get_weights_accessor(data_path, unit_path + "bn3_w.npy"),
-                 get_weights_accessor(data_path, unit_path + "bn3_b.npy"),
-                 get_weights_accessor(data_path, unit_path + "bn3_scale_w.npy"),
-                 get_weights_accessor(data_path, unit_path + "bn3_scale_b.npy"), 0.00002f).set_name(unit_path + "bn3");
+             << arm_compute::graph::frontend::ActivationLayer(active_info).set_name(unit_path + "relu2");
 
     graph_net << arm_compute::graph::frontend::EltwiseLayer(
         std::move(route), std::move(residual), arm_compute::graph::frontend::EltwiseOperation::Add).set_name(unit_path + "add");
+    
 }
-
 
 void init_spoofing(){
     std::string data_path = model_path_prefix + "spoofing_binary/";
-    const arm_compute::DataLayout weights_layout = arm_compute::DataLayout::NCHW;
+        const arm_compute::DataLayout weights_layout = arm_compute::DataLayout::NCHW;
     const arm_compute::TensorShape tensor_shape = arm_compute::TensorShape(96U, 112U, 3U, 1U);
     arm_compute::graph::TensorDescriptor input_descriptor = arm_compute::graph::TensorDescriptor(
         tensor_shape, arm_compute::DataType::F32).set_layout(weights_layout);
 
-    const char *prelu_weight_file[] = {"relu0_w.npy",
-                                       "stage1_unit1_relu1_w.npy", "stage1_unit2_relu1_w.npy", "stage1_unit3_relu1_w.npy",
-                                       "stage2_unit1_relu1_w.npy", "stage2_unit2_relu1_w.npy",
-                                       "stage2_unit3_relu1_w.npy", "stage2_unit4_relu1_w.npy",
-                                       "stage3_unit1_relu1_w.npy", "stage3_unit2_relu1_w.npy", "stage3_unit3_relu1_w.npy",
-                                       "stage3_unit4_relu1_w.npy", "stage3_unit5_relu1_w.npy", "stage3_unit6_relu1_w.npy",
-                                       "stage4_unit1_relu1_w.npy", "stage4_unit2_relu1_w.npy", "stage4_unit3_relu1_w.npy"};
+    arm_compute::ActivationLayerInfo active_info = arm_compute::ActivationLayerInfo(
+        arm_compute::ActivationLayerInfo::ActivationFunction::LEAKY_RELU, 0.1f);
+
     graph_spoofing << graph_target
-               << fast_math_hint
-               << arm_compute::graph::frontend::InputLayer(
-                   input_descriptor, arm_compute::support::cpp14::make_unique<LoadInputData>(spoofing_image_input, &spoofing_input_load))
-               << arm_compute::graph::frontend::ConvolutionLayer(
-                   3U, 3U, 64U,
-                   get_weights_accessor(data_path, "conv0_w.npy"),
-                   std::unique_ptr<arm_compute::graph::ITensorAccessor>(nullptr),
-                   arm_compute::PadStrideInfo(1, 1, 1, 1)).set_name("conv0")
+                   << fast_math_hint
+                   << arm_compute::graph::frontend::InputLayer(
+                       input_descriptor, arm_compute::support::cpp14::make_unique<LoadInputData>(spoofing_image_input, &spoofing_input_load))
+                   << arm_compute::graph::frontend::ConvolutionLayer(
+                       3U, 3U, 64U,
+                       get_weights_accessor(data_path, "conv0_w.npy"),
+                       get_weights_accessor(data_path, "conv0_b.npy"),
+                       arm_compute::PadStrideInfo(1, 1, 1, 1)).set_name("conv0")
 
-               << arm_compute::graph::frontend::BatchNormalizationLayer(
-                   get_weights_accessor(data_path, "bn0_w.npy"),
-                   get_weights_accessor(data_path, "bn0_b.npy"),
-                   get_weights_accessor(data_path, "bn0_scale_w.npy"),
-                   get_weights_accessor(data_path, "bn0_scale_b.npy"),
-                   0.00002f).set_name("bn0")
+                   << arm_compute::graph::frontend::ActivationLayer(active_info).set_name("relu0");
 
-               << arm_compute::graph::frontend::PreluLayer(get_weights_accessor(data_path, prelu_weight_file[0])).set_name("relu0");
+    add_spoofing_route_block(data_path, "stage1_unit1_", 64, graph_spoofing);
+    
+    add_spoofing_residual_block(data_path, "stage2_unit1_", 64, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage2_unit2_", 64, graph_spoofing);
+    add_spoofing_route_block(data_path, "stage2_unit3_", 128, graph_spoofing);
 
-    add_spoofing_residual_block(data_path, "stage1", 64, graph_spoofing);
-    add_spoofing_residual_block(data_path, "stage2", 128, graph_spoofing);
-    add_spoofing_residual_block(data_path, "stage3", 256, graph_spoofing);
-    add_spoofing_residual_block(data_path, "stage4", 512, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage3_unit1_", 128, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage3_unit2_", 128, graph_spoofing);
+    add_spoofing_route_block(data_path, "stage3_unit3_", 256, graph_spoofing);
+
+    add_spoofing_residual_block(data_path, "stage4_unit1_", 256, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage4_unit2_", 256, graph_spoofing);
+    add_spoofing_route_block(data_path, "stage4_unit3_", 512, graph_spoofing);
+
+    add_spoofing_residual_block(data_path, "stage5_unit1_", 512, graph_spoofing);
+    add_spoofing_residual_block(data_path, "stage5_unit2_", 512, graph_spoofing);
+    
     graph_spoofing << arm_compute::graph::frontend::PoolingLayer(
         arm_compute::PoolingLayerInfo(
             arm_compute::PoolingType::AVG, arm_compute::Size2D(6, 7), arm_compute::PadStrideInfo(1, 1, 0, 0))).set_name("pool1")
-                   << arm_compute::graph::frontend::FullyConnectedLayer(2U,
-                                                                    get_weights_accessor(data_path, "fc1_w.npy"),
-                                                                    get_weights_accessor(data_path, "fc1_b.npy")).set_name("fc1");
+                   << arm_compute::graph::frontend::ConvolutionLayer(
+                       1U, 1U, 2U,
+                       get_weights_accessor(data_path, "conv00_w.npy"),
+                       get_weights_accessor(data_path, "conv00_b.npy"),
+                       arm_compute::PadStrideInfo(1, 1, 0, 0)).set_name("conv00");
+
     graph_spoofing << arm_compute::graph::frontend::OutputLayer(
         arm_compute::support::cpp14::make_unique<ReadOutputData>(spoofing_result, &spoofing_output_load));
 
@@ -1198,6 +1212,8 @@ void init_spoofing(){
 }
 
 void run_spoofing(cv::Mat &img){
+    spoofing_input_load = false;
+    spoofing_output_load = false;
     int channels = img.channels();
     int spoofing_width = 96;
     int spoofing_height = 112;
@@ -1540,7 +1556,7 @@ JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_reco
     return true;
 }
 
-int main(int argc, char **argv)
+int main_sdf(int argc, char **argv)
 {
     init_network_cnn(0);
     cv::Mat image_input = cv::imread("1.jpg");
