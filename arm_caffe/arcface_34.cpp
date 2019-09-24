@@ -1483,12 +1483,7 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
        1010: Face illuminaiton is unbalance, 1011: Image is side face, 1012: Face is noisy */
     int face_count = 0;
     int detection_bbox[MAX_BBOX_NUM * 4];
-
-    /*
-    static int index = 0;
-    cv::imwrite(model_path_prefix + std::to_string(index) + ".jpg", img_temp);
-    index += 1;
-    */
+    
     get_image_feature(img_temp, &face_count, detection_bbox);
     env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
     if(face_count == 0){
@@ -1499,12 +1494,22 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
         return 0;
     }
 
+    /*
+    static int index = 0;
+    cv::Mat img_temp_clone = img_temp.clone();
+    cv::rectangle(img_temp_clone, cvPoint(detection_bbox[0], detection_bbox[1]),
+                  cvPoint(detection_bbox[2], detection_bbox[3]), cvScalar(255,0,0), 4);
+    cv::imwrite(model_path_prefix + std::to_string(index) + ".jpg", img_temp_clone);
+    index += 1;
+    */
+    
     env->SetFloatArrayRegion(feature_save, 0, FEATURE_LENGTH, face_feature);
     env->SetIntArrayRegion(face_region, 0, 4, detection_bbox);
     code_point[0] = code;
     env->ReleaseLongArrayElements(code_ret, code_point, 0);
-    LOGE("face detected thread id %lu, spend: %f, face_count: %d",
-         std::hash<std::thread::id>{}(std::this_thread::get_id()), what_time_is_it_now() - start, face_count);
+    LOGE("face detected thread id %lu, spend: %f, face_count: %d, input image %dx%d, face region %d %d %d %d",
+         std::hash<std::thread::id>{}(std::this_thread::get_id()), what_time_is_it_now() - start, face_count,
+         width, height, detection_bbox[0], detection_bbox[1], detection_bbox[2], detection_bbox[3]);
     return face_count;
 }
 
