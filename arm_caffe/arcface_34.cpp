@@ -64,8 +64,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #define MAX_BBOX_NUM 5
 #define FEATURE_LENGTH 512
 
-//arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
-arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
+arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
+//arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = false;
@@ -1243,11 +1243,14 @@ JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv
     jintArray dst_java = env->NewIntArray(height_out * height);
     int *dst = (int *)env->GetIntArrayElements(dst_java, &isCopy);
 
+    int j_offset = width - height_out;
+    int j_index = 0;
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < height_out; j++) {
-            Y = srcYVU[i * width + j];
-            V = srcVU[(i / 2 * width / 2 + j / 2) * 2 + 0];
-            U = srcVU[(i / 2 * width / 2 + j / 2) * 2 + 1];
+            j_index = j_offset + j;
+            Y = srcYVU[i * width + j_index];
+            V = srcVU[(i / 2 * width / 2 + j_index / 2) * 2 + 0];
+            U = srcVU[(i / 2 * width / 2 + j_index / 2) * 2 + 1];
             R = 1.164f*(Y - 16) + 1.596f*(V - 128);
             G = 1.164f*(Y - 16) - 0.813f*(V - 128) - 0.392f*(U - 128);
             B = 1.164f*(Y - 16) + 2.017f*(U - 128);
@@ -1443,6 +1446,7 @@ JNIEXPORT int JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_run_1spoo
 
 JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
     JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret, jint width, jint height){
+    std::lock_guard<std::mutex> gpu_lock_guard(gpu_lock, std::adopt_lock);
     int code = 1000;
     double start = what_time_is_it_now();
     jboolean isCopy;    // JNI_TRUE表示原字符串的拷贝，返回JNI_FALSE表示返回原字符串的指针
