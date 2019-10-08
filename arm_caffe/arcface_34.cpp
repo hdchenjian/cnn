@@ -28,7 +28,7 @@ extern "C"{
     JNIEXPORT jboolean JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1stop(JNIEnv *env, jobject obj);
     JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret,
-        jint width, jint height);
+        jint width, jint height, jintArray is_side_face);
     JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_detect_1face(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height);
     JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv2bitmap_1native(
@@ -64,8 +64,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #define MAX_BBOX_NUM 5
 #define FEATURE_LENGTH 512
 
-arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
-//arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
+//arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
+arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = false;
@@ -1031,7 +1031,7 @@ void init_landmark(float *input_landmark, float *output_landmark){
     return;
 }
 
-void get_image_feature(cv::Mat &image_input, int *face_count, int *detection_bbox){
+void get_image_feature(cv::Mat &image_input, int *face_count, int *detection_bbox, int *side_face){
     double start = what_time_is_it_now();
     run_yolo_tiny(image_input, face_count, detection_bbox);
     printf("run_yolo_tiny spend: %f s, face_count %d\n", what_time_is_it_now() - start, *face_count);
@@ -1076,6 +1076,16 @@ void get_image_feature(cv::Mat &image_input, int *face_count, int *detection_bbo
 
     std::vector<cv::Point2f> extracted_landmarks(5, cv::Point2f(0.f, 0.f));
     run_landmark(image_input, face_region, extracted_landmarks);
+    float two_eye_height_diff = fabs((extracted_landmarks[1].y - extracted_landmarks[0].y) / face_region.height);
+    float two_lips_height_diff = fabs((extracted_landmarks[4].y - extracted_landmarks[3].y) / face_region.height);
+    float two_eye_width_diff = fabs((extracted_landmarks[1].x - extracted_landmarks[0].x) / face_region.width);
+    if(two_eye_height_diff > 0.05 ||  two_lips_height_diff > 0.05 || two_eye_width_diff < 0.35){
+        LOGE("side face: %f %f %f\n", two_eye_height_diff, two_lips_height_diff, two_eye_width_diff);
+        *side_face = 1;
+    } else {
+        LOGE("not side face: %f %f %f\n", two_eye_height_diff, two_lips_height_diff, two_eye_width_diff);
+        *side_face = 0;
+    }
     printf("run_landmark spend: %f s\n", what_time_is_it_now() - start);
     /*
     extracted_landmarks[0] = cv::Point2f(1734.0f, 1103.0f);
@@ -1445,7 +1455,8 @@ JNIEXPORT int JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_run_1spoo
 }
 
 JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
-    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret, jint width, jint height){
+    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save,
+    jlongArray code_ret, jint width, jint height, jintArray is_side_face){
     std::lock_guard<std::mutex> gpu_lock_guard(gpu_lock, std::adopt_lock);
     int code = 1000;
     double start = what_time_is_it_now();
@@ -1483,8 +1494,9 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
        1010: Face illuminaiton is unbalance, 1011: Image is side face, 1012: Face is noisy */
     int face_count = 0;
     int detection_bbox[MAX_BBOX_NUM * 4];
-    
-    get_image_feature(img_temp, &face_count, detection_bbox);
+
+    int side_face = 0;
+    get_image_feature(img_temp, &face_count, detection_bbox, &side_face);
     env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
     if(face_count == 0){
         code_point[0] = 1006;
@@ -1502,14 +1514,17 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
     cv::imwrite(model_path_prefix + std::to_string(index) + ".jpg", img_temp_clone);
     index += 1;
     */
-    
+
+    jint* side_face_point = env->GetIntArrayElements(is_side_face, &isCopy);
+    side_face_point[0] = side_face;
+    env->ReleaseIntArrayElements(is_side_face, side_face_point, 0);
     env->SetFloatArrayRegion(feature_save, 0, FEATURE_LENGTH, face_feature);
     env->SetIntArrayRegion(face_region, 0, 4, detection_bbox);
     code_point[0] = code;
     env->ReleaseLongArrayElements(code_ret, code_point, 0);
-    LOGE("face detected thread id %lu, spend: %f, face_count: %d, input image %dx%d, face region %d %d %d %d",
+    LOGE("face detected thread id %lu, spend: %f, face_count: %d, input image %dx%d, face region %d %d %d %d, side_face %d",
          std::hash<std::thread::id>{}(std::this_thread::get_id()), what_time_is_it_now() - start, face_count,
-         width, height, detection_bbox[0], detection_bbox[1], detection_bbox[2], detection_bbox[3]);
+         width, height, detection_bbox[0], detection_bbox[1], detection_bbox[2], detection_bbox[3], side_face);
     return face_count;
 }
 
@@ -1572,7 +1587,8 @@ int main_sdf(int argc, char **argv)
     int detection_bbox[MAX_BBOX_NUM * 4];
     int face_count = 0;
     for(int i = 0; i < 1; i++) {
-        get_image_feature(image_input, &face_count, detection_bbox);
+        int side_face = 0;
+        get_image_feature(image_input, &face_count, detection_bbox, &side_face);
         printf("%d times\n\n", i);
         
         for(int j = 0; j < FEATURE_LENGTH; j++) face_feature[j] = 0;
