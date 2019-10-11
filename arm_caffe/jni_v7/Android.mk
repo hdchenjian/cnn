@@ -26,17 +26,17 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := arm_compute_graph
-LOCAL_SRC_FILES := /media/luyao/video_send_back/install_package/ComputeLibrary/build/libarm_compute_graph-static.a
+LOCAL_SRC_FILES := /media/luyao/video_send_back/install_package/ComputeLibrary/build_v7/libarm_compute_graph-static.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := arm_compute
-LOCAL_SRC_FILES := /media/luyao/video_send_back/install_package/ComputeLibrary/build/libarm_compute-static.a
+LOCAL_SRC_FILES := /media/luyao/video_send_back/install_package/ComputeLibrary/build_v7/libarm_compute-static.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := arm_compute_core
-LOCAL_SRC_FILES := /media/luyao/video_send_back/install_package/ComputeLibrary/build/libarm_compute_core-static.a
+LOCAL_SRC_FILES := /media/luyao/video_send_back/install_package/ComputeLibrary/build_v7/libarm_compute_core-static.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
