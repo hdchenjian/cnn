@@ -35,6 +35,12 @@ extern "C"{
         JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height, jint height_out);
     JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_bitmap2rgb_1native(
         JNIEnv *env, jobject obj, jintArray image_data);
+    JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_rgb2bitmap_1native(
+        JNIEnv *env, jobject obj, jbyteArray image_data);
+    JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yv122rgb_1native(
+        JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height);
+    JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv2rgb_1native(
+        JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height);
     JNIEXPORT void JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_save_1spoofingimage(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height, jint is_rgb, jint is_real);
     JNIEXPORT int JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_run_1spoofing(
@@ -64,8 +70,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #define MAX_BBOX_NUM 5
 #define FEATURE_LENGTH 512
 
-//arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
-arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
+arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
+//arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = false;
@@ -1278,6 +1284,73 @@ JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv
     return dst_java;
 }
 
+JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yv122rgb_1native(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height)
+{
+    jboolean isCopy;
+    uchar *srcYVU = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    unsigned char *srcV = srcYVU + width * height;
+    unsigned char *srcU = srcYVU + width * height + width * height / 2 / 2;
+    unsigned char Y, U, V;
+    int B, G, R;
+    int index = 0;
+    jbyteArray dst_java = env->NewByteArray(width * height * 3);
+    uchar *dst = (uchar *)env->GetByteArrayElements(dst_java, &isCopy);
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            Y = srcYVU[i * width + j];
+            index = i / 2 * width / 2 + j / 2;
+            V = srcV[index];
+            U = srcU[index];
+            R = Y + 1.370705f*(V - 128);
+            G = Y - 0.698001f*(U - 128) - 0.703125f*(V - 128);
+            B = Y + 1.732446f*(U - 128);
+
+            index = (i + (width - 1 - j) * height) * 3;
+            dst[index] = clamp_g(B, 0, 255);
+            dst[index + 1] = clamp_g(G, 0, 255);
+            dst[index + 2] = clamp_g(R, 0, 255);
+        }
+    }
+    env->ReleaseByteArrayElements(image_data, (jbyte *)srcYVU, 0);
+    env->ReleaseByteArrayElements(dst_java, (jbyte *)dst, 0);
+    return dst_java;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv2rgb_1native(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jint width, jint height)
+{
+    jboolean isCopy;
+    uchar *srcYVU = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    unsigned char *srcVU = srcYVU + width * height;
+    unsigned char Y, U, V;
+    int B, G, R;
+    int index = 0;
+    jbyteArray dst_java = env->NewByteArray(width * height * 3);
+    uchar *dst = (uchar *)env->GetByteArrayElements(dst_java, &isCopy);
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            Y = srcYVU[i * width + j];
+            V = srcVU[(i / 2 * width / 2 + j / 2) * 2 + 0];
+            U = srcVU[(i / 2 * width / 2 + j / 2) * 2 + 1];
+            R = 1.164f*(Y - 16) + 1.596f*(V - 128);
+            G = 1.164f*(Y - 16) - 0.813f*(V - 128) - 0.392f*(U - 128);
+            B = 1.164f*(Y - 16) + 2.017f*(U - 128);
+
+            //index = (i + (width - 1 - j) * height) * 3;
+            index = (j + i * width) * 3;
+            dst[index] = clamp_g(B, 0, 255);
+            dst[index + 1] = clamp_g(G, 0, 255);
+            dst[index + 2] = clamp_g(R, 0, 255);
+        }
+    }
+    env->ReleaseByteArrayElements(image_data, (jbyte *)srcYVU, 0);
+    env->ReleaseByteArrayElements(dst_java, (jbyte *)dst, 0);
+    return dst_java;
+}
+
 JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_bitmap2rgb_1native(
     JNIEnv *env, jobject obj, jintArray image_data) {
     jboolean isCopy;
@@ -1292,6 +1365,23 @@ JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_bi
     }
     env->ReleaseIntArrayElements(image_data, (int *)src, 0);
     env->ReleaseByteArrayElements(dst_java, (jbyte *)dst, 0);
+    return dst_java;
+}
+
+JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_rgb2bitmap_1native(
+    JNIEnv *env, jobject obj, jbyteArray image_data)
+{
+    jboolean isCopy;
+    uchar *src = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    int length = env->GetArrayLength(image_data);
+    length = length / 3;
+    jintArray dst_java = env->NewIntArray(length);
+    jint *dst = (jint *)env->GetIntArrayElements(dst_java, &isCopy);
+    for(int i = 0; i < length; i++){
+        dst[i] = ((int)src[3 * i + 2] << 16) + ((int)src[3 * i + 1] << 8) + src[3 * i] | 0xFF000000;
+    }
+    env->ReleaseByteArrayElements(image_data, (jbyte *)src, 0);
+    env->ReleaseIntArrayElements(dst_java, dst, 0);
     return dst_java;
 }
 
@@ -1489,6 +1579,12 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
         img_temp = img_local;
     }
 
+    /*
+    static int index = 0;
+    cv::imwrite(model_path_prefix + std::to_string(index) + ".jpg", img_temp);
+    index += 1;
+    */
+
     /* 1001: blur, 1002: multiple face, 1003: image too small, 1004: image too large, 1005: image empty
        1006: none face, 1007: save aligned-image failed, 1008: save feature failed, 1009: Face is dark
        1010: Face illuminaiton is unbalance, 1011: Image is side face, 1012: Face is noisy */
@@ -1501,8 +1597,8 @@ JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognit
     if(face_count == 0){
         code_point[0] = 1006;
         env->ReleaseLongArrayElements(code_ret, code_point, 0);
-        LOGE("face detected thread id %lu, spend: %f, face_count: %d",
-             std::hash<std::thread::id>{}(std::this_thread::get_id()), what_time_is_it_now() - start, face_count);
+        LOGE("face detected thread id %lu, spend: %f, face_count: %d input image %dx%d",
+             std::hash<std::thread::id>{}(std::this_thread::get_id()), what_time_is_it_now() - start, face_count, width, height);
         return 0;
     }
 
