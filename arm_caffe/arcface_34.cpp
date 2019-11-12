@@ -29,6 +29,8 @@ extern "C"{
     JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jfloatArray feature_save, jlongArray code_ret,
         jint width, jint height, jintArray is_side_face);
+    JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_face_1region(
+        JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height);
     JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_detect_1face(
         JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height);
     JNIEXPORT jintArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_yuv2bitmap_1native(
@@ -70,8 +72,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #define MAX_BBOX_NUM 5
 #define FEATURE_LENGTH 512
 
-arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
-//arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
+//arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
+arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = false;
@@ -1542,6 +1544,53 @@ JNIEXPORT int JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_run_1spoo
     run_spoofing(patch);
     if(spoofing_result[0] >= spoofing_result[1]) return 0;
     else return 1;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_face_1region(
+    JNIEnv *env, jobject obj, jbyteArray image_data, jintArray face_region, jint width, jint height){
+    jboolean isCopy;
+    jbyteArray return_null_image = env->NewByteArray(0);
+    if(NULL == image_data) {
+        return return_null_image;
+    }
+    uchar *image_data_point = (uchar *)env->GetByteArrayElements(image_data, &isCopy);
+    jsize image_data_size = env->GetArrayLength(image_data);
+    if (image_data_point == NULL || image_data_size < 1000) {
+        LOGE("features extraction: image_data is empty!");
+        env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+        return return_null_image;
+    }
+    cv::Mat img_temp;
+    if(width == 0 && height == 0){
+        std::vector<uchar> image_raw_data(image_data_size);
+        std::copy(image_data_point, image_data_point + image_data_size, image_raw_data.data());
+        img_temp = cv::imdecode(image_raw_data, CV_LOAD_IMAGE_COLOR);
+    } else {
+        cv::Mat img_local(height, width,  CV_8UC3, image_data_point);
+        img_temp = img_local;
+    }
+    env->ReleaseByteArrayElements(image_data, (jbyte *)image_data_point, 0);
+    jint* face_region_point = env->GetIntArrayElements(face_region, &isCopy);
+    cv::Rect r = get_face_rect(img_temp, face_region_point);
+    if(0 > r.x || 0 > r.width || r.x + r.width >= img_temp.cols || 0 > r.y || 0 > r.height || r.y + r.height >= img_temp.rows){
+        for(int i = 1; i < 4; ++i) LOGE("face_region %d\n", face_region_point[i]);
+        LOGE("rect 1 size error %d %d %d %d, image size width %d height %d", r.x, r.y, r.width, r.height, img_temp.cols, img_temp.rows);
+        env->ReleaseIntArrayElements(face_region, face_region_point, 0);
+        return return_null_image;
+    }
+    env->DeleteLocalRef(return_null_image);
+    env->ReleaseIntArrayElements(face_region, face_region_point, 0);
+
+    std::vector<uchar> data_encode;
+    cv::imencode(".jpg", (img_temp)(r), data_encode);
+    jbyte *data_encode_jbyte = (jbyte *)malloc(data_encode.size() * sizeof(jbyte));
+    for(unsigned int i = 0; i < data_encode.size(); i++) {
+        data_encode_jbyte[i] = data_encode[i];
+    }
+    jbyteArray return_byte_array = env->NewByteArray(data_encode.size());
+    env->SetByteArrayRegion(return_byte_array, 0, data_encode.size(), data_encode_jbyte);
+    free(data_encode_jbyte);
+    return return_byte_array;
 }
 
 JNIEXPORT jint JNICALL Java_com_iim_recognition_caffe_LoadLibraryModule_recognition_1face(
