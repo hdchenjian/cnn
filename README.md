@@ -1,4 +1,4 @@
-#### This is a neural network framwork for deep learning written in C and CUDA.
+#### This is a neural network framwork for deep learning written in C.
 
 [Darknet](https://pjreddie.com/darknet/) is a powerful neural network framework, You can even train a Go game.
 I reimplement a tiny neural network(CNN, RNN) framework from scratch.
@@ -6,8 +6,10 @@ I reimplement a tiny neural network(CNN, RNN) framework from scratch.
 #### Compile
 ```
 modify Makefile
-change GPU=1 if you have GPU support CUDA
-change OPENMP=1 if you want use openmp
+set GPU=1 if you have GPU support CUDA, set CUDNN=1 if you have CUDNN library
+set FORWARD_GPU if you only want forward pass, set this will save some memory
+set OPENCL=1 if you want use openCL, set CLBLAS if you have clBLAS library
+set OPENMP=1 if you want use openmp
 
 make
 ```
