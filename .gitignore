@@ -29,3 +29,12 @@ log
 log_test
 log_test_recognition
 obj/
+arm_caffe/A/
+arm_caffe/acl_tuner_spoofing.csv
+arm_caffe/acm_model.tar
+arm_caffe/haarcascade_frontalface_alt.xml
+arm_caffe/jni/
+arm_caffe/liveness.cpp
+arm_caffe/shape_predictor_68_face_landmarks.dat
+arm_caffe/test.cpp
+cfg/yolov3-small-less.cfg
