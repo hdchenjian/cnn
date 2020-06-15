@@ -1,0 +1,4 @@
+train  = /var/darknet/helmet/data/train.txt
+valid  = /var/darknet/helmet/data/test.txt
+names = /var/darknet/helmet/data/face.names
+backup = backup
