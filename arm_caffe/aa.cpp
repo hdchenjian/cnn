@@ -20,8 +20,8 @@ arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = true;
-arm_compute::CLTunerMode cl_tuner_mode = arm_compute::CLTunerMode::EXHAUSTIVE;
-//arm_compute::CLTunerMode cl_tuner_mode = arm_compute::CLTunerMode::NORMAL;
+//arm_compute::CLTunerMode cl_tuner_mode = arm_compute::CLTunerMode::EXHAUSTIVE;
+arm_compute::CLTunerMode cl_tuner_mode = arm_compute::CLTunerMode::NORMAL;
 
 float face_feature[FEATURE_LENGTH] = {0};
 float face_image_input[112 * 112 *3] = {0};

@@ -30,8 +30,8 @@ int get_yolo_detections(yolo_layer *l, int w, int h, int netw, int neth, float t
 #define MAX_BBOX_NUM 5
 #define FEATURE_LENGTH 512
 
-arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
-//arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
+//arm_compute::graph::Target graph_target = arm_compute::graph::Target::NEON;
+arm_compute::graph::Target graph_target = arm_compute::graph::Target::CL;
 arm_compute::graph::FastMathHint fast_math_hint = arm_compute::graph::FastMathHint::Enabled; //Disabled;
 int num_threads = 0;
 bool use_tuner = false;
