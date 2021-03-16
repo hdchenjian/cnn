@@ -1,19 +1,17 @@
 #include <unistd.h>
+#include <sys/time.h>
 
 #include <mutex>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/objdetect.hpp>
 
 #include "utils/GraphUtils.h"
 #include "arm_compute/graph.h"
 #include "utils/Utils.h"
 
 #include "yolo_layer.h"
-
-cv::CascadeClassifier faces_cascade;
 
 bool have_init = false;
 std::string model_path_prefix = "/sdcard/A/";
@@ -45,14 +43,9 @@ arm_compute::graph::frontend::Stream graph_face(0, "arcface_34");
 arm_compute::graph::frontend::Stream graph_yolo_tiny(0, "yolov3-tiny");
 arm_compute::graph::frontend::Stream graph_landmark(0, "mtcnn_48net");
 
-float spoofing_result[2] = {0};
-float spoofing_image_input[96 * 112 *3] = {0};
-bool spoofing_input_load = false;
-bool spoofing_output_load = false;
-
 float face_feature[FEATURE_LENGTH] = {0};
-float face_image_input[112 * 112 *3] = {0};
-float input_image_yolo[416 * 416 * 3] = {0};
+float *face_image_input;
+float *input_image_yolo = NULL;
 float yolo1[COARSE_SIZE * COARSE_SIZE * YOLO_CHANNEL] = {0};
 float yolo2[FINE_SIZE * FINE_SIZE * YOLO_CHANNEL] = {0};
 float input_landmark[48 * 48 *3] = {0};
@@ -927,26 +920,29 @@ int recognition_face(cv::Mat &img, std::vector<float> &feature){
     cv::imwrite(model_path_prefix + std::to_string(index) + ".jpg", img_clone);
     index += 1;
     */
-    printf("face detected thread id %lu, spend: %f, face_count: %d, input image %dx%d, face region %d %d %d %d, side_face %d",
+    printf("face detected thread id %lu, spend: %f, face_count: %d, input image %dx%d, face region %d %d %d %d, side_face %d\n",
          std::hash<std::thread::id>{}(std::this_thread::get_id()), what_time_is_it_now() - start, face_count,
          img.cols, img.cols, detection_bbox[0], detection_bbox[1], detection_bbox[2], detection_bbox[3], side_face);
     std::vector<float> feature_tmp(face_feature, face_feature + FEATURE_LENGTH);
-    feature = 
+    feature = feature_tmp; 
     return face_count;
 }
 
 void init_network_cnn(){
+    face_image_input = (float *)calloc(112 * 112 * 3, sizeof(float));
     init_arcface(face_feature, face_image_input);
     printf("init_arcface over");
     init_landmark(input_landmark, output_landmark);
     printf("init_landmark over");
     //init_yolo(input_image_yolo, yolo1, yolo2);
+    input_image_yolo = (float *)calloc(416 * 416 * 3, sizeof(float));
     init_yolo_tiny(input_image_yolo, yolo1, yolo2);
     printf("init_yolo_tiny over");
     have_init = true;
 }
 
 bool recognition_start(char* model_path){
+    printf("model path is : %s", model_path);
     std::lock_guard<std::mutex> gpu_lock_guard(gpu_lock, std::adopt_lock);
     if(have_init) return false;
     if(model_path == NULL) {
@@ -970,6 +966,9 @@ void uninit_network_cnn(){
     free(fc1_b);
     free(fc1_scale_w);
     free(fc1_scale_b);
+    free(face_image_input);
+    free(input_image_yolo);
+    printf("uninit_network_cnn \n");
 }
 
 bool recognition_stop(){
@@ -979,31 +978,27 @@ bool recognition_stop(){
     return true;
 }
 
-int main_sdf(int argc, char **argv)
+int main(int argc, char **argv)
 {
-    init_network_cnn(0);
-    cv::Mat image_input = cv::imread("1.jpg");
-    int detection_bbox[MAX_BBOX_NUM * 4];
-    int face_count = 0;
-    for(int i = 0; i < 1; i++) {
-        int side_face = 0;
-        get_image_feature(image_input, &face_count, detection_bbox, &side_face);
-        printf("%d times\n\n", i);
-        
-        for(int j = 0; j < FEATURE_LENGTH; j++) face_feature[j] = 0;
-        for(int j = 0; j < 112 * 112 *3; j++) face_image_input[j] = 0;
-        for(int j = 0; j < 416 * 416 * 3; j++) input_image_yolo[j] = 0;
-        for(int j = 0; j < COARSE_SIZE * COARSE_SIZE * YOLO_CHANNEL; j++) yolo1[j] = 0;
-        for(int j = 0; j < FINE_SIZE * FINE_SIZE * YOLO_CHANNEL; j++) yolo2[j] = 0;
-        for(int j = 0; j < 48 * 48 *3; j++) input_landmark[j] = 0;
-        for(int j = 0; j < 10; j++) output_landmark[j] = 0;
-        
-    }
+    printf("model path is : ");
+    recognition_start("A/");
+    cv::Mat img1 = cv::imread("1.jpg");
+    std::vector<float> feature;
+    int face_count = recognition_face(img1, feature);
+    printf("face_count %d\n", face_count);
 
-    free(fc1_w);
-    free(fc1_b);
-    free(fc1_scale_w);
-    free(fc1_scale_b);
+    cv::Mat img2 = cv::imread("2.jpg");
+    std::vector<float> feature2;
+    for(int i = 0; i < 10; i++){
+        face_count = recognition_face(img2, feature2);
+    }
+    printf("face_count %d\n", face_count);
+    float score = 0;
+    for(int i = 0; i < FEATURE_LENGTH; i++){
+        score += feature[i] * feature2[i];
+    }
+    printf("score %f\n", score);
+    recognition_stop();
     return 0;
 }
 
