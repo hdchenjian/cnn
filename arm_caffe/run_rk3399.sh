@@ -8,7 +8,7 @@ export PKG_CONFIG_PATH=/opt/ego/opencv/lib/pkgconfig/
 export LD_LIBRARY_PATH=/opt/ego/opencv/lib/:/usr/lib/mali
 
 
-g++ utils/Utils.cpp utils/GraphUtils.cpp yolo_layer.cpp face_ai.cpp \
+g++ utils/Utils.cpp utils/GraphUtils.cpp yolo_layer.cpp face_detector.cpp \
     -std=c++11 -Wl,--whole-archive -larm_compute_graph-static -Wl,--no-whole-archive -larm_compute-static -larm_compute_core-static \
     -Wl,--no-whole-archive \
     -I../../ComputeLibrary \
