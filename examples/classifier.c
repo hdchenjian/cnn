@@ -13,9 +13,9 @@
 #include <unistd.h>
 #include <pthread.h>
 
-pthread_mutex_t mutex;
-int load_over;
-batch train_global;
+pthread_mutex_t mutex_cls;
+int cls_load_over;
+batch train_global_cls;
 
 typedef struct load_args{
     char **paths;
@@ -28,18 +28,18 @@ void *load_data_in_thread(void *args_point)
 {
     load_args args = *(load_args *)args_point;
     while(1){
-        pthread_mutex_lock(&mutex);
-        if(load_over == 0){
-            train_global = random_batch(
+        pthread_mutex_lock(&mutex_cls);
+        if(cls_load_over == 0){
+            train_global_cls = random_batch(
                 args.paths, args.batch_size, args.labels, args.classes,
                 args.train_set_size, args.w, args.h, args.c,
                 args.hue, args.saturation, args.exposure, args.flip, args.mean_value, args.scale,
                 args.test);
-            //printf("load_over\n");
-            load_over = 1;
-            pthread_mutex_unlock(&mutex);
+            //printf("cls_load_over\n");
+            cls_load_over = 1;
+            pthread_mutex_unlock(&mutex_cls);
         } else {
-            pthread_mutex_unlock(&mutex);
+            pthread_mutex_unlock(&mutex_cls);
         }
         usleep(10000);
     }
@@ -114,7 +114,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
         args.mean_value = net->mean_value;
         args.scale = net->scale;
         args.test = net->test;
-        pthread_mutex_init(&mutex, NULL);
+        pthread_mutex_init(&mutex_cls, NULL);
         pthread_create(&load_data_thread_id, NULL, load_data_in_thread, &args);
         usleep(1000000);
     }
@@ -152,15 +152,15 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile)
                 printf("train_data_type: %d, spend %f \n", train_data_type, what_time_is_it_now() - time);
                 break;
                 */
-                pthread_mutex_lock(&mutex);
-                if(load_over == 1){
-                    train = train_global;
-                    load_over = 0;
-                    pthread_mutex_unlock(&mutex);
+                pthread_mutex_lock(&mutex_cls);
+                if(cls_load_over == 1){
+                    train = train_global_cls;
+                    cls_load_over = 0;
+                    pthread_mutex_unlock(&mutex_cls);
                     break;
                 }
-                pthread_mutex_unlock(&mutex);
-                printf("wait load_over\n");
+                pthread_mutex_unlock(&mutex_cls);
+                printf("wait cls_load_over\n");
                 usleep(5000);
             }
             /*
